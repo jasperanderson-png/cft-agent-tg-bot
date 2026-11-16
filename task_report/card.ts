@@ -1,5 +1,6 @@
 import { Resvg } from '@resvg/resvg-js';
 import { brandFile, LOGO_RATIO, logoDataUri } from '../core/brand.js';
+import { escXml as xml } from '../shared/html.js';
 import { areaOf } from './areas.js';
 import { areasOf, type DailyReport, type MonthlyReport, type Report, type WeeklyReport } from './build.js';
 import { capital, dm, MONTHS, MONTHS_DATIVE, monthIndex, WEEKDAYS, WEEKDAYS_SHORT, weekday, yearOf } from './periods.js';
@@ -19,7 +20,6 @@ const MAX_ITEMS = 8;
 
 const fontFiles = () => ['FiraSans-Regular.ttf', 'FiraSans-SemiBold.ttf', 'FiraSansCondensed-Bold.ttf'].map(brandFile);
 const resvgOpts = () => ({ font: { fontFiles: fontFiles(), loadSystemFonts: false, defaultFontFamily: SANS } });
-const xml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // ---- Measuring text: each character's width in the real font, measured once ----
 

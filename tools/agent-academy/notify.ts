@@ -1,3 +1,4 @@
+import { escHtml } from '../../shared/html.js';
 import { fmtDMYHM, rangeFor, type Range, type RangeKey } from '../../shared/time.js';
 import { loadAttempts } from './console.js';
 import { getPool, type Db } from '../../db_storage/db.js';
@@ -5,7 +6,6 @@ import { env } from '../../core/env.js';
 import { buildReport, reportFilename, summarize, type ReportInput, type Summary } from './reports.js';
 import { botApi, botSendDocument } from '../../core/telegram.js';
 
-export const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export interface ResultInfo {
   id: string;

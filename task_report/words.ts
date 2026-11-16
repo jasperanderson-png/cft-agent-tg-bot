@@ -44,7 +44,7 @@ export function hm(at: Date, tz: string): string {
   return `${p2(get('hour') % 24)}:${p2(get('minute'))}`;
 }
 
-export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export { escHtml as esc } from '../shared/html.js';
 export const cut = (t: string, n: number) => (t.length <= n ? t : t.slice(0, n - 1).trimEnd() + '…');
 
 /** The labels of each kind of entry: Russian on the reports, English in the bot. */

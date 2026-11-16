@@ -1,3 +1,4 @@
+import { escHtml } from '../../../shared/html.js';
 import { US_STATES } from '../../../shared/leads.js';
 import type { Db } from '../../../db_storage/db.js';
 import { env } from '../../../core/env.js';
@@ -110,7 +111,7 @@ export async function leadsMessage(db: Db, msg: PrivateMessage, updateId: number
     await runAction({ db, chatId, userId: msg.from.id, role, tz: await reportTimeZone(db), deadline: Date.now() + limits.budgetMs, say }, action);
   } catch (e) {
     console.error('leads action failed', action.t, (e as Error).message);
-    await say(e instanceof HttpError ? m.esc(e.message) : m.FAILED).catch(() => {});
+    await say(e instanceof HttpError ? escHtml(e.message) : m.FAILED).catch(() => {});
   }
   return true;
 }

@@ -1,3 +1,4 @@
+import { escHtml as esc } from '../../shared/html.js';
 import { fmtDMYHM } from '../../shared/time.js';
 import type { Db } from '../../db_storage/db.js';
 import { botApi, botSendDocument } from '../../core/telegram.js';
@@ -14,7 +15,6 @@ import { fuelInsights, usd, where, type FuelInsights } from './insights.js';
 
 const num = (n: number) => n.toLocaleString('en-US');
 const TITLE = '⛽ <b>Fuel prices</b>';
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /** The message sent with fuel_prices.xlsx: what is in it, the figures worth knowing, and when it was read. */
 export function fuelCaption(f: FuelInsights, when: string, tz: string): string {

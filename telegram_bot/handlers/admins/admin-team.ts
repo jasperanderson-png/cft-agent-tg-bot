@@ -1,3 +1,4 @@
+import { escHtml as esc } from '../../../shared/html.js';
 import { fmtDMY, fmtDMYHM } from '../../../shared/time.js';
 import { ADMIN_INVITE_HOURS, createAdminInvite, listAdmins, revokeAdminInvite } from '../../../core/admin-invites.js';
 import { removeAdmin, telegramAdmin, type Admin } from '../../../core/admins.js';
@@ -19,7 +20,6 @@ export const ADMIN_TEAM_CALLBACK = 'adm:';
 const CB = ADMIN_TEAM_CALLBACK;
 const HOURS_LABEL: Record<number, string> = { 1: '1 hour', 24: '1 day', 72: '3 days', 168: '7 days' };
 const OWNERS_ONLY = 'Only owners can add or remove admins.';
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>
   botApi('sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
 const edit = (cb: PrivateCallback, text: string, extra: Record<string, unknown> = {}) =>

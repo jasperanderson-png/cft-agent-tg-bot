@@ -1,4 +1,5 @@
 import { BRAND_IDS, brandLabel, byPrice, parseQuery, stateName, storeNumberOf, titleCase, usd, type AgentStation, type PartnerBrand } from '../../shared/discounts.js';
+import { escHtml as esc } from '../../shared/html.js';
 import { excelSerial, fmtDMY, fmtDMYHM } from '../../shared/time.js';
 import type { Db } from '../../db_storage/db.js';
 import { env } from '../../core/env.js';
@@ -22,7 +23,6 @@ const CALLBACK = DISCOUNT_CALLBACK;
 
 const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>
   botApi('sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export const SEARCH_HELP = [
   '🔎 <b>How to search</b>',

@@ -1,3 +1,4 @@
+import { escHtml as esc } from '../../../shared/html.js';
 import { env } from '../../../core/env.js';
 import { botApi } from '../../../core/telegram.js';
 import { refuseAdminCallback, refuseAdminMessage, refuseAgentCallback } from '../not-allowed.js';
@@ -11,7 +12,6 @@ export const DRIVER_COMMANDS = [
   { command: 'help', description: 'How the route map works' },
 ];
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 export const routeMapUrl = () => `${env.appUrl}/route`;
 export const routeMenuButton = () => ({ type: 'web_app', text: 'Route map', web_app: { url: routeMapUrl() } });
 const openMap = () => (env.appUrl ? { inline_keyboard: [[{ text: '🗺 Open the route map', web_app: { url: routeMapUrl() } }]] } : undefined);

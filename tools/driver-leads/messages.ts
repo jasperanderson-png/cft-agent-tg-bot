@@ -6,13 +6,13 @@
  * are bold, dates are dd/mm/yyyy, and footnotes are in italics.
  */
 import { DRIVER_TYPES, EQUIPMENT, labels, leadId, US_STATES } from '../../shared/leads.js';
+import { escHtml as esc } from '../../shared/html.js';
 import { fmtDMY, fmtDMYHM } from '../../shared/time.js';
 import { env } from '../../core/env.js';
 import type { SyncResult } from './fmcsa.js';
 import type { IngestSummary, LeadSource } from './ingest.js';
 import { trucksOf, type DriverRow, type ExportKind, type ExportView, type LeadsRole, type LeadStats } from './store.js';
 
-export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 export const num = (n: number) => Number(n).toLocaleString('en-US');
 const count = (n: number, one: string, many = one + 's') => `${num(n)} ${Number(n) === 1 ? one : many}`;
 const code = (s: string | number) => `<code>${s}</code>`;

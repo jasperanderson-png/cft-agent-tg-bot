@@ -1,6 +1,7 @@
 import { Resvg } from '@resvg/resvg-js';
 import { byPrice, usd, type AgentStation } from '../../shared/discounts.js';
 import { brandFile, logoDataUri } from '../../core/brand.js';
+import { escXml as xml } from '../../shared/html.js';
 
 // The price table drivers receive, drawn as a picture in the CFT Mini App's look (black, the CFT
 // logo, blue accents, Barlow): Station · City · State · Retail Price · Discount · Discounted Price ·
@@ -65,7 +66,6 @@ const STATION_COLS: Col[] = [STATION, CITY, { label: 'State', align: 'start', ki
 /** "Cheapest in each state": the state in front, since the rows go state by state. */
 const STATE_COLS: Col[] = [{ label: 'State', align: 'start', kind: 'name', value: (s) => s.state }, STATION, CITY, ...NUMBER_COLS];
 
-const xml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const fontFiles = () => ['Barlow-Regular.ttf', 'Barlow-SemiBold.ttf', 'BarlowSemiCondensed-Bold.ttf'].map(brandFile);
 const logoUri = logoDataUri;

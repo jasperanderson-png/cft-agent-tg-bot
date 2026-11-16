@@ -1,4 +1,5 @@
 import { US_STATES } from '../../../shared/discounts.js';
+import { escHtml as esc } from '../../../shared/html.js';
 import type { Db } from '../../../db_storage/db.js';
 import { env } from '../../../core/env.js';
 import { SECTION } from '../../../core/home.js';
@@ -20,7 +21,6 @@ export const agentCommands = (canInviteDrivers = false) => (canInviteDrivers ? [
 
 export const discountsMenuButton = (appUrl: string) => ({ type: 'web_app', text: 'Discounts', web_app: { url: `${appUrl}/#/discounts` } });
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>
   botApi('sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
 const openApp = () => (env.appUrl ? [[{ text: '⛽ Open Discounts', web_app: { url: `${env.appUrl}/#/discounts` } }]] : []);

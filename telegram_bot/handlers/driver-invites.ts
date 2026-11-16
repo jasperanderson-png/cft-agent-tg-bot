@@ -1,3 +1,4 @@
+import { escHtml as esc } from '../../shared/html.js';
 import { fmtDMY, fmtDMYHM } from '../../shared/time.js';
 import { INVITE_HOURS } from '../../core/agents.js';
 import { telegramAdmin } from '../../core/admins.js';
@@ -20,7 +21,6 @@ export const DRIVERS_HELP = '🚚 <b>Drivers</b>\n/invitedriver — a link that 
 const HOURS_LABEL: Record<number, string> = { 1: '1 hour', 24: '1 day', 72: '3 days', 168: '7 days', 720: '30 days' };
 const NOT_ALLOWED = 'Ask your CFT admin to let you invite drivers.';
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>
   botApi('sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
 const edit = (cb: PrivateCallback, text: string, extra: Record<string, unknown> = {}) =>

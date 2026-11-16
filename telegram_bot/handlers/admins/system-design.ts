@@ -1,4 +1,5 @@
 import { Resvg } from '@resvg/resvg-js';
+import { escXml as xml } from '../../../shared/html.js';
 import { brandFile, LOGO_RATIO, logoDataUri } from '../../../core/brand.js';
 import { SECTION } from '../../../core/home.js';
 import { botApi, botSendPhoto, type PrivateMessage } from '../../../core/telegram.js';
@@ -40,7 +41,6 @@ const OUTSIDE = [
 const C = { bg: '#000', card: '#121416', line: 'rgba(255,255,255,0.1)', ink: '#202c33', blue: '#a0dcff', text: '#fff', soft: '#ccc', muted: '#8f8f8f' };
 const W = 1080;
 const PAD = 56;
-const xml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const T = (x: number, y: number, t: string, size: number, o: { w?: number; fill?: string; anchor?: string; cond?: boolean } = {}) =>
   `<text x="${x}" y="${y}" font-family="${o.cond ? 'Fira Sans Condensed' : 'Fira Sans'}" font-weight="${o.w ?? 400}" font-size="${size}" fill="${o.fill ?? C.text}" text-anchor="${o.anchor ?? 'start'}">${xml(t)}</text>`;
 /** Wraps by an average letter width; the texts here are short and known. */

@@ -1,4 +1,5 @@
 import { byPrice, stateName, titleCase, usd, type AgentStation } from '../../shared/discounts.js';
+import { escHtml as esc } from '../../shared/html.js';
 
 // The messages agents forward to drivers: one clean table per state, cheapest first. Tables are
 // monospace (<pre>) and at most 32 characters wide, so they line up on a phone without wrapping.
@@ -7,7 +8,6 @@ export const TABLE_WIDTH = 32;
 /** Telegram allows 4,096 characters per message; leave room for the tags. */
 const MESSAGE_LIMIT = 3800;
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const cut = (s: string, w: number) => (s.length <= w ? s : s.slice(0, Math.max(1, w - 1)).trimEnd() + '…');
 const pad = (s: string, w: number) => s + ' '.repeat(Math.max(0, w - s.length));
 const padStart = (s: string, w: number) => ' '.repeat(Math.max(0, w - s.length)) + s;

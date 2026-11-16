@@ -1,3 +1,4 @@
+import { escHtml as esc } from '../../shared/html.js';
 import { ADMIN_INVITE_PREFIX, redeemAdminInvite } from '../../core/admin-invites.js';
 import { INVITE_PREFIX, redeemInvite } from '../../core/agents.js';
 import { DRIVER_INVITE_PREFIX, redeemDriverInvite } from '../../core/drivers.js';
@@ -13,7 +14,6 @@ import type { Viewer } from './viewer.js';
 const INVITE_USED = '🔗 This invite link has expired or was turned off. Ask your CFT admin for a new one.';
 const DRIVER_INVITE_USED = '🔗 This driver link has expired or was turned off. Ask CFT for a new one.';
 const ADMIN_INVITE_USED = '🔗 This admin invite link was already used, has expired or was turned off. Ask a CFT owner for a new one.';
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export interface Invite {
   kind: 'agent' | 'driver' | 'admin';
