@@ -2,6 +2,8 @@
 // "calorado", "yuta", "cansas" or "pilot flying love's" into states and brands. Used by the bot (typed
 // messages) and by the Mini App (the search box), so both understand the same words.
 
+import { US_STATES } from './states.js';
+
 export type PartnerBrand = 'pilot' | 'loves' | 'ta' | 'speedway';
 
 /** The partner brands, in the order every screen and message lists them. */
@@ -14,15 +16,7 @@ export const BRANDS: { id: PartnerBrand; label: string }[] = [
 export const BRAND_IDS = BRANDS.map((b) => b.id);
 export const brandLabel = (b: PartnerBrand) => BRANDS.find((x) => x.id === b)!.label;
 
-export const US_STATES: Record<string, string> = {
-  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware',
-  DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
-  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota',
-  MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
-  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon',
-  PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah',
-  VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
-};
+export { US_STATES };
 export const stateName = (code: string) => US_STATES[code] ?? code;
 
 /** Short forms and common spellings people type, besides the full names and 2-letter codes. */

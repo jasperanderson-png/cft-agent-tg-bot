@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, cheapest, payPrice, STATE_NAMES, stationsAlongRoute, type LatLng, type Placed } from '../../../../../shared/driverRoute';
+import { BRANDS, cheapest, payPrice, stationsAlongRoute, type LatLng, type Placed } from '../../../../../shared/driverRoute';
+import { US_STATES as STATE_NAMES } from '../../../../../shared/states';
 import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
