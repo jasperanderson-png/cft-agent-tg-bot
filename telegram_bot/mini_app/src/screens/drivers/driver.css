@@ -71,10 +71,9 @@
 .dm-mini-text b { font-size: 15.5px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* While the driver moves the map, the panels step aside; they come back when it stops. */
-.dm-tabs, .dm-trip, .dm-sheet, .dm-more { transition: transform 0.28s var(--dm-ease), opacity 0.2s ease; }
+.dm-tabs, .dm-trip, .dm-sheet { transition: transform 0.28s var(--dm-ease), opacity 0.2s ease; }
 .dm.dm-moving .dm-tabs, .dm.dm-moving .dm-trip { transform: translateY(-18px); opacity: 0; pointer-events: none; }
 .dm.dm-moving .dm-sheet { transform: translateY(calc(100% + 24px)); opacity: 0; pointer-events: none; }
-.dm.dm-moving .dm-more { opacity: 0; pointer-events: none; }
 
 /* ---- Navigation banner ---- */
 .dm-banner { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 16px; background: #a0dcff; color: #000; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); animation: dm-in 0.25s var(--dm-ease) backwards; }
@@ -93,11 +92,33 @@
 .dm-fab[aria-pressed='true'] { background: var(--dm-accent); color: #000; }
 .dm-fab.busy { box-shadow: 0 0 0 2px rgba(160, 220, 255, 0.25), 0 6px 18px rgba(0, 0, 0, 0.4); animation: dm-pulse 1s ease-in-out infinite; }
 
-/* "Nearby stations": above the card on the left. It nudges three times, each time softer, then rests. */
-.dm-more { position: absolute; left: 12px; bottom: calc(max(var(--sheet-h), var(--dm-safe-bottom)) + 14px); z-index: 18; display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px 0 12px; border: 1px solid var(--dm-line); border-radius: 18px; background: var(--dm-panel); color: #e6edf2; font-size: 13.5px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); animation: dm-fade 0.25s ease backwards; }
-.dm-more::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; animation: dm-nudge 6s ease-out 0.9s 1 both; }
-.dm-more.on { background: var(--dm-accent); color: #000; }
-.dm-more.on::after { animation: none; }
+/* ---- The route card: brand + ranking chips, the best station with a compact Go, ‹ 1 of 3 › ---- */
+.dm-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.dm-chip { height: 30px; padding: 0 9px 0 10px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 15px; background: rgba(255, 255, 255, 0.05); color: #dfe6eb; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dm-chip svg:last-child { opacity: 0.6; transition: transform 0.2s var(--dm-ease); }
+.dm-chip.on { border-color: var(--dm-accent); color: var(--dm-accent); }
+.dm-chip.on svg:last-child { transform: rotate(180deg); }
+.dm-chip.set { color: var(--dm-accent); }
+.dm-menu { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0; animation: dm-fade 0.18s ease backwards; }
+.dm-opt { height: 32px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; background: transparent; color: #c9d1d7; font-size: 13.5px; display: inline-flex; align-items: center; gap: 7px; }
+.dm-opt i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.dm-opt[aria-pressed='true'] { background: var(--dm-accent); border-color: var(--dm-accent); color: #000; font-weight: 600; }
+.dm-pick { display: flex; align-items: center; gap: 10px; }
+.dm-pick-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; text-align: left; }
+.dm-rank { flex: none; width: 28px; height: 28px; border-radius: 9px; background: var(--dm-accent); color: #000; display: grid; place-items: center; font: 700 16px/1 'Barlow Semi Condensed', sans-serif; }
+.dm-rank.off { color: #000; }
+.dm-pick-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dm-pick-text b { font: 700 19px/1.1 'Barlow Semi Condensed', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-pick-text span { font-size: 13px; color: #9aa3ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-pick-price { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.dm-pick-price b { font-size: 28px; line-height: 0.9; color: var(--dm-accent); }
+.dm-pick-price s, .dm-pick-price small { font-size: 12px; color: #8a939b; }
+.dm-pick-price small.save { color: var(--dm-accent); font-weight: 700; }
+.dm-go { flex: none; min-width: 64px; height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--dm-accent); color: #000; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.dm-go:disabled { opacity: 0.5; }
+.dm-go .dm-spin { border-color: rgba(0, 0, 0, 0.2); border-top-color: #000; }
+.dm-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: -2px; font-size: 13px; color: #9aa3ab; font-variant-numeric: tabular-nums; }
+.dm-pager button { width: 34px; height: 28px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.06); color: #dfe6eb; display: grid; place-items: center; }
 .dm-toast { position: absolute; left: 50%; top: calc(var(--dm-safe-top) + 120px); z-index: 45; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 9px 14px; border-radius: 12px; background: #1b2329; border: 1px solid rgba(160, 220, 255, 0.25); color: #e6edf2; font-size: 14px; line-height: 1.35; text-align: center; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5); animation: dm-fade 0.22s ease backwards; pointer-events: none; }
 
 /* Building a route: the screen is the app's until the route is ready (or the driver cancels). */
@@ -198,7 +219,6 @@
   .dm-top { left: 16px; right: auto; width: 380px; margin: 0; }
   .dm-sheet { left: 16px; right: auto; width: 380px; margin: 0; bottom: calc(var(--dm-safe-bottom) + 16px); }
   .dm-fabs { right: 16px; bottom: calc(var(--dm-safe-bottom) + 20px); }
-  .dm-more { left: 16px; }
   .dm-building { justify-content: flex-start; padding-left: 16px; }
   .dm-build-card { width: 380px; }
 }
@@ -209,6 +229,8 @@
 }
 /* Small phones (iPhone SE, 320-360 px): tighter type. */
 @media (max-width: 360px) {
+  .dm-pick-price b { font-size: 24px; }
+  .dm-go { min-width: 54px; padding: 0 10px; }
   .dm-banner-text b { font-size: 22px; }
   .dm-input input { font-size: 15px; }
   .dm-tripline-price b { font-size: 26px; }
@@ -222,13 +244,4 @@
 @keyframes dm-pulse { 50% { box-shadow: 0 0 0 6px rgba(160, 220, 255, 0.12), 0 6px 18px rgba(0, 0, 0, 0.4); } }
 @keyframes dm-road { to { background-position: 24px 0; } }
 @keyframes dm-drive { from { transform: translateX(0); } to { transform: translateX(calc(min(384px, 100vw - 84px) - 26px)); } }
-@keyframes dm-nudge {
-  0% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0.7); }
-  12% { box-shadow: 0 0 0 10px rgba(160, 220, 255, 0); }
-  30% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0.45); }
-  42% { box-shadow: 0 0 0 7px rgba(160, 220, 255, 0); }
-  60% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0.25); }
-  72% { box-shadow: 0 0 0 4px rgba(160, 220, 255, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0); }
-}
 @media (prefers-reduced-motion: reduce) { .dm *, .dm *::before, .dm *::after { animation: none !important; transition: none !important; } }

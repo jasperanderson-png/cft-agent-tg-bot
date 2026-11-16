@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, cheapest, payPrice, STATE_NAMES, stationsAlongRoute, type LatLng, type Placed } from '../../../../../shared/driverRoute';
+import {
+  BRAND_ORDER, BRANDS, payPrice, RANK_LABEL, rankStations, STATE_NAMES, stationsAlongRoute, type DriverBrand, type LatLng, type Placed, type RankBy,
+} from '../../../../../shared/driverRoute';
 import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
@@ -12,7 +14,7 @@ import {
 } from './map';
 import { drivenPath, locate, navOf, pointAt, speedLimitAt, stepsAt, unwrap, type Nav } from './nav';
 import {
-  CHECK, DEFAULT_TRUCK, EDIT, LAYERS, LOCATE, MUTE, NAV, PIN, PriceBox, SOUND, StationCard, Svg, Truck, TruckSheet, X,
+  CHECK, CHEVRON, DEFAULT_TRUCK, EDIT, LOCATE, MUTE, NAV, PickRow, PIN, PriceBox, PUMP, SOUND, STAR, StationCard, Svg, Truck, TruckSheet, X,
   fullAddress, hm, money, placeOf, truckText, turnIcon,
 } from './pieces';
 import { hush, LEAD_INS, leadIn, packForSteps, packTurn, prefetchPack, prefetchVoice, sentence, speak, unlockVoice, voiceKind } from './voice';
@@ -33,13 +35,12 @@ interface Fix extends LatLng { heading: number | null; speed: number | null; acc
 
 const CORRIDOR_MI = 1.5;
 const NEARBY_MI = 20;
-const NEARBY_MAX = 30;
-/** On a planned route the map shows only the cheapest few; "Nearby stations" shows the rest. */
-const CHEAP_SHOWN = 3;
+/** On a planned route the map shows the best few, by the driver's choice of brands and ranking. */
+const BEST_SHOWN = 3;
+const RANKS: RankBy[] = ['rec', 'cheap', 'disc'];
 const STATIONS_KEY = 'cft.stations.v1';
 const BUILD_STEPS = ['Finding roads for your truck', 'Checking live traffic', 'Finding CFT stations on the way'];
 const toFix = (p: GeolocationPosition): Fix => ({ lat: p.coords.latitude, lng: p.coords.longitude, heading: p.coords.heading ?? null, speed: p.coords.speed ?? null, accuracy: p.coords.accuracy ?? null });
-const byPay = (a: Placed<DriverStation>, b: Placed<DriverStation>) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99);
 const wide = () => window.matchMedia('(min-width: 900px)').matches;
 const ARRIVE_MI = 0.12;
 const OFF_ROUTE_MI = 0.12;
@@ -70,6 +71,12 @@ function store(key: string, value: unknown) {
 export function DriverMap({ onExit }: { onExit: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>('route');
+  // The driver's station choice on a route, remembered on the phone: brands (none = all) and ranking.
+  const [brandSel, setBrandSel] = useState<DriverBrand[]>(() => stored<DriverBrand[]>('cft.brands', []).filter((b) => b in BRANDS));
+  const [rankBy, setRankBy] = useState<RankBy>(() => { const r = stored<RankBy>('cft.rankBy', 'rec'); return RANKS.includes(r) ? r : 'rec'; });
+  const [menu, setMenu] = useState<'brands' | 'rank' | null>(null);
+  const [rank, setRank] = useState(0);
+  const bestRef = useRef<Placed<DriverStation>[]>([]);
   const [statesOpen, setStatesOpen] = useState<number | null>(null);
 
   // ---- stations
@@ -106,7 +113,12 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const pickStation = useRef((id: number) => {
     if (modeRef.current === 'states') { setMapTap((t) => ({ id, n: (t?.n ?? 0) + 1 })); return; }
     if (tripRef.current) return;
-    if (baseRef.current) { setSel(id); setDetail(true); return; }
+    if (baseRef.current) {
+      const i = bestRef.current.findIndex((p) => p.item.id === id);
+      if (i >= 0) { target.current = null; setRank(i); } else { target.current = id; setSel(id); }
+      setDetail(true);
+      return;
+    }
     setTapped(id);
     setDetail(false);
   }).current;
@@ -347,17 +359,42 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const placed = useMemo(() => {
     if (!base || !data) return { onRoute: [] as Placed<DriverStation>[], nearby: [] as Placed<DriverStation>[] };
     const r = stationsAlongRoute(base.path, data.stations, { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI });
-    return { onRoute: r.onRoute, nearby: r.nearby.slice().sort((a, b) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99)).slice(0, NEARBY_MAX) };
+    return { onRoute: r.onRoute, nearby: r.nearby };
   }, [base, data]);
-  const best = useMemo(() => cheapest(placed.onRoute), [placed]);
-  const [nearbyOn, setNearbyOn] = useState(false);
-  useEffect(() => setNearbyOn(false), [base]);
-  const cheapIds = useMemo(() => new Set(placed.onRoute.slice().sort(byPay).slice(0, CHEAP_SHOWN).map((p) => p.item.id)), [placed]);
+  const pool = useMemo(() => [...placed.onRoute, ...placed.nearby], [placed]);
+  // The best three by the driver's choice; the card shows one of them (‹ 1 of 3 ›).
+  const top = useMemo(() => rankStations(pool, rankBy, brandSel, BEST_SHOWN), [pool, rankBy, brandSel]);
+  bestRef.current = top;
+  useEffect(() => setRank(0), [top]);
   useEffect(() => {
-    const t = target.current != null ? placed.onRoute.find((p) => p.item.id === target.current) : undefined;
-    setSel(t?.item.id ?? best?.item.id ?? null);
-  }, [best, placed]);
-  const selPlaced = placed.onRoute.find((p) => p.item.id === sel) ?? placed.nearby.find((p) => p.item.id === sel) ?? null;
+    // "Route here" on a station: that station stays the stop until the driver picks another.
+    const t = target.current != null ? pool.find((p) => p.item.id === target.current) : undefined;
+    setSel(t?.item.id ?? top[Math.min(rank, top.length - 1)]?.item.id ?? null);
+  }, [top, rank, pool]);
+  const selPlaced = pool.find((p) => p.item.id === sel) ?? null;
+  const selRank = selPlaced ? top.indexOf(selPlaced) : -1;
+  /** Next / previous of the best three; the map follows. */
+  const page = (step: number) => {
+    if (top.length < 2) return;
+    haptic.select();
+    target.current = null;
+    const i = ((selRank < 0 ? 0 : selRank + step) + top.length) % top.length;
+    setRank(i);
+    const s = top[i].item;
+    const m = mapRef.current;
+    if (m && s.lat != null) m.easeTo({ center: [s.lng!, s.lat!], zoom: Math.min(Math.max(m.getZoom(), 7), 10), padding: { top: sizes.current.top, bottom: sizes.current.bottom, left: 0, right: 0 }, duration: 450 });
+  };
+  const pickBrand = (b: DriverBrand | null) => {
+    haptic.select();
+    target.current = null;
+    const next = b == null ? [] : brandSel.includes(b) ? brandSel.filter((x) => x !== b) : [...brandSel, b];
+    const all = next.length === BRAND_ORDER.length ? [] : next;
+    setBrandSel(all);
+    store('cft.brands', all);
+  };
+  const pickRank = (r: RankBy) => { haptic.select(); target.current = null; setRankBy(r); store('cft.rankBy', r); setMenu(null); };
+  useEffect(() => setMenu(null), [base]);
+  const brandText = !brandSel.length ? 'All brands' : brandSel.length === 1 ? BRANDS[brandSel[0]].short : `${brandSel.length} brands`;
   const selOn = !!selPlaced && placed.onRoute.includes(selPlaced);
   useEffect(() => setDetail(false), [base]);
   // A station off the route changes the way: route through it.
@@ -570,15 +607,15 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       setRouteStations(m, s ? [{ id: s.id, brand: s.brand, lat: s.lat, lng: s.lng, price: payPrice(s), sel: true, tag: true, near: false }] : []);
       return;
     }
-    // The cheapest few on the route (and the chosen one); all of them, and those near it, on request.
-    const list = trip
-      ? [...placed.onRoute, ...placed.nearby].filter((p) => p.item.id === trip.stopId)
-      : nearbyOn ? [...placed.onRoute, ...placed.nearby] : [...placed.onRoute, ...placed.nearby].filter((p) => cheapIds.has(p.item.id) || p.item.id === sel);
+    // The best three (numbered price tags) and the chosen one; while driving, only the stop.
+    const chosen = selPlaced && !top.includes(selPlaced) ? [selPlaced] : [];
+    const list = trip ? pool.filter((p) => p.item.id === trip.stopId) : [...top, ...chosen];
     setRouteStations(m, list.map((p) => ({
       id: p.item.id, brand: p.item.brand, lat: p.item.lat, lng: p.item.lng, price: payPrice(p.item),
-      sel: p.item.id === (trip ? trip.stopId : sel), tag: !trip && cheapIds.has(p.item.id), near: !placed.onRoute.includes(p),
+      sel: p.item.id === (trip ? trip.stopId : sel), tag: !trip, near: !placed.onRoute.includes(p),
+      rank: !trip && top.includes(p) ? top.indexOf(p) : undefined,
     })));
-  }, [ready, placed, sel, nearbyOn, trip, cheapIds, mode, statesOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, pool, top, sel, trip, mode, statesOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const m = mapRef.current;
     if (m && ready) drawTurn(m, trip && next && next.type !== 10 ? next.at : null);
@@ -685,8 +722,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   };
 
   const showSheet = mode === 'route' && !!(trip || base || tappedStation || (!routing && routeErr && to.text.trim()));
-  const shownOnRoute = placed.onRoute.filter((p) => cheapIds.has(p.item.id) || p.item.id === sel).length;
-  const moreCount = placed.onRoute.length - shownOnRoute + placed.nearby.length;
+
 
   return (
     <div className="dm" ref={rootRef}>
@@ -777,11 +813,6 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
         </div>
       )}
 
-      {mode === 'route' && !trip && base && !routing && moreCount > 0 && (
-        <button key={`${base.totalMi}`} type="button" className={'dm-more' + (nearbyOn ? ' on' : '')} aria-pressed={nearbyOn} onClick={() => { haptic.tap(); setNearbyOn((v) => !v); }}>
-          <Svg d={LAYERS} size={15} />{nearbyOn ? 'Only the cheapest' : `Nearby stations · ${moreCount}`}
-        </button>
-      )}
       {note && <div className="dm-toast" role="status">{note}</div>}
 
       {mode === 'route' && routing && !trip && (
@@ -815,18 +846,52 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
                 <span>{Math.round(route.totalMi).toLocaleString('en-US')} mi{route.delayMin ? ` · ${route.delayMin} min traffic` : ''}{route.source === 'tomtom' ? ' · live traffic' : ''}</span>
 
               </div>
+              <div className="dm-filters">
+                <button type="button" className={'dm-chip' + (menu === 'brands' ? ' on' : '') + (brandSel.length ? ' set' : '')} aria-expanded={menu === 'brands'}
+                  onClick={() => { haptic.tap(); setMenu((v) => (v === 'brands' ? null : 'brands')); }}>
+                  <Svg d={PUMP} size={14} />{brandText}<Svg d={CHEVRON} size={14} w={2.4} />
+                </button>
+                <button type="button" className={'dm-chip' + (menu === 'rank' ? ' on' : '')} aria-expanded={menu === 'rank'}
+                  onClick={() => { haptic.tap(); setMenu((v) => (v === 'rank' ? null : 'rank')); }}>
+                  <Svg d={STAR} size={13} />{RANK_LABEL[rankBy]}<Svg d={CHEVRON} size={14} w={2.4} />
+                </button>
+              </div>
+              {menu === 'brands' && (
+                <div className="dm-menu" role="group" aria-label="Brands">
+                  <button type="button" className="dm-opt" aria-pressed={!brandSel.length} onClick={() => pickBrand(null)}>All</button>
+                  {BRAND_ORDER.map((b) => (
+                    <button key={b} type="button" className="dm-opt" aria-pressed={brandSel.includes(b)} onClick={() => pickBrand(b)}>
+                      <i style={{ background: BRANDS[b].color }} />{BRANDS[b].label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {menu === 'rank' && (
+                <div className="dm-menu" role="radiogroup" aria-label="Best by">
+                  {RANKS.map((r) => (
+                    <button key={r} type="button" role="radio" className="dm-opt" aria-checked={rankBy === r} aria-pressed={rankBy === r} onClick={() => pickRank(r)}>{RANK_LABEL[r]}</button>
+                  ))}
+                </div>
+              )}
               {selPlaced ? (
-                <StationCard
+                <PickRow
                   s={selPlaced.item}
-                  badge={selPlaced === best ? 'CHEAPEST ON YOUR ROUTE' : selOn ? `ON YOUR ROUTE · ${Math.round(selPlaced.alongMi)} MI` : extraMi != null ? `NEW ROUTE · +≈ ${extraMi} MI` : 'NEAR YOUR ROUTE'}
-                  near={!selOn} detail={detail} onToggle={() => setDetail((v) => !v)}
-                  primary={selOn || via ? 'Navigate' : 'Finding the way…'} onPrimary={() => { if (selOn || via) startTrip(); }}
+                  rank={selRank >= 0 ? selRank : null}
+                  count={top.length}
+                  sub={[
+                    placeOf(selPlaced.item),
+                    selOn ? 'on your route' : extraMi != null ? `+${extraMi} mi` : `${Math.round(selPlaced.offMi)} mi off`,
+                  ].join(' · ')}
+                  showSave={rankBy === 'disc'}
+                  detail={detail} onToggle={() => { haptic.tap(); setDetail((v) => !v); }}
+                  onPrev={() => page(-1)} onNext={() => page(1)}
+                  go={selOn || via ? 'Go' : null} onGo={() => { if (selOn || via) startTrip(); }}
                 />
               ) : (
-                <>
-                  <p className="dm-note">No CFT stations along this route.</p>
-                  <button type="button" className="dm-primary" onClick={startTrip}><Svg d={NAV} size={20} />Navigate</button>
-                </>
+                <div className="dm-pick">
+                  <p className="dm-note" style={{ flex: 1, fontSize: 14 }}>{pool.length ? `No ${brandText} stations on this route.` : 'No CFT stations along this route.'}</p>
+                  <button type="button" className="dm-go" onClick={startTrip}><Svg d={NAV} size={16} />Go</button>
+                </div>
               )}
             </>
           )}

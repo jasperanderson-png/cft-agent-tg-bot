@@ -2,7 +2,7 @@
 // map point, and reading truck routes. No network: every outside service is stubbed.
 import { describe, expect, it, vi } from 'vitest';
 import {
-  cheapest, milesBetween, payPrice, pointAlong, projectOnPath, stationsAlongRoute, type LatLng,
+  cheapest, milesBetween, payPrice, pointAlong, projectOnPath, rankStations, savingOf, stationsAlongRoute, type DriverBrand, type LatLng,
 } from '../../../shared/driverRoute.js';
 import { censusLookup, chainMatch, chainStores, geoKey, orsLookup, storeNo, type GeoStation } from '../geocode.js';
 import { planRoute, readRoute, truckOf } from '../routing.js';
@@ -61,6 +61,38 @@ describe('stationsAlongRoute', () => {
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const station = (over: Partial<GeoStation> = {}): GeoStation => ({ brand: 'pilot', name: 'Pilot 497', address: '130 Honda Drive', city: 'LINCOLN', state: 'AL', ...over });
+
+describe('rankStations (the best 3 on a route)', () => {
+  const st = (id: number, brand: DriverBrand, retail: number, discounted: number | null, offMi: number, alongMi = id) =>
+    ({ item: { id, brand, retail, discounted }, offMi, alongMi });
+  const list = [
+    st(1, 'p', 5.2, 4.9, 0.2),   // on the route, saving 0.30
+    st(2, 'l', 5.5, 4.6, 12),    // cheapest, but 12 mi off
+    st(3, 't', 5.0, 4.8, 0.5),   // on the route, saving 0.20
+    st(4, 's', 5.9, 4.95, 1),    // biggest saving 0.95
+    st(5, 'l', 4.85, null, 0.3), // retail only
+    st(6, 'p', 4.7, 4.65, 3),    // 3 mi off
+  ];
+  const ids = (r: { item: { id: number } }[]) => r.map((p) => p.item.id);
+
+  it('Recommended counts the detour: a station 12 miles off must be much cheaper to win', () => {
+    expect(ids(rankStations(list, 'rec'))).toEqual([6, 3, 5]);
+    // 12 mi off at $4.60: 24 mi there and back ≈ $48 ≈ $0.32 a gallon over a 150 gal fill → $4.92, behind the route's own.
+    expect(ids(rankStations(list, 'rec', [], 6))).toEqual([6, 3, 5, 1, 2, 4]);
+  });
+  it('Cheapest and Biggest discount look only near the route (5 mi)', () => {
+    expect(ids(rankStations(list, 'cheap'))).toEqual([6, 3, 5]);
+    expect(ids(rankStations(list, 'disc'))).toEqual([4, 1, 3]);
+    expect(savingOf(list[3].item)).toBe(0.95);
+    expect(savingOf(list[4].item)).toBeNull();
+  });
+  it('keeps only the brands picked (none picked = all)', () => {
+    expect(ids(rankStations(list, 'cheap', ['l']))).toEqual([5]);
+    expect(ids(rankStations(list, 'rec', ['l']))).toEqual([5, 2]);
+    expect(ids(rankStations(list, 'disc', ['p', 's']))).toEqual([4, 1, 6]);
+    expect(rankStations(list, 'rec', ['t', 's'])).toHaveLength(2);
+  });
+});
 
 describe('station map points', () => {
   // As All The Places publishes them (the chains' own store locators).

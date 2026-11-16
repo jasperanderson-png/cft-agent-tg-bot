@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { DriverStation, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, payPrice } from '../../../../../shared/driverRoute';
+import { BRANDS, payPrice, savingOf } from '../../../../../shared/driverRoute';
 import { titleCase } from '../../../../../shared/discounts';
 
 // The drivers' map: small shared parts (cards, sheets, icons, formatting), used by DriverMap.tsx and
@@ -135,6 +135,64 @@ export function StationCard({ s, badge, near, detail, onToggle, primary, onPrima
   );
 }
 
+/**
+ * One of the best stations on a planned route (the card's main row): rank, name, price and a compact Go.
+ * Tap the name for the address and savings; swipe sideways (or ‹ ›) for the next best.
+ */
+export function PickRow({ s, rank, count, sub, detail, onToggle, onPrev, onNext, go, onGo, showSave = false }: {
+  s: DriverStation; rank: number | null; count: number; sub: string; detail: boolean; showSave?: boolean;
+  onToggle: () => void; onPrev: () => void; onNext: () => void; go: string | null; onGo: () => void;
+}) {
+  const save = savingOf(s);
+  const x0 = useRef<number | null>(null);
+  return (
+    <div
+      className="dm-swap"
+      key={s.id}
+      onTouchStart={(e) => { x0.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        const from = x0.current;
+        x0.current = null;
+        if (from == null || count < 2) return;
+        const dx = e.changedTouches[0].clientX - from;
+        if (dx < -45) onNext();
+        else if (dx > 45) onPrev();
+      }}
+    >
+      <div className="dm-pick">
+        <button type="button" className="dm-pick-main" aria-expanded={detail} aria-label={`${s.station}, ${placeOf(s)}. ${detail ? 'Hide' : 'Show'} details`} onClick={onToggle}>
+          {rank != null ? <span className="dm-rank">{rank + 1}</span> : <span className="dm-rank off" style={{ background: BRANDS[s.brand].color }}>{BRANDS[s.brand].letter}</span>}
+          <span className="dm-pick-text"><b>{s.station}</b><span>{sub}</span></span>
+        </button>
+        <span className="dm-pick-price">
+          <b className="num">{money(payPrice(s))}</b>
+          {showSave && save != null ? <small className="save">save {money(save)}</small> : save != null && s.retail != null ? <s>{money(s.retail)}</s> : <small>retail</small>}
+        </span>
+        <button type="button" className="dm-go" disabled={!go} onClick={onGo} aria-label={go ? `Navigate to ${s.station}` : 'Finding the way'}>
+          {go ? <><Svg d={NAV} size={16} />{go}</> : <span className="dm-spin" />}
+        </button>
+      </div>
+      <Collapse open={detail}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 2 }}>
+          <div style={{ display: 'flex', gap: 10, fontSize: 14, lineHeight: 1.4, color: '#ddd' }}><Svg d={PIN} size={17} color="#a0dcff" />{fullAddress(s)}</div>
+          <dl className="dm-grid2" style={{ margin: 0 }}>
+            <div className="dm-cell"><dt>You save</dt><dd className="num" style={{ fontSize: 19, color: '#a0dcff' }}>{save != null ? `${money(save)} / gal` : 'No discount'}</dd></div>
+            <div className="dm-cell"><dt>On 150 gal</dt><dd className="num" style={{ fontSize: 19 }}>{save != null ? money(save * 150) : '—'}</dd></div>
+          </dl>
+          <span style={{ fontSize: 12, color: '#8a939b' }}>{BRANDS[s.brand].label} · price updated {updated(s.updatedAt)}</span>
+        </div>
+      </Collapse>
+      {count > 1 && rank != null && (
+        <div className="dm-pager">
+          <button type="button" aria-label="Previous station" onClick={onPrev}><Svg d="m15 18-6-6 6-6" size={16} w={2.4} /></button>
+          <span>{rank + 1} of {count}</span>
+          <button type="button" aria-label="Next station" onClick={onNext}><Svg d="m9 18 6-6-6-6" size={16} w={2.4} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PriceBox({ s }: { s: DriverStation }) {
   const save = s.retail != null && s.discounted != null ? s.retail - s.discounted : null;
   return (
@@ -175,6 +233,9 @@ export const etaText = (mi: number, mph: number) => {
 
 // ---- icons (stroke paths in a 24×24 box)
 export const X = 'M18 6 6 18 M6 6l12 12';
+export const CHEVRON = 'm6 9 6 6 6-6';
+export const PUMP = 'M3 22h12 M4 9h10 M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18 M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5';
+export const STAR = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z';
 export const CHECK = 'M20 6 9 17l-5-5';
 export const PIN = 'M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0 M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0';
 export const NAV = 'M3 11 22 2l-9 19-2-8-8-2z';
