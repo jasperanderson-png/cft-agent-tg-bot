@@ -376,12 +376,6 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
   .lines { display: none; }
 }
 
-/* ---------- CFT Hub ---------- */
-.hub { gap: 16px; }
-.hub-tile { display: flex; flex-direction: column; gap: 14px; }
-.hub-tile-title { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--cond); font-weight: 700; font-size: 24px; line-height: 1; }
-.hub-tile-body { display: flex; flex-direction: column; gap: 10px; }
-.hub-tile .fine { display: flex; align-items: center; gap: 8px; }
 
 /* ---------- Fuel prices ---------- */
 .fuel-head { position: sticky; top: 0; z-index: 5; background: #000; border-bottom: 1px solid #333; padding-top: var(--safe-top); }
@@ -544,7 +538,6 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .d-tile span { font-size: 13px; color: var(--muted); }
 .d-stack { display: flex; flex-direction: column; gap: 10px; }
 .d-stack .d-cta, .d-stack .d-ghost { width: 100%; height: 48px; font-size: 15px; }
-.d-skel-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
 .d-empty { margin: 24px 0; padding: 28px 18px; border: 1px dashed rgba(255,255,255,.18); border-radius: 18px; text-align: center; color: var(--soft); font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 
 /* Admin home */
@@ -582,7 +575,6 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .t-person-text b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-person-text span { font-size: 13px; color: var(--muted); }
 .t-tag { flex: none; height: 24px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; background: var(--blue); color: #000; }
-.t-tag.plain { background: none; border: 1px solid #555; color: var(--muted); }
 .t-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
 .t-link code { flex: 1; min-width: 0; font-size: 13px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .t-field { display: flex; flex-direction: column; gap: 8px; }

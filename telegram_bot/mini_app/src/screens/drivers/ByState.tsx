@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DriverStation } from '../../../../../shared/types';
 import { byPrice, type AgentStation, type PartnerBrand } from '../../../../../shared/discounts';
-import { payPrice } from '../../../../../shared/driverRoute';
+import { payPrice, savingOf } from '../../../../../shared/driverRoute';
 import { Icon, useToast } from '../../components/ui';
 import { haptic, useBackButton } from '../../lib/telegram';
 import { Picker, Results, StationSheet } from '../agents/Discounts';
@@ -17,9 +17,9 @@ const BRAND: Record<DriverStation['brand'], PartnerBrand> = { p: 'pilot', l: 'lo
 /** A driver-map station in the agents' shape (same prices: the agents' prices). */
 const asAgent = (s: DriverStation): AgentStation => ({
   id: s.id, brand: BRAND[s.brand], name: s.station, state: s.state ?? '', city: s.city, address: s.address, exit: null,
-  price: payPrice(s) ?? 0, retail: s.retail, saving: s.retail != null && s.discounted != null ? Math.round((s.retail - s.discounted) * 1000) / 1000 : null,
-  updatedAt: s.updatedAt,
+  price: payPrice(s) ?? 0, retail: s.retail, saving: round3(savingOf(s)), updatedAt: s.updatedAt,
 });
+const round3 = (n: number | null) => (n == null ? null : Math.round(n * 1000) / 1000);
 
 export function ByState({ stations, fetchedAt, routing, onRouteTo, onMyRoute, onPicked, mapTap, onOpenChange }: {
   stations: DriverStation[] | null;

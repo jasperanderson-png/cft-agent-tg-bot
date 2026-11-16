@@ -124,7 +124,6 @@
 .dm-summary { display: flex; align-items: baseline; gap: 10px; }
 .dm-summary b { font: 700 21px/1 'Barlow Semi Condensed', sans-serif; }
 .dm-summary span { flex: 1; font-size: 13px; color: #9aa3ab; }
-.dm-spin { flex: none !important; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(160, 220, 255, 0.25); border-top-color: var(--dm-accent); animation: dm-spin 0.8s linear infinite; }
 .dm-tripline { display: flex; align-items: center; gap: 12px; }
 .dm-tripline-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .dm-tripline-text b { margin-top: 2px; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -176,7 +175,6 @@
 /* ---- Truck settings sheet ---- */
 .dm-scrim { position: absolute; inset: 0; z-index: 40; border: 0; padding: 0; background: rgba(0, 0, 0, 0.5); animation: dm-fade 0.2s ease backwards; }
 .dm-trucksheet { z-index: 41; background: #111518; }
-.dm-handle { display: none; }
 .dm-field { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; }
 .dm-field > span:first-child { font-size: 12px; color: #999; }
 .dm-field select, .dm-field input { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; height: 40px; padding: 0 8px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; background: rgba(255, 255, 255, 0.05); color: #fff; font: inherit; font-size: 16px; }

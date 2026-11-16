@@ -11,7 +11,6 @@ export const BRANDS: Record<DriverBrand, { label: string; short: string; letter:
   t: { label: 'TA / Petro', short: 'TA', letter: 'T', color: '#7fe0a4' },
   s: { label: 'Speedway', short: 'Speedway', letter: 'S', color: '#c9b0ff' },
 };
-export const BRAND_ORDER: DriverBrand[] = ['p', 'l', 't', 's'];
 
 export const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware',
@@ -130,6 +129,9 @@ export function stationsAlongRoute<T extends { lat?: number | null; lng?: number
 
 /** The price a driver pays: the discounted price when there is one, otherwise retail. */
 export const payPrice = (s: { retail: number | null; discounted: number | null }) => s.discounted ?? s.retail;
+
+/** The money saved per gallon (retail minus discounted), or null when the station has no discount. */
+export const savingOf = (s: { retail: number | null; discounted: number | null }) => (s.retail != null && s.discounted != null ? s.retail - s.discounted : null);
 
 /** The cheapest station by pay price (ties go to the one reached first). */
 export function cheapest<T extends { retail: number | null; discounted: number | null }>(list: Placed<T>[]): Placed<T> | null {

@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import type { DriverStation, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, payPrice } from '../../../../../shared/driverRoute';
+import { BRANDS, payPrice, savingOf } from '../../../../../shared/driverRoute';
 import { titleCase } from '../../../../../shared/discounts';
+import { fmtDate } from '../../components/ui';
 
 // The drivers' map: small shared parts (cards, sheets, icons, formatting), used by DriverMap.tsx and
 // ByState.tsx.
@@ -9,20 +10,12 @@ import { titleCase } from '../../../../../shared/discounts';
 export const DEFAULT_TRUCK: TruckProfile = { heightIn: 162, weightLb: 80_000, hazmat: false };
 
 export const money = (n: number | null | undefined) => (n == null ? '—' : '$' + n.toFixed(2));
-export const hm = (sec: number) => (sec >= 3600 ? `${Math.floor(sec / 3600)} h ${Math.round((sec % 3600) / 60)} min` : `${Math.max(1, Math.round(sec / 60))} min`);
-export const p2 = (n: number) => String(n).padStart(2, '0');
-/** dd/mm/yyyy HH:MM, as everywhere in CFT. */
-export const updated = (iso: string | null) => {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-};
 export const placeOf = (s: DriverStation) => [titleCase(s.city ?? ''), s.state].filter(Boolean).join(', ');
 export const fullAddress = (s: DriverStation) => [s.address, titleCase(s.city ?? ''), s.state].filter(Boolean).join(', ');
 export const firstPart = (s: string) => s.split(',')[0].trim();
 export const dist = (mi: number) => (mi < 0.1 ? `${Math.max(50, Math.round((mi * 5280) / 50) * 50)} ft` : mi < 10 ? `${mi.toFixed(1)} mi` : `${Math.round(mi)} mi`);
 export const truckText = (t: TruckProfile) => `${Math.floor(t.heightIn / 12)}'${t.heightIn % 12}" · ${t.weightLb.toLocaleString('en-US')} lb${t.hazmat ? ' · hazmat' : ''}`;
-export const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+export const pct = (v: number, total?: number) => (total ? `${Math.max(0, Math.min(100, (v / total) * 100)).toFixed(1)}%` : '0%');
 
 /** Per-viewer conveniences only (the truck, the voice switch); the page works without them. */
 export function stored<T>(key: string, fallback: T): T {
@@ -53,7 +46,6 @@ export function TruckSheet({ truck, onClose, onSave }: { truck: TruckProfile; on
     <>
       <button className="dm-scrim" aria-label="Close truck settings" onClick={onClose} />
       <section className="dm-sheet dm-trucksheet" role="dialog" aria-label="Your truck">
-        <span className="dm-handle"><i /></span>
         <div className="dm-swap">
           <div>
             <span className="dm-eyebrow">YOUR TRUCK</span>
@@ -100,7 +92,7 @@ export function turnIcon(type: number): string {
 // ---- pieces
 
 export function StationCard({ s, badge, near, detail, onToggle, primary, onPrimary }: { s: DriverStation; badge: string; near: boolean; detail: boolean; onToggle: () => void; primary: string; onPrimary: () => void }) {
-  const save = s.retail != null && s.discounted != null ? s.retail - s.discounted : null;
+  const save = savingOf(s);
   return (
     <div className="dm-swap" key={s.id}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
@@ -121,7 +113,7 @@ export function StationCard({ s, badge, near, detail, onToggle, primary, onPrima
             <div className="dm-cell"><dt>You save</dt><dd className="num" style={{ fontSize: 20, color: '#a0dcff' }}>{save != null ? `${money(save)} / gal` : 'No discount'}</dd></div>
             <div className="dm-cell"><dt>On 150 gal</dt><dd className="num" style={{ fontSize: 20 }}>{save != null ? money(save * 150) : '—'}</dd></div>
             <div className="dm-cell"><dt>Brand</dt><dd style={{ fontSize: 16, fontWeight: 600 }}>{BRANDS[s.brand].label}</dd></div>
-            <div className="dm-cell"><dt>Price updated</dt><dd style={{ fontSize: 16, fontWeight: 600 }}>{updated(s.updatedAt)}</dd></div>
+            <div className="dm-cell"><dt>Price updated</dt><dd style={{ fontSize: 16, fontWeight: 600 }}>{fmtDate(s.updatedAt)}</dd></div>
           </dl>
         </div>
       </Collapse>
@@ -136,7 +128,7 @@ export function StationCard({ s, badge, near, detail, onToggle, primary, onPrima
 }
 
 export function PriceBox({ s }: { s: DriverStation }) {
-  const save = s.retail != null && s.discounted != null ? s.retail - s.discounted : null;
+  const save = savingOf(s);
   return (
     <div className="dm-cell" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14 }}>
       <span style={{ flex: 1 }}>
@@ -157,21 +149,6 @@ export function Collapse({ open, children }: { open: boolean; children: ReactNod
   return <div className={'dm-collapse' + (open ? '' : ' shut')}><div><div>{children}</div></div></div>;
 }
 
-export function Stat({ icon, big, small }: { icon: string; big: string; small: string }) {
-  return (
-    <div className="dm-cell" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14 }}>
-      <Svg d={icon} size={18} color="#a0dcff" />
-      <span><b className="num" style={{ display: 'block', fontSize: 20, lineHeight: 1.1 }}>{big}</b><span style={{ fontSize: 12, color: '#999' }}>{small}</span></span>
-    </div>
-  );
-}
-
-
-export const pct = (v: number, total?: number) => (total ? `${Math.max(0, Math.min(100, (v / total) * 100)).toFixed(1)}%` : '0%');
-export const etaText = (mi: number, mph: number) => {
-  const m = Math.max(0, mi);
-  return `≈ ${Math.round(m)} mi · ${hm((m / mph) * 3600)}`;
-};
 
 // ---- icons (stroke paths in a 24×24 box)
 export const X = 'M18 6 6 18 M6 6l12 12';
@@ -180,8 +157,6 @@ export const PIN = 'M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19
 export const NAV = 'M3 11 22 2l-9 19-2-8-8-2z';
 export const LAYERS = 'm12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z M22 17.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65 M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65';
 export const LOCATE = 'M2 12h3 M19 12h3 M12 2v3 M12 19v3 M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0';
-export const CLOCK = 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M12 6v6l4 2';
-export const ROUTE = 'M9 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0 M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15 M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0';
 export const STRAIGHT = 'M12 20V4 M5 11l7-7 7 7';
 export const TURN_RIGHT = 'M6 20v-7a4 4 0 0 1 4-4h9 M15 5l4 4-4 4';
 export const TURN_LEFT = 'M18 20v-7a4 4 0 0 0-4-4H5 M9 5 5 9l4 4';
@@ -193,7 +168,6 @@ export const SOUND = 'M11 5 6 9H2v6h4l5 4V5z M15.54 8.46a5 5 0 0 1 0 7.07 M19.07
 export const MUTE = 'M11 5 6 9H2v6h4l5 4V5z M22 9l-6 6 M16 9l6 6';
 export const EDIT = 'M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z';
 export const TRUCK_PATH = 'M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2 M15 18H9 M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62L18.3 9.38a1 1 0 0 0-.78-.38H14 M19 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M9 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0';
-export const TRUCK_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleX(-1)"><path d="${TRUCK_PATH}"/></svg>`;
 
 export function Svg({ d, size = 18, w = 2, color }: { d: string; size?: number; w?: number; color?: string }) {
   return (

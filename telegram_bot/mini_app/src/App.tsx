@@ -32,7 +32,7 @@ const screenFor = (hash: string, param = ''): Screen =>
 const DriverMap = lazy(() => import('./screens/drivers/DriverMap').then((m) => ({ default: m.DriverMap })));
 
 /** The drivers' map has its own page; links to #/driver (or startapp=driver) are sent there. */
-export const ROUTE_PAGE = '/route';
+const ROUTE_PAGE = '/route';
 const onRoutePage = location.pathname.replace(/\/+$/, '') === ROUTE_PAGE;
 if (!onRoutePage && (location.hash.startsWith('#/driver') || startParam === 'driver')) location.replace(routePageUrl());
 

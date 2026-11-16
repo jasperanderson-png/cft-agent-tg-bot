@@ -4,6 +4,7 @@ import { BRANDS, cheapest, payPrice, STATE_NAMES, stationsAlongRoute, type LatLn
 import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
+import { fmtDuration as hm } from '../../components/ui';
 import { haptic, telegramLocation, useBackButton } from '../../lib/telegram';
 import { ByState } from './ByState';
 import {
@@ -13,7 +14,7 @@ import {
 import { drivenPath, locate, navOf, pointAt, speedLimitAt, stepsAt, unwrap, type Nav } from './nav';
 import {
   CHECK, DEFAULT_TRUCK, EDIT, LAYERS, LOCATE, MUTE, NAV, PIN, PriceBox, SOUND, StationCard, Svg, Truck, TruckSheet, X,
-  fullAddress, hm, money, placeOf, truckText, turnIcon,
+  dist, firstPart, fullAddress, money, pct, placeOf, store, stored, truckText, turnIcon,
 } from './pieces';
 import { hush, LEAD_INS, leadIn, packForSteps, packTurn, prefetchPack, prefetchVoice, sentence, speak, unlockVoice, voiceKind } from './voice';
 import './driver.css';
@@ -46,26 +47,7 @@ const OFF_ROUTE_MI = 0.12;
 /** /route?simulate drives the route without moving (about three minutes for any trip). */
 const SIMULATE = /simulate/.test(location.search + location.hash);
 const inUS = (p: LatLng) => p.lat > 24 && p.lat < 50 && p.lng > -125.5 && p.lng < -66;
-const dist = (mi: number) => (mi < 0.1 ? `${Math.max(50, Math.round((mi * 5280) / 50) * 50)} ft` : mi < 10 ? `${mi.toFixed(1)} mi` : `${Math.round(mi)} mi`);
-const firstPart = (s: string) => s.split(',')[0].trim();
 const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const pct = (v: number, total?: number) => (total ? `${Math.max(0, Math.min(100, (v / total) * 100)).toFixed(1)}%` : '0%');
-
-function stored<T>(key: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(key);
-    return v ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function store(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* private mode: not remembered */
-  }
-}
 
 export function DriverMap({ onExit }: { onExit: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);

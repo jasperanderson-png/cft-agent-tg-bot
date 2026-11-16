@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FuelStationRow, FuelStations } from '../../../../../shared/types';
+import { savingOf as saving } from '../../../../../shared/driverRoute';
 import { hubApi, type ApiError } from '../../lib/api';
 import { haptic, openExternal, tg, useBackButton } from '../../lib/telegram';
 import { fmtDate, Icon, Spinner, useToast } from '../../components/ui';
 
 /** "$5.099": every decimal the cabinet sent, at least two. */
-export function fmtPrice(p: number | null): string {
+function fmtPrice(p: number | null): string {
   if (p == null) return '—';
   const decimals = Math.max(2, (String(p).split('.')[1] ?? '').length);
   return '$' + p.toFixed(decimals);
@@ -14,7 +15,6 @@ export function fmtPrice(p: number | null): string {
 type Sort = 'discounted' | 'retail' | 'saving' | 'name';
 const SORTS: [Sort, string][] = [['discounted', 'Cheapest discounted'], ['retail', 'Cheapest retail'], ['saving', 'Biggest saving'], ['name', 'Name A–Z']];
 const PAGE = 60;
-const saving = (s: FuelStationRow) => (s.retail != null && s.discounted != null ? s.retail - s.discounted : null);
 /** Missing values sort last, whichever way the list is sorted. */
 const byNumber = (a: number | null, b: number | null) => (a == null ? (b == null ? 0 : 1) : b == null ? -1 : a - b);
 
