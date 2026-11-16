@@ -1,0 +1,46 @@
+import { telegramAdmin } from '../../core/admins.js';
+import { isAgent } from '../../core/agents.js';
+import { canInviteDrivers, isDriver } from '../../core/drivers.js';
+import type { Db } from '../../db_storage/db.js';
+import { env } from '../../core/env.js';
+import type { PrivateCallback, PrivateMessage, TelegramUser } from '../../core/telegram.js';
+
+/** Who sent an update. Decides which folder of telegram_bot/handlers/ answers it. */
+export interface Viewer {
+  /** A CFT administrator (core/admins.ts). */
+  admin: boolean;
+  /** One of the owners (ADMIN_TELEGRAM_IDS). */
+  owner: boolean;
+  /** An agent (joined through an invite link; core/agents.ts). Admins are never also counted as agents. */
+  agent: boolean;
+  /** An agent an admin allowed to make driver links. */
+  canInviteDrivers?: boolean;
+  /** A driver (joined through a driver link; core/drivers.ts): the route map only. Never also an admin or agent. */
+  driver?: boolean;
+  /** Telegram's id for the update, used to run file-sending actions once. */
+  updateId?: number;
+}
+
+export type Role = 'admins' | 'agents' | 'drivers' | 'candidates';
+
+export async function viewerOf(db: Db, from: TelegramUser, updateId: number | undefined): Promise<Viewer> {
+  const admin = !!(await telegramAdmin(db, from));
+  const agent = !admin && (await isAgent(db, from.id));
+  const driver = !admin && !agent && (await isDriver(db, from.id));
+  return { admin, owner: env.ownerTelegramIds.includes(from.id), agent, driver, canInviteDrivers: agent && (await canInviteDrivers(db, from.id)), updateId };
+}
+
+export const roleOf = (who: Viewer): Role => (who.admin ? 'admins' : who.agent ? 'agents' : who.driver ? 'drivers' : 'candidates');
+
+/** One role's part of the bot: telegram_bot/handlers/<role>/index.ts. */
+export interface RoleHandlers {
+  /** Answers a private message (or stays quiet when it means nothing to this role). */
+  message(db: Db, msg: PrivateMessage, who: Viewer): Promise<void>;
+  /** Answers a tap on an inline button. False when no handler claimed it. */
+  callback(db: Db, cb: PrivateCallback, who: Viewer): Promise<boolean>;
+  /** Sets this role's menu button and command menu in a chat. Throws when Telegram refuses, so it is tried again. */
+  menu(chatId: number, who: Viewer): Promise<void>;
+}
+
+/** The command a message starts with ("/report week" → "/report"), lower-case, without @botname. */
+export const commandOf = (text: string | undefined) => (text?.trim().split(/\s+/)[0] ?? '').split('@')[0].toLowerCase();

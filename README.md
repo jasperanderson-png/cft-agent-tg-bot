@@ -1,0 +1,408 @@
+# CFT Agent Academy
+
+A Telegram Mini App that trains and assesses **Sales Agent candidates** for CFT, with an admin console inside the same bot.
+
+- **Candidates** open [@cft_Agentbot](https://t.me/cft_Agentbot), enter their name, take the official 30-question test, and see their score, the correct answers and explanations only after they submit.
+- **Admins** sign in with one tap inside the bot. They can review every attempt, see question and topic analytics and recurring knowledge gaps, edit the question bank, manage users and admins, and download Excel reports. They also get pass/fail alerts and a Monday summary from the bot.
+
+- **Driver leads** (administrators only): a growing database of driver and owner-operator leads. The **GET RECENT LEADS** button sends only leads that were never sent before. See [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md).
+
+The app runs fullscreen on phones and respects the device safe areas (notch, home indicator) and the area covered by Telegram's own controls.
+
+---
+
+## Contents
+
+1. [How it works](#how-it-works)
+2. [Project layout](#project-layout)
+3. [Run it locally](#run-it-locally)
+4. [Deploy: Supabase + Vercel + Telegram](#deploy)
+5. [Environment variables](#environment-variables)
+6. [Admins, users and notifications](#admins-users-and-notifications)
+7. [Reports](#reports)
+8. [Security](#security)
+9. [Database](#database)
+10. [Tests](#tests)
+11. [Content sources](#content-sources)
+12. [Limitations and manual steps](#limitations-and-manual-steps)
+13. [Driver leads](#driver-leads)
+14. [Work reports](#work-reports)
+
+---
+
+## How it works
+
+```
+Telegram (phone / desktop)
+  └─ Mini App (React + Vite, static on Vercel)
+        │  initData signed by Telegram, sent with every candidate/admin login
+        ▼
+  /api/*  → one Vercel Function (api/main.ts → telegram_bot/server/router.ts)
+        │  verifies Telegram signatures, grades attempts, enforces admin access
+        ▼
+  Supabase PostgreSQL (RLS on, no public access; server connects as owner)
+
+Telegram → /api/telegram/webhook   bot commands (/start, /admin, /report, /stats …)
+Vercel Cron (Mon 04:00 UTC) → /api/cron/weekly   weekly summary + Excel to admins
+Vercel Cron (daily 14:30 UTC) → /api/cron/leads  driver-lead pull sources (FMCSA, when enabled)
+Vercel Cron (daily 18:00 UTC) → /api/cron/task-report  forgotten shifts, weekly (Sat) and monthly reports
+/drivers/ (static page) → /api/leads/register    driver sign-ups with consent
+Lead vendors → /api/leads/ingest/<source>        leads pushed by providers and ad platforms
+```
+
+- The browser never talks to the database. Supabase's public REST roles (`anon`, `authenticated`) have **no** grants and every table has Row Level Security enabled with no policies.
+- Candidates are identified by their **Telegram account**, verified on the server from the Mini App's signed `initData`. That gives you one attempt per person, and a candidate who closes the app resumes where they left off.
+- Grading happens on the server and records the question revision each candidate saw, so later edits never rewrite past results.
+
+## Project layout
+
+One bot, one Mini App, one database and one deployment. The code is split two ways:
+**what** the business can do (`tools/`, `task_report/`) and **who** can do it in the chat
+(`telegram_bot/handlers/<role>/`).
+
+```
+telegram_bot/                THE BOT: talks to Telegram, decides who may do what
+  webhook.ts                 Front door: checks the update, works out the sender's role, hands it over
+  handlers/
+    viewer.ts                Who is writing (admin / agent / candidate) and what a role folder provides
+    admins/                  Admins and owners: home screen, /help, command menu, and per section:
+                             academy.ts, leads.ts, fuel.ts (📥 button), team.ts (/invite, /agents)
+    agents/                  Agents: home screen and the fuel price search (fuel-search.ts)
+    candidates/              Candidates: the test only
+    drivers/                 (empty for now)
+    invite.ts                Agent invite links, which anyone may open
+    not-allowed.ts           Polite refusals for buttons and commands someone's role doesn't have
+  mini_app/                  The Mini App (React + Vite)
+    src/                     App.tsx, lib/, components/, styles.css
+    src/screens/             Screens by role: admins/ (Hub, Academy console, Team, fuel), agents/
+                             (Discounts), candidates/ (the test), shared/
+  server/                    router.ts (every /api route), tools.ts (the list of tools), node-adapter.ts, dev.ts
+  setup.ts                   npm run telegram:setup (webhook, menus, descriptions)
+tools/                       THE BUSINESS: one folder per tool, never imports telegram_bot/
+  agent-academy/             🎓 The test: candidate.ts, console.ts, notify.ts, reports.ts, sheets.ts,
+                             chat.ts (what it sends in a chat), index.ts (its API), tests/
+  driver-leads/              🚚 Leads (see docs/DRIVER_LEADS.md): actions.ts (what it does in a chat),
+                             messages.ts (every text), ingest.ts, store.ts, files.ts, fmcsa.ts, signup-page/
+  fuel-prices/               ⛽ Cabinet prices: cabinet.ts, export.ts (📥 Excel), dataset.ts and
+                             agent-prices.ts (the agents' prices), table-image.ts, excel.ts, brand/
+  agents/                    👥 Invite links and the agent list (API for the Team screen)
+task_report/                 Work reports (shifts, daily/weekly/monthly reports to a channel)
+db_storage/                  THE DATABASE: db.ts (connection), migrate.ts, migrations/, seeds/academy/
+core/                        Plumbing everyone uses: env, http, telegram (Bot API client), admins and
+                             agents (who is who), home.ts (section names, home keyboard), tool.ts, xlsx
+shared/                      Code server and browser both use: types, grading, analytics, CSV, dates
+api/main.ts                  Vercel Function entry (Vercel requires it here); hands over to telegram_bot/server/
+```
+
+The rule that keeps it expandable: imports only go **down**:
+`telegram_bot` → `tools` / `task_report` → `core` / `db_storage` / `shared`.
+
+Where new work goes:
+- **A new tool:** `tools/<name>/` with an `index.ts` (see `core/tool.ts`), added to `telegram_bot/server/tools.ts`.
+- **What a role can do in the chat:** that role's folder in `telegram_bot/handlers/`. A new role is a new folder plus a line in `webhook.ts` and `handlers/viewer.ts`.
+- **An API endpoint:** the tool's `index.ts` `routes`.
+- **A Mini App screen:** `telegram_bot/mini_app/src/screens/<role>/`.
+- **A type both sides need:** `shared/types.ts`.
+- **A database change:** the next numbered file in `db_storage/migrations/`.
+
+The server side and the browser side each have their own TypeScript config, so browser code cannot import server code by accident.
+
+## Run it locally
+
+Requirements: **Node 22+** and a PostgreSQL database (local Postgres 14+ works).
+
+```bash
+npm install
+cp .env.example .env.local        # then fill in the values (see below)
+#   for local work set:  DATABASE_URL=postgres://…/cft_academy   ALLOW_WEB_CANDIDATES=true
+npm run db:migrate
+npm run db:seed                   # loads the 30 official questions, pass mark 21/30
+ADMIN_PASSWORD='choose-a-long-password' npm run admin:create -- --email you@company.com
+npm run dev                       # http://localhost:5173  (admin: http://localhost:5173/#/admin)
+```
+
+To preview fullscreen safe areas in a desktop browser, add `?insets=59,34,46` to the URL (device top, device bottom, Telegram controls).
+
+To test inside Telegram before deploying, expose port 5173 over HTTPS (for example with `cloudflared tunnel --url http://localhost:5173`), set `APP_URL` to that URL and run `npm run telegram:setup`.
+
+## Deploy
+
+### 1. Supabase (database)
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Go to **Project Settings → Database → Connection string**, pick **Transaction pooler** (port 6543) and copy the URI. Use it as `DATABASE_URL` **without** `?sslmode=…`, because TLS is configured in code.
+3. From your machine, with `DATABASE_URL` in `.env.local` pointing at Supabase, run:
+   ```bash
+   npm run db:migrate
+   npm run db:seed
+   ```
+4. Optional: download Supabase's CA certificate (Database settings → SSL) and set it as `DATABASE_CA_CERT` so the server also verifies the certificate.
+
+You don't need Supabase Auth or the Supabase JS client. The app only uses the Postgres database.
+
+### 2. Vercel (app + API + cron)
+
+1. Push this folder to a Git repository and import it in [Vercel](https://vercel.com). The framework is Vite; `vercel.json` already sets the build, the API rewrite, security headers and the weekly cron.
+2. Add the [environment variables](#environment-variables) under **Settings → Environment Variables** (Production).
+3. Deploy, and note the URL, e.g. `https://cft-agent-academy.vercel.app`. Set it as `APP_URL` and redeploy.
+
+### Settings files on your machine
+
+| File | What it is for |
+|---|---|
+| `.env.example` | The list of every setting, with explanations. Copy it to start the other two. |
+| `.env.local` | Local development and tests (`npm run dev`, `npm test`, and the `db:*` commands by default). |
+| `.env.production.local` | Production values, for the two jobs run from your machine against the live system: the Telegram setup and database migrations. The live app itself reads its settings from Vercel. |
+
+The two with real values are never uploaded to Vercel (`.vercelignore`) or committed (`.gitignore`).
+
+To migrate the production database:
+
+```bash
+node --env-file=.env.production.local --import tsx db_storage/migrate.ts
+```
+
+### 3. Telegram bot
+
+1. Run the bot setup from your machine with the production values:
+   ```bash
+   node --env-file=.env.production.local --import tsx telegram_bot/setup.ts
+   ```
+   It sets the webhook (with a secret), the commands, the menu button ("Start test") and the bot descriptions.
+2. In **@BotFather**, open `/mybots` → **@cft_Agentbot** → **Bot Settings** → **Configure Mini App** → **Enable Mini App**. Set the URL to your `APP_URL` and, where offered, choose the **fullscreen** launch mode. This makes it the bot's Main Mini App, which also gives you a shareable fullscreen link:
+   `https://t.me/cft_Agentbot?startapp&mode=fullscreen`
+3. Each admin must open the bot and press **Start** once. Telegram doesn't let a bot message someone who hasn't started it.
+
+The app also requests fullscreen itself on iOS and Android (`requestFullscreen`, Bot API 8.0+), disables swipe-to-close while scrolling, and paints the Telegram header and bottom bar black. Desktop Telegram keeps its normal window.
+
+## Environment variables
+
+| Variable | Required | What it is |
+|---|---|---|
+| `DATABASE_URL` | yes | Supabase transaction-pooler URI (no `sslmode`). |
+| `TELEGRAM_BOT_TOKEN` | yes | From @BotFather. Server-only. |
+| `TELEGRAM_BOT_USERNAME` | yes | `cft_Agentbot` |
+| `TELEGRAM_WEBHOOK_SECRET` | yes | Random 32+ chars (`openssl rand -hex 24`). Telegram sends it with every webhook call. |
+| `APP_URL` | yes | Your deployment's https URL, no trailing slash. |
+| `ADMIN_TELEGRAM_IDS` | yes | Owner Telegram IDs, comma-separated: `9447180,1270439555`. |
+| `CRON_SECRET` | yes | Random 32+ chars. Vercel Cron sends it to `/api/cron/weekly`. |
+| `TASK_REPORT_USER_IDS` | for work reports | Telegram IDs (comma-separated) of the people who have ⏱ Shift and work reports. Nobody else, not even other admins, sees them. |
+| `TASK_REPORT_TOKEN` | for work reports | Random 32+ chars. The key `npm run worklog` (Claude Code) uses to add work-log entries. |
+| `ALLOW_WEB_CANDIDATES` | no | `true` lets candidates take the test in a normal browser. Keep `false` in production. |
+| `DATABASE_CA_CERT` | no | Supabase CA (PEM) to verify the DB certificate. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | no | Service-account key to enable the Google Sheets sync button. |
+| `TELEGRAM_INITDATA_MAX_AGE_SEC` | no | How old a Telegram session may be (default 86400). |
+| `LEADS_COMPANY_NAME` | no | Company named in the driver registration page's consent wording (default `CFT`). |
+| `LEADS_FMCSA_ENABLED` | no | `true` imports newly registered owner-operator carriers from the public FMCSA registry every day. Off by default. |
+| `ORS_API_KEY` | for routes | OpenRouteService key (free plan, no card: openrouteservice.org → Dashboard → token). Server only: truck routes, place search, last-resort station lookup. Without it the map and *By state* work, but no routes. |
+| `DRIVER_GEOCODE_BATCH` | no | Stations looked up by street address per request (default 60; 0 turns it off). Chain matches are not counted. |
+
+More driver-leads settings are listed in [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md#settings).
+
+None of these are exposed to the browser. There are no `VITE_` variables.
+
+## Admins, users and notifications
+
+**Owners** are the Telegram IDs in `ADMIN_TELEGRAM_IDS`. They are admins automatically the first time they open the bot, and they can't be removed from inside the app.
+
+**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `core/admin-invites.ts`, `telegram_bot/handlers/admins/admin-team.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/handlers/admins/team-menu.ts`.
+
+**Signing in.** Inside Telegram, admins tap **Admin console** (or send `/admin`) and are signed in by their Telegram account, with no password. Email and password sign-in exists for opening the console in a normal browser. Create those accounts with `npm run admin:create -- --email … [--telegram-id …]`.
+
+**Users page** lists everyone who has started the bot or opened the app, with their test status and latest score.
+
+- **Make admin** promotes a user. Any admin can add admins, either from this list or by Telegram ID with **Add admin**.
+- **Remove admin** is available to owners only.
+
+**Bot commands for admins:**
+
+| Command | What it does |
+|---|---|
+| `/admin` | Opens the console. |
+| `/stats` | This week so far. |
+| `/weekly` | Last week's summary. |
+| `/report` | All-time Excel report. Add `week`, `lastweek` or `30d` for other periods. |
+
+| `/leads` | Driver Leads keyboard and help. |
+
+Admins see these commands in their command menu after pressing Start, each labelled with its section ("Academy: …", "Driver Leads: …").
+
+**Two sections.** The bot keeps the test and the driver leads apart. For administrators, `/start` is a home screen with two buttons, **🎓 Agent Academy** and **🚚 Driver Leads**; each section has its own keyboard, its own commands and its own message titles, and **🏠 Home** switches back. Driver Leads is for administrators only: candidates go straight to the test and never see the other section.
+
+**Notifications.** Each admin can switch these on or off under Settings → My Telegram notifications.
+
+- **Pass/fail alert:** sent the moment a candidate submits, with score, duration and an **Open attempt** button.
+- **Weekly summary:** every Monday at 09:00 Tashkent time (cron `0 4 * * 1` UTC). It covers last week's started, completed, passed and failed counts, pass rate, average, change vs the previous week and the most-missed questions, with the week's Excel file attached. You can also send it any time from Reports → **Send summary to admins now**.
+
+## Reports
+
+**Reports page:** pick This week, Last week, Last 30 days or All time, then **Download Excel** or **Send to my chat**. Inside Telegram, downloads use Telegram's native download sheet.
+
+The workbook has these sheets:
+
+- **Summary:** totals, pass rate, average, high/low and pass mark.
+- **Results:** one row per graded attempt. The Date column is `dd/mm/yyyy` and Time is `hh:mm` (rounded to the minute). Percentages are whole numbers, and the PASS/FAIL cell is coloured.
+- **In progress:** attempts not yet submitted.
+- **Answers:** candidate × Q1–Q30, green for correct and red for wrong.
+- **Questions:** sorted by error rate, with the most-chosen wrong answer.
+- **Topics:** accuracy per (inferred) topic.
+
+Every sheet has a frozen, filterable header. Dates use the **report time zone** under Settings (default `Asia/Tashkent`).
+
+The Attempts, Questions and Topics pages also export CSV, with formula-injection protection.
+
+## Security
+
+What is protected and how:
+
+- **Answer key.** Before submission, candidates receive only question text and options. The correct answers, explanations and topics are sent only in the graded result. An integration test checks the payload for leaks.
+- **Grading.** The server grades and ignores any score sent by the client. Submitting locks the attempt row, so a duplicate or concurrent submit returns the stored result instead of grading twice.
+- **Candidate identity.** The Telegram `initData` HMAC is verified on the server with the bot token, with an age limit. Each attempt also has a 256-bit bearer token, stored only as a SHA-256 hash. The token rotates whenever the attempt is resumed, and a candidate can only read their own attempt.
+- **Admin access.** Every `/api/admin/*` route checks a server-side session: random token, hash stored, 12-hour expiry, revocable on sign-out. Passwords use scrypt. Sign-in is rate-limited per email and IP, unknown emails take the same time as known ones, and only owners can remove admins. Hiding UI elements is never the protection.
+- **Database.** RLS is enabled on every table with no policies. Grants to Supabase's `anon` and `authenticated` roles are revoked, and only the server, holding the database password, can read or write.
+- **Webhook and cron.** Both require secrets, compared in constant time.
+- **Inputs.** Every input is validated on the server. Names, question edits and settings share their validation rules with the browser.
+- **Exports.** CSV cells are escaped against spreadsheet formulas. Excel cells are written as plain text, never as formulas. Download links are unguessable and expire after 10 minutes.
+- **Headers.** The deployment sends a strict Content-Security-Policy (only Telegram embedding allowed), `nosniff` and a referrer policy.
+
+**Not production-hardened yet:**
+
+- Web (non-Telegram) candidates are limited to one attempt per browser, not per person. Keep `ALLOW_WEB_CANDIDATES=false`.
+- Admin login rate limiting is stored in the database. There is no CAPTCHA.
+- No automated backups beyond what your Supabase plan provides.
+
+## Database
+
+Migrations are in `db_storage/migrations/`. The driver-leads tables from the third and fourth are described in [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md#database).
+
+| Table | Purpose |
+|---|---|
+| `topics` | Topic list (inferred). |
+| `questions` | Number, topic, active flag, current revision. |
+| `question_revisions` | Append-only text, options, correct answer, explanation, why-wrong notes and basis. Edits add a revision. |
+| `candidates` | Name, plus Telegram ID and username when known. |
+| `assessment_attempts` | Status, timestamps, score, pass mark used, duration and token hash. At most one open attempt per candidate. |
+| `attempt_answers` | One row per question per attempt: revision shown, selected option, correctness set at grading. |
+| `telegram_users` | Everyone who used the bot or app, and whether the bot can message them. |
+| `admins` | Admin accounts (Telegram ID and/or email + scrypt hash), role, notification preferences. |
+| `admin_sessions` | Admin sessions. |
+| `admin_login_failures` | Failed sign-ins, for rate limiting. |
+| `audit_events` | Admin changes. |
+| `app_settings` | Pass mark, minimum sample, retakes, report time zone, Sheets link. |
+| `export_files` | Short-lived downloads. |
+
+## Tests
+
+```bash
+npm run typecheck
+npm test            # unit tests + API tests against TEST_DATABASE_URL (wiped and rebuilt each run)
+npm run build
+```
+
+Set `TEST_DATABASE_URL` to an **empty, disposable** database. The API tests drop and recreate its schema. Without it, the database tests are skipped. The Excel tests also read the generated files with Python's `openpyxl` when it's installed.
+
+Coverage:
+
+- Grading, percentages and unanswered questions.
+- Answer-key non-exposure.
+- Duplicate and concurrent submits.
+- Telegram signature checks.
+- Resume and one-attempt rules.
+- Admin-only routes, brute-force lockout and owner/admin permissions.
+- Question versioning.
+- Analytics and observed patterns.
+- CSV escaping.
+- Excel structure and formats.
+- Pass/fail notifications and preferences.
+- Weekly cron (auth and once-per-week), bot commands, and handling of users who blocked the bot.
+- Driver leads: validation, duplicate merging, exactly-once delivery under simultaneous clicks, recovery after a refused or unanswered send, opt-outs and their undo, access control, exports, CSV import (separators, encodings) and the FMCSA sync.
+- The two bot sections: who sees the home screen, what each section's keyboard and command menu contain.
+
+## Content sources
+
+- The 30 questions, options, correct answers, explanations, "why the other options are incorrect" notes and basis lines come from `CFT_New_Agent_Test.pdf` and `CFT_Detailed_Answer_Key.pdf`. They were checked field by field against both PDFs with no differences.
+- **Pass mark 21/30 (70%).** The test instructions state "Passing score: 21/30 (70%)"; the answer key calls it the suggested pass mark. It can be changed under Settings.
+- **Time limit: none.** The materials don't set one.
+- **Topics are inferred** from the question content; the PDFs don't define topics. They are labelled "inferred" everywhere and admins can change them in the question bank.
+
+## Limitations and manual steps
+
+1. Create the Supabase project, then run `db:migrate` and `db:seed` against it.
+2. Create the Vercel project, set the environment variables, deploy, and set `APP_URL`.
+3. Run `npm run telegram:setup`, then enable the Main Mini App (fullscreen) in @BotFather.
+4. Owners and admins press **Start** in the bot once, so it can message them.
+5. Google Sheets sync is optional and needs a Google Cloud service account (`GOOGLE_SERVICE_ACCOUNT_JSON`). It was unit-tested but not run against Google.
+6. The bot token was shared in a chat during development. Consider issuing a new one with @BotFather → `/revoke` and updating `TELEGRAM_BOT_TOKEN`.
+
+## CFT Hub (the admins' Mini App)
+
+Admins' chat menu button opens the **CFT Hub** (`/#/hub`); candidates keep **Start test**. The bot sets it per chat when someone sends `/start`, and resets it to the default for anyone who is not an admin. The Hub has one tile per product:
+
+- **Agent Academy:** tests finished and passed this week; opens the admin console or the test.
+- **Driver Leads:** new leads waiting and added today; goes back to the chat to collect them.
+- **Fuel prices:** station count and the cheapest discounted price; opens the **Fuel prices** screen (`/#/fuel`): search by station, city or address, filter by state, sort by cheapest discounted, cheapest retail or biggest saving, tap a station to open it in Google Maps, and **Excel to chat** to get `fuel_prices.xlsx` in Telegram. The list is read from the cabinet at most every 10 minutes; the Excel file is always read fresh.
+
+The Hub is `telegram_bot/mini_app/src/screens/admins/Hub.tsx`; the Fuel prices screen is `telegram_bot/mini_app/src/screens/admins/FuelPrices.tsx`. Anyone who is not an admin and opens the Hub's link gets the test.
+
+## Fuel prices
+
+Admins have a **📥 Download All Fuel Prices** button on their home keyboard (also `/fuelprices`). It signs in to the United Fuel customer cabinet (https://cabinet.united-fuel.com, Stations → List), reads every station and sends `fuel_prices.xlsx`: a **Stations** sheet with Station, Retail price, Discounted price, Updated time, State, City and Address (filters on, header frozen, prices exactly as the cabinet shows them, the total under the table) and a **Summary** sheet.
+
+How it works: the cabinet is a web app over a JSON API, so the bot calls that API directly instead of driving a browser (which a Vercel function cannot run). It signs in with `FUEL_CABINET_EMAIL` and `FUEL_CABINET_PASSWORD`, reads `cabinet/station` page by page, keeps each station once, and sends the file only if the number of stations equals the total the cabinet reports. Otherwise it says what went wrong and sends nothing. One status message shows the progress. Code: `products/station-discounts/` (`cabinet.ts` reads the cabinet, `excel.ts` builds the file, `commands.ts` is the button).
+
+A station without a discounted price in the cabinet (about 230, mostly Casey's) has an empty cell, not 0. Times are in the report time zone (Settings).
+
+## Menu buttons (why agents saw "Start test")
+
+Each role has its own Telegram menu button: admins **CFT Hub**, agents **Discounts**, drivers **Route map**, everyone else the default **Start test**. Telegram sometimes misses the change (a timeout), and a person kept the old button. Now:
+- calls that are safe to repeat (setting menus, editing, answering taps) are tried once more after a timeout (`core/telegram.ts`); new messages never are, so nobody gets one twice;
+- `telegram_users.menu_role` records what each person was last given; when it differs from their role, the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/webhook.ts`);
+- `telegram_bot/setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
+
+## Driver route map
+
+A Mini App page at **`/route`** for drivers (Route map menu button), agents (📍 on Find discounts) and admins (Hub). Built like the United Fuel app's map (its map style, routing, voice and caps are ported from `~/Desktop/Coding/United Fuel`): the map fills the screen, cards appear only when there is something to show, and the driver arrow and camera move every frame outside React.
+
+- **The map:** MapLibre with the CF Transport night style (OpenFreeMap's Liberty, recoloured as in United Fuel: calm grey roads, highways a little brighter, shops and clutter hidden). Every station is a brand-coloured fuel-pump icon (no numbered groups): zoomed out, icons that would overlap are hidden and the cheaper one stays; zooming in shows more, and from zoom 7.5 their prices. Tap a station for its card and *Route here*. Everything is drawn by the map engine (GPU), including price tags; the only HTML marker is the driver arrow. Panels are solid, not blurred, so panning and pinching stay smooth on phones.
+- **Layout:** the map fills the screen; with nothing selected there is no bottom card (a clear map). Cards appear only for a tapped station, a planned route or a trip; the round buttons on the right always sit just above the card. Phones: search on top, card at the bottom. From 720 px wide (tablets, Telegram Desktop): both in a 380 px column on the left, the map beside them. *By state* is a full black screen with the content in a centred 640 px column (the agents' Find discounts parts, `.d-*`).
+- **Suggestions:** typing in From / To shows towns with CFT stations and states at once (from the station list already on the phone), then OpenRouteService places join in; answers are remembered for the session.
+- **Truck routes:** **TomTom** truck routing with live traffic (height, weight, length, hazmat; traffic delay, slow stretches coloured on the route, speed limits, street names and exit numbers). When TomTom is not set up, its monthly allowance is used up or it fails, **OpenRouteService** (heavy vehicle, no traffic) answers instead. Place search: OpenRouteService.
+- **Navigation:** turn banner with the street being driven and the speed limit, the natural voice (Google Chirp 3 HD "Fenrir"; fixed lead-ins "In 1 mile, / In a quarter mile, / In 500 feet, / Now," fetched ahead), re-routing after ~2 s off the route, auto-zoom by distance to the next turn (until the driver pinches), the screen kept on. `/route?simulate` drives any trip in about three minutes. Until the natural voice works, the phone's own voice reads the same sentences.
+- **Shared keys and caps:** `TOMTOM_API_KEY`, `GOOGLE_TTS_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` are the United Fuel app's (the user chose to share them). Both apps count against the SAME monthly caps in the same Redis (`core/kv.ts`: 19,000 routes, 900,000 voice characters, the free allowances) and share cached voice clips. Past a cap the app falls back (OpenRouteService, phone voice): nothing is ever charged. **Google Text-to-Speech needs billing turned on in its Google Cloud project** (free tier still applies); until then `/api/driver/voice` answers 503 and the phone voice is used.
+- **Station points:** each station is placed once and cached in `station_geo` with its source: the chain's own store locator via **All The Places** (same store number in the same state, or the only store of the brand in that city), then the **US Census** address service, then OpenRouteService search only when it lands in the same state with high confidence; otherwise no pin (still in *By state*), tried again after a week.
+- **Prices** are the agents' prices (cabinet discounted price + the margin), never the cabinet's own price.
+- **Who can open it:** admins, agents and drivers (driver links, see "Menu buttons" and `core/drivers.ts`). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
+- **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `vercel.json`.
+- **Limits:** TomTom's truck data is good but not perfect: drivers still follow road signs. Some Android Telegram versions have no phone voice.
+- Code: `tools/fuel-prices/driver-map.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`; `core/kv.ts`; `shared/driverRoute.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
+
+## Driver leads
+
+Owners open the **🚚 Driver Leads** section of the bot (`/leads`) and get a keyboard with GET RECENT LEADS, TODAY'S LEADS, filters by state and CDL class, CSV and Excel downloads, the full database and statistics.
+
+Leads arrive from the driver registration page at `/drivers/`, from vendor webhooks, from CSV files sent to the bot and, when switched on, from the public FMCSA carrier registry. Every record goes into one master table (FMCSA carrier records are replaced with the current set on each sync). A lead is delivered once: an update to a driver who was already delivered is merged into their record and never sent again.
+
+Before first use, run `npm run db:migrate` against the production database, then deploy.
+
+Full guide: [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md).
+
+## Work reports
+
+`task_report/` posts the user's work reports to a Telegram channel, for readers who are not programmers.
+The reports are in **Russian**; the bot's buttons and replies stay in English.
+
+- **Shifts:** admins tap **⏱ Shift** (or `/shift`, `/startshift`, `/endshift`). Ending a shift posts the
+  day's report. A second shift on the same day replaces that day's picture in place, so nothing is posted twice.
+- **The work log:** Claude Code adds entries after finished work (`npm run worklog`, see `CLAUDE.md`);
+  the user can add their own with `/done`, `/better`, `/learned`, `/plan`, `/blocker` (add `#Area`).
+  `/worklog` lists today's entries with delete buttons; `/preview [week|month]` shows a report without sending it.
+- **Reports:** a picture card in the CFT look (`task_report/card.ts`, Fira Sans because Barlow has no Cyrillic)
+  plus a short caption. Daily when a shift ends; weekly (Sunday–Saturday) on Saturday evening; monthly on the
+  last day of the month, followed by the full list of solved tasks. `report_posts` lets each report out once.
+- **The evening job** (23:00–23:59 Tashkent): reminds about an open shift, closes one open for more than 16 hours
+  at its last log entry, re-sends a daily report that failed, then the weekly and monthly reports.
+- **The reports chat (a group or a channel):** for a group, add @cft_Agentbot (as an admin, so it can pin) and send
+  `/reports@cft_Agentbot` in the group. For a channel, add the bot as an administrator (post, edit and pin messages).
+  Either way, adding the bot makes it ask the admin in private whether their reports should go there. Until then
+  reports come to the admin's private chat. The chat gets a status message ("на смене / не на смене"), edited
+  silently and pinned when the bot may pin. The bot ignores everything else said in the group.

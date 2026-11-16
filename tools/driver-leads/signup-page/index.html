@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="index, follow" />
+    <title>Truck drivers and owner-operators — get in touch with CFT</title>
+    <meta name="description" content="CDL drivers and owner-operators: leave your details and a CFT agent will contact you." />
+    <link rel="icon" href="/assets/cft-favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@700;800&display=swap" />
+    <style>
+      :root { --blue: #a0dcff; --ink: #202c33; --bad: #f28b82; --line: rgba(255, 255, 255, 0.14); --muted: #9aa0a6; color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: #000; }
+      body { font-family: 'Barlow', system-ui, sans-serif; font-weight: 500; color: #fff; -webkit-font-smoothing: antialiased; line-height: 1.45; }
+      main { max-width: 620px; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) 16px 56px; }
+      .logo { display: block; height: 26px; width: auto; margin-bottom: 28px; }
+      h1 { font-family: 'Barlow Semi Condensed', 'Barlow', sans-serif; font-weight: 800; font-size: clamp(30px, 8vw, 42px); line-height: 1.05; margin: 0 0 10px; text-wrap: balance; }
+      .lede { color: #ccc; margin: 0 0 24px; font-size: 17px; }
+      form, .panel { background: rgba(22, 24, 26, 0.9); border: 1px solid var(--line); border-radius: 18px; padding: 20px 18px; }
+      fieldset { border: 0; padding: 0; margin: 0 0 6px; min-width: 0; }
+      fieldset + fieldset { margin-top: 22px; }
+      legend { font-weight: 700; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); padding: 0; margin: 6px 0 12px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .full { grid-column: 1 / -1; }
+      @media (max-width: 460px) { .grid { grid-template-columns: 1fr; } }
+      label { display: block; font-size: 14px; color: #ddd; }
+      label > span { display: block; margin-bottom: 5px; }
+      .opt { color: var(--muted); font-weight: 400; }
+      input[type='text'], input[type='tel'], input[type='email'], select {
+        width: 100%; height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line);
+        background: #0e1012; color: #fff; font: inherit; font-size: 16px; appearance: none;
+      }
+      select { background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%); background-position: calc(100% - 18px) 20px, calc(100% - 13px) 20px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+      input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .chips label { position: relative; }
+      .chips input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+      .chips span { display: block; margin: 0; padding: 9px 13px; border-radius: 999px; border: 1px solid var(--line); color: #ddd; font-size: 15px; }
+      .chips input:checked + span { background: var(--blue); border-color: var(--blue); color: var(--ink); font-weight: 600; }
+      .chips input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+      .group { margin-top: 14px; }
+      .group > p { margin: 0 0 8px; font-size: 14px; color: #ddd; }
+      .consent { display: grid; grid-template-columns: 24px 1fr; gap: 12px; margin: 22px 0 16px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 13.5px; color: #ccc; }
+      .consent input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--blue); }
+      button { width: 100%; height: 52px; border: 0; border-radius: 12px; background: var(--blue); color: var(--ink); font: inherit; font-weight: 700; font-size: 17px; cursor: pointer; }
+      button[disabled] { opacity: 0.6; cursor: default; }
+      .error { color: var(--bad); margin: 0 0 12px; font-size: 15px; }
+      .error:empty { display: none; }
+      .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+      .small { color: var(--muted); font-size: 13px; margin-top: 18px; }
+      a { color: var(--blue); }
+      .panel h2 { font-family: 'Barlow Semi Condensed', sans-serif; font-size: 28px; margin: 0 0 8px; }
+      .panel p { margin: 0; color: #ccc; }
+      details { margin-top: 22px; color: var(--muted); font-size: 14px; }
+      summary { cursor: pointer; color: #ccc; }
+      details form { margin-top: 12px; padding: 14px; display: flex; gap: 8px; }
+      details button { width: auto; height: 46px; padding: 0 16px; font-size: 15px; background: transparent; color: #fff; border: 1px solid var(--line); }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img class="logo" src="/assets/cft-primary.svg" alt="CFT" />
+      <h1>Drive a truck? Let’s talk.</h1>
+      <p class="lede">Leave your details and a <span data-company>CFT</span> agent will get in touch with you. It takes about a minute.</p>
+
+      <form id="lead-form" novalidate>
+        <fieldset>
+          <legend>Contact</legend>
+          <div class="grid">
+            <label class="full"><span>Full name</span><input type="text" name="full_name" autocomplete="name" required maxlength="80" /></label>
+            <label><span>Mobile phone</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(214) 555-7890" required maxlength="20" /></label>
+            <label><span>Email <span class="opt">optional</span></span><input type="email" name="email" autocomplete="email" maxlength="254" /></label>
+            <label><span>City <span class="opt">optional</span></span><input type="text" name="city" autocomplete="address-level2" maxlength="80" /></label>
+            <label><span>State</span><select name="state" autocomplete="address-level1" required><option value="">Select…</option></select></label>
+            <label><span>ZIP <span class="opt">optional</span></span><input type="text" name="zip" autocomplete="postal-code" inputmode="numeric" maxlength="10" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Driving</legend>
+          <div class="grid">
+            <label><span>CDL class</span>
+              <select name="cdl_class">
+                <option value="">Select…</option><option value="A">Class A</option><option value="B">Class B</option><option value="C">Class C</option>
+              </select>
+            </label>
+            <label><span>Experience</span>
+              <select name="years_experience">
+                <option value="">Select…</option><option value="0">New CDL graduate</option><option value="0.5">Under 1 year</option>
+                <option value="1">1 year</option><option value="2">2 years</option><option value="3">3–4 years</option><option value="5">5–9 years</option><option value="10">10+ years</option>
+              </select>
+            </label>
+            <label><span>Number of trucks <span class="opt">optional</span></span><input type="number" name="trucks" inputmode="numeric" min="0" max="9999" step="1" placeholder="1" /></label>
+          </div>
+          <div class="group"><p>What do you drive? <span class="opt">Pick all that apply</span></p>
+            <div class="chips" data-name="driver_type">
+              <label><input type="checkbox" value="owner operator" /><span>Owner-operator</span></label>
+              <label><input type="checkbox" value="company" /><span>Company driver</span></label>
+              <label><input type="checkbox" value="otr" /><span>OTR</span></label>
+              <label><input type="checkbox" value="regional" /><span>Regional</span></label>
+              <label><input type="checkbox" value="local" /><span>Local</span></label>
+            </div>
+          </div>
+          <div class="group"><p>Equipment <span class="opt">optional</span></p>
+            <div class="chips" data-name="equipment">
+              <label><input type="checkbox" value="dry van" /><span>Dry van</span></label>
+              <label><input type="checkbox" value="reefer" /><span>Reefer</span></label>
+              <label><input type="checkbox" value="flatbed" /><span>Flatbed</span></label>
+              <label><input type="checkbox" value="tanker" /><span>Tanker</span></label>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
+
+        <label class="consent"><input type="checkbox" name="consent" required /><span id="consent-text">Loading…</span></label>
+        <p class="error" id="form-error" role="alert"></p>
+        <button type="submit">Send my details</button>
+      </form>
+
+      <div class="panel" id="done" hidden tabindex="-1">
+        <h2>Thank you.</h2>
+        <p>We have your details. A <span data-company>CFT</span> agent will contact you soon.</p>
+      </div>
+
+      <details>
+        <summary>Stop being contacted</summary>
+        <form id="optout-form" novalidate>
+          <input type="text" name="contact" aria-label="Phone number or email to remove" placeholder="Phone number or email" maxlength="254" />
+          <button type="submit">Remove me</button>
+        </form>
+        <p id="optout-msg" role="status"></p>
+      </details>
+    </main>
+    <script src="/drivers/form.js" defer></script>
+  </body>
+</html>

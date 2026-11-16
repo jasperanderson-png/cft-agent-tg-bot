@@ -1,0 +1,178 @@
+/* Drivers' route map (DriverMap.tsx, ByState.tsx, pieces.tsx). The rest of the Mini App's look: black,
+   #a0dcff accent, Barlow / Barlow Semi Condensed. Panels over the map are solid (no backdrop blur:
+   blurring under a moving map costs a phone a full redraw every frame), and animations only move or
+   fade (transform / opacity), the cheapest things a phone can animate. */
+
+.dm {
+  --dm-accent: #a0dcff;
+  --dm-panel: rgba(14, 18, 22, 0.96);
+  --dm-line: rgba(255, 255, 255, 0.08);
+  --dm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dm-safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+  --dm-safe-bottom: calc(var(--tg-safe-area-inset-bottom, 0px) + var(--tg-content-safe-area-inset-bottom, 0px));
+  --sheet-h: 0px;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0b0e12;
+  color: #fff;
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-weight: 500;
+  -webkit-tap-highlight-color: transparent;
+}
+:where(.dm) button { font: inherit; color: inherit; cursor: pointer; transition: transform 0.12s var(--dm-ease), background-color 0.15s, opacity 0.15s; }
+:where(.dm) button:active:not(:disabled) { transform: scale(0.96); }
+:where(.dm) input::placeholder { color: #8b949c; }
+:where(.dm) input:focus, :where(.dm) select:focus { outline: none; }
+.dm .num { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.dm-map { position: absolute; inset: 0; }
+.dm-map .maplibregl-canvas { outline: none; }
+.dm-map-msg { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 32px; text-align: center; color: #999; font-size: 15px; line-height: 1.5; pointer-events: none; }
+.dm-error { position: absolute; left: 16px; right: 16px; top: 38%; max-width: 420px; margin: 0 auto; z-index: 50; padding: 20px; border-radius: 18px; background: #111518; border: 1px solid var(--dm-line); display: flex; flex-direction: column; gap: 10px; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); }
+.dm-error b { font-size: 17px; }
+.dm-error span { font-size: 14px; color: #aaa; line-height: 1.45; }
+
+/* ---- Top: mode tabs + From / To card ---- */
+.dm-top { position: absolute; left: 10px; right: 10px; top: calc(var(--dm-safe-top) + 8px); z-index: 20; display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 0 auto; }
+.dm-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--dm-panel); border: 1px solid var(--dm-line); }
+.dm-tab { flex: 1; height: 34px; border: 0; border-radius: 9px; background: transparent; color: #c9d1d7; font-size: 14px; }
+.dm-tab[aria-selected='true'] { background: var(--dm-accent); color: #000; font-weight: 600; }
+.dm-trip { border-radius: 16px; background: var(--dm-panel); border: 1px solid var(--dm-line); padding: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+/* Each row is its own rounded field: the focus ring sits fully inside the card, never cut off. */
+.dm-input { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px 0 8px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow 0.15s, background-color 0.15s; }
+.dm-input + .dm-input { margin-top: 2px; }
+.dm-input.on { background: rgba(160, 220, 255, 0.07); box-shadow: inset 0 0 0 1.5px var(--dm-accent); }
+.dm-input input { flex: 1; min-width: 0; height: 40px; padding: 0; border: 0; background: transparent; color: #fff; font: inherit; font-size: 16px; font-weight: 600; }
+.dm-input input.me { color: var(--dm-accent); }
+.dm-input input:disabled { opacity: 0.5; }
+.dm-trip-ico { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
+.dm-trip-ico.truck { background: var(--dm-accent); color: #000; }
+.dm-trip-ico.pin { color: var(--dm-accent); }
+.dm-x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: #9aa3ab; display: grid; place-items: center; }
+.dm-truckrow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; margin-top: 2px; padding: 0 12px; border: 0; border-top: 1px solid var(--dm-line); border-radius: 0 0 12px 12px; background: none; color: #b9c6cf; font-size: 13px; font-weight: 600; text-align: left; }
+.dm-truckrow span { flex: 1; }
+.dm-sugg { list-style: none; margin: 2px 0 0; padding: 2px 0 0; border-top: 1px solid var(--dm-line); max-height: 42vh; overflow-y: auto; overscroll-behavior: contain; }
+.dm-sugg button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: #eee; font-size: 15px; text-align: left; }
+.dm-sugg button:active { background: rgba(255, 255, 255, 0.06); }
+.dm-sugg button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Navigation banner ---- */
+.dm-banner { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 16px; background: #a0dcff; color: #000; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); animation: dm-in 0.25s var(--dm-ease) backwards; }
+.dm-banner.ok { background: #8fe3c4; }
+.dm-banner-ico { flex: none; width: 46px; height: 46px; border-radius: 12px; background: rgba(0, 0, 0, 0.1); display: grid; place-items: center; }
+.dm-banner-text { flex: 1; min-width: 0; }
+.dm-banner-text b { display: block; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 26px; line-height: 1; }
+.dm-banner-text .t { display: -webkit-box; margin-top: 3px; font-size: 15px; font-weight: 600; line-height: 1.25; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.dm-banner-sub { display: block; margin-top: 1px; font-size: 13px; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-limit { flex: none; width: 46px; height: 54px; border-radius: 8px; background: #fff; border: 2.5px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 700 22px/1 'Barlow Semi Condensed', sans-serif; color: #000; }
+.dm-limit small { font-size: 8px; letter-spacing: 0.08em; margin-bottom: 2px; }
+
+/* ---- Round buttons on the right: always just above the bottom card ---- */
+.dm-fabs { position: absolute; right: 12px; bottom: calc(max(var(--sheet-h), var(--dm-safe-bottom)) + 14px); z-index: 18; display: flex; flex-direction: column; gap: 10px; transition: bottom 0.2s var(--dm-ease); }
+.dm-fab { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--dm-line); background: var(--dm-panel); color: #fff; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+.dm-fab[aria-pressed='true'] { background: var(--dm-accent); color: #000; }
+
+/* ---- Bottom card (only when there is something to show) ---- */
+.dm-sheet { position: absolute; left: 8px; right: 8px; bottom: calc(var(--dm-safe-bottom) + 8px); z-index: 25; max-width: 560px; margin: 0 auto; max-height: calc(100% - var(--dm-safe-top) - 120px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; border-radius: 20px; background: var(--dm-panel); border: 1px solid var(--dm-line); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; gap: 12px; animation: dm-up 0.22s var(--dm-ease) backwards; }
+.dm-close { position: absolute; top: 10px; right: 10px; z-index: 1; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.07); color: #aab3ba; display: grid; place-items: center; }
+.dm-note { margin: 0; font-size: 15px; line-height: 1.45; color: #ccd3d8; }
+.dm-summary { display: flex; align-items: baseline; gap: 10px; }
+.dm-summary b { font: 700 24px/1 'Barlow Semi Condensed', sans-serif; }
+.dm-summary span { flex: 1; font-size: 13px; color: #9aa3ab; }
+.dm-spin { flex: none !important; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(160, 220, 255, 0.25); border-top-color: var(--dm-accent); animation: dm-spin 0.8s linear infinite; }
+.dm-tripline { display: flex; align-items: center; gap: 12px; }
+.dm-tripline-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dm-tripline-text b { margin-top: 2px; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-tripline-text > span:last-child { font-size: 13px; color: #9aa3ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-tripline-price b { font: 700 30px/1 'Barlow Semi Condensed', sans-serif; color: var(--dm-accent); }
+.dm-tripline-price small { font-size: 12px; color: #8aa3ae; }
+.dm-tripfoot { display: flex; align-items: center; gap: 10px; }
+.dm-tripfoot > span { flex: 1; font-size: 14px; color: #c3ccd2; }
+.dm-tripfoot .dm-soft { height: 42px; padding: 0 20px; }
+.dm-row-btns { display: flex; gap: 8px; }
+.dm-done-title { display: block; margin-top: 4px; font: 700 26px/1.05 'Barlow Semi Condensed', sans-serif; }
+
+/* ---- Cards (pieces.tsx) ---- */
+.dm-swap { display: flex; flex-direction: column; gap: 12px; animation: dm-fade 0.2s ease backwards; }
+.dm-badge { display: inline-block; padding: 4px 8px; border-radius: 6px; background: var(--dm-accent); color: #000; font: 700 11px/1 'Barlow', sans-serif; letter-spacing: 0.06em; }
+.dm-badge.near { background: rgba(160, 220, 255, 0.14); color: var(--dm-accent); }
+.dm-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #8aa3ae; }
+.dm-eyebrow.ok { color: #8fe3c4; }
+.dm-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.25s var(--dm-ease); }
+.dm-collapse > div { overflow: hidden; min-height: 0; }
+.dm-collapse.shut { grid-template-rows: 0fr; }
+.dm-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.dm-grid2 > * { min-width: 0; }
+.dm-cell { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
+.dm-cell dt { font-size: 12px; color: #999; }
+.dm-cell dd { margin: 2px 0 0; }
+.dm-primary { flex: 1; min-height: 50px; padding: 0 16px; border: 0; border-radius: 13px; background: var(--dm-accent); color: #000; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.dm-primary:disabled { opacity: 0.45; }
+.dm-soft { flex: none; min-height: 50px; min-width: 50px; padding: 0 14px; border: 0; border-radius: 13px; background: rgba(160, 220, 255, 0.12); color: var(--dm-accent); font-weight: 600; display: grid; place-items: center; }
+.dm-danger { background: rgba(242, 139, 130, 0.12) !important; color: #f28b82 !important; }
+.dm-tile { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #000; font: 700 20px/1 'Barlow Semi Condensed', sans-serif; }
+.dm-save { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--dm-accent); color: #000; font-size: 12px; font-weight: 700; }
+
+/* Trip progress */
+.dm-prog { position: relative; height: 22px; margin: 0 6px; }
+.dm-prog .pg-track { position: absolute; left: 0; right: 0; top: 10px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); }
+.dm-prog .pg-fill { position: absolute; left: 0; top: 10px; height: 3px; border-radius: 2px; background: var(--dm-accent); }
+.dm-prog .pg-me { position: absolute; top: 0; z-index: 2; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--dm-accent); color: #000; display: grid; place-items: center; box-shadow: 0 0 0 3px #0e1216; }
+.dm-prog .pg-stop { position: absolute; z-index: 1; top: 1px; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%; display: grid; place-items: center; font: 700 11px 'Barlow Semi Condensed', sans-serif; color: #000; box-shadow: 0 0 0 2px #000; }
+.dm-prog .pg-end { position: absolute; right: -6px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #000; border: 3px solid #fff; box-sizing: border-box; }
+
+/* ---- The driver arrow (one marker, moved every frame) ---- */
+.dm-puck { width: 56px; height: 56px; position: relative; pointer-events: none; }
+.dm-puck-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(160, 220, 255, 0.2); }
+.dm-puck-arrow { position: absolute; inset: 8px; width: 40px; height: 40px; fill: var(--dm-accent); stroke: #fff; stroke-width: 2.5; stroke-linejoin: round; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)); }
+.dm-puck.no-heading .dm-puck-arrow { display: none; }
+.dm-puck.no-heading .dm-puck-halo { inset: 16px; background: var(--dm-accent); border: 3px solid #fff; box-shadow: 0 0 0 8px rgba(160, 220, 255, 0.25), 0 3px 8px rgba(0, 0, 0, 0.5); }
+
+/* ---- Truck settings sheet ---- */
+.dm-scrim { position: absolute; inset: 0; z-index: 40; border: 0; padding: 0; background: rgba(0, 0, 0, 0.5); animation: dm-fade 0.2s ease backwards; }
+.dm-trucksheet { z-index: 41; background: #111518; }
+.dm-handle { display: none; }
+.dm-field { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; }
+.dm-field > span:first-child { font-size: 12px; color: #999; }
+.dm-field select, .dm-field input { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; height: 40px; padding: 0 8px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; background: rgba(255, 255, 255, 0.05); color: #fff; font: inherit; font-size: 16px; }
+.dm-field input[aria-invalid='true'] { border-color: #f28b82; }
+.dm-switch { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 0; text-align: left; color: #fff; font: inherit; }
+.dm-switch > span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.dm-switch > span > span { font-size: 13px; color: #999; }
+.dm-switch i { flex: none; width: 44px; height: 26px; border-radius: 13px; background: rgba(255, 255, 255, 0.15); position: relative; transition: background 0.2s; }
+.dm-switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.dm-switch[aria-checked='true'] i { background: var(--dm-accent); }
+.dm-switch[aria-checked='true'] i::after { transform: translateX(18px); }
+
+/* ---- By state: a full screen over the map, built from the agents' screen parts (.d-*) ---- */
+.dm-bystate { position: absolute; inset: 0; z-index: 30; max-width: none !important; margin: 0 !important; background: #000; animation: dm-fade 0.2s ease backwards; }
+/* On wide screens the content is a comfortable centred column on a full black screen (no map peeking). */
+.dm-bystate > .d-head, .dm-bystate > .d-main, .dm-bystate > .d-results, .dm-bystate > .d-foot { width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+.dm-bystate > .d-head { border-bottom: 0; }
+.dm-bystate > .d-head::after { content: ''; position: absolute; left: 0; right: 0; margin-top: 12px; border-bottom: 1px solid #333; }
+.dm-bystate .d-head { padding-top: calc(var(--dm-safe-top) + 8px); }
+.dm-bystate .d-foot { padding-bottom: calc(16px + var(--dm-safe-bottom)); }
+.dm-brand-letter { color: #000; font: 700 16px/1 'Barlow Semi Condensed', sans-serif; }
+.d-brand.on .dm-brand-letter { box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--blue); }
+.dm-bystate-top { position: absolute; right: 16px; bottom: calc(96px + var(--dm-safe-bottom)); z-index: 5; background: rgba(0, 0, 0, 0.7); }
+.dm-sheet-over { z-index: 25; background: #111518; }
+
+/* Wider screens (tablets, desktop Telegram): cards stay a comfortable width on the left. */
+@media (min-width: 720px) {
+  .dm-top { left: 16px; right: auto; width: 380px; margin: 0; }
+  .dm-sheet { left: 16px; right: auto; width: 380px; margin: 0; bottom: calc(var(--dm-safe-bottom) + 16px); }
+  .dm-fabs { right: 16px; bottom: calc(var(--dm-safe-bottom) + 20px); }
+}
+/* Small phones (iPhone SE, 320-360 px): tighter type. */
+@media (max-width: 360px) {
+  .dm-banner-text b { font-size: 22px; }
+  .dm-input input { font-size: 15px; }
+  .dm-tripline-price b { font-size: 26px; }
+}
+
+@keyframes dm-up { from { transform: translateY(16px); opacity: 0; } }
+@keyframes dm-in { from { transform: translateY(-8px); opacity: 0; } }
+@keyframes dm-fade { from { opacity: 0; } }
+@keyframes dm-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dm *, .dm *::before, .dm *::after { animation: none !important; transition: none !important; } }

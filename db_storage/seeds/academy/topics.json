@@ -1,0 +1,57 @@
+{
+  "note": "Topic assignments are INFERRED from question content (not stated in the source documents). Admins can change them in the question bank.",
+  "topics": [
+    {
+      "id": "roles",
+      "name": "Industry roles"
+    },
+    {
+      "id": "terms",
+      "name": "Terms & equipment"
+    },
+    {
+      "id": "compliance",
+      "name": "Compliance & licensing"
+    },
+    {
+      "id": "sales",
+      "name": "Discount rules & sales practice"
+    },
+    {
+      "id": "offer",
+      "name": "CFT offer details"
+    }
+  ],
+  "assignments": {
+    "1": "roles",
+    "2": "roles",
+    "3": "roles",
+    "4": "roles",
+    "5": "roles",
+    "6": "roles",
+    "7": "terms",
+    "8": "terms",
+    "9": "terms",
+    "10": "terms",
+    "11": "compliance",
+    "12": "compliance",
+    "13": "compliance",
+    "14": "compliance",
+    "15": "compliance",
+    "16": "terms",
+    "17": "terms",
+    "18": "sales",
+    "19": "roles",
+    "20": "sales",
+    "21": "offer",
+    "22": "offer",
+    "23": "offer",
+    "24": "offer",
+    "25": "offer",
+    "26": "offer",
+    "27": "offer",
+    "28": "offer",
+    "29": "offer",
+    "30": "offer"
+  }
+}
