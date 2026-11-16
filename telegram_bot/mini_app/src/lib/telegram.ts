@@ -27,6 +27,13 @@ interface TgWebApp {
   openLink(url: string): void;
   downloadFile?(p: { url: string; file_name: string }, cb?: (accepted: boolean) => void): void;
   BackButton: TgButton;
+  /** Bot API 8.0: the location from Telegram itself, where the page's own location request is blocked. */
+  LocationManager?: {
+    isInited: boolean; isLocationAvailable: boolean; isAccessGranted: boolean; isAccessRequested: boolean;
+    init(cb?: () => void): void;
+    getLocation(cb: (d: { latitude: number; longitude: number; horizontal_accuracy?: number | null; course?: number | null; speed?: number | null } | null) => void): void;
+    openSettings(): void;
+  };
   HapticFeedback?: { impactOccurred(s: string): void; notificationOccurred(t: 'error' | 'success' | 'warning'): void; selectionChanged(): void };
 }
 
@@ -84,6 +91,9 @@ export function initTelegram() {
   root.dataset.tg = '1';
   tg.ready();
   tg.expand();
+  // Telegram keeps the Back button from the previous page (the route map is a page of its own):
+  // every page starts with Close, and a screen shows Back only when it has somewhere to go back to.
+  tg.BackButton.hide();
   try {
     tg.setHeaderColor('#000000');
     tg.setBackgroundColor('#000000');
@@ -159,3 +169,17 @@ export function backToChat() {
   if (tg) tg.close();
 }
 
+export interface TgFix { lat: number; lng: number; accuracy: number | null; heading: number | null; speed: number | null }
+/** One location from Telegram's own location access (asks the person once), or null if unavailable. */
+export function telegramLocation(): Promise<TgFix | null> {
+  const lm = tg && at('8.0') ? tg.LocationManager : undefined;
+  if (!lm) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const get = () => {
+      if (!lm.isLocationAvailable) { resolve(null); return; }
+      lm.getLocation((d) => resolve(d ? { lat: d.latitude, lng: d.longitude, accuracy: d.horizontal_accuracy ?? null, heading: d.course ?? null, speed: d.speed ?? null } : null));
+    };
+    if (lm.isInited) get();
+    else lm.init(get);
+  });
+}

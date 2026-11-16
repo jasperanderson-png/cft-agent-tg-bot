@@ -13,7 +13,7 @@ import { sendAgentExcel, sendSelection, sendStation, type Selection } from './ag
 import { fetchAllStations, FuelError, recentStations } from './cabinet.js';
 import { sendFuelPrices } from './export.js';
 import { agentStations, discountSettings, liveDataset, saveDataset, saveDiscountSettings } from './dataset.js';
-import { driverStations } from './driver-map.js';
+import { driverStations, locateStations } from './driver-map.js';
 import { planRoute, searchPlaces } from './routing.js';
 import { voiceClip } from './voice.js';
 
@@ -152,6 +152,7 @@ export const fuelPrices: Tool = {
     // ---- The drivers' fuel map (Mini App /route) -------------------------------------------------
     // For drivers (handlers/drivers/), agents and admins.
     route('GET', 'driver/stations', asMapViewer(() => driverStations(getPool())));
+    route('POST', 'driver/locate', asMapViewer(() => locateStations(getPool())));
     route('POST', 'driver/route', asMapViewer((_v, req) => planRoute(bodyObject(req), fetch, req.ip)));
     // The natural voice: a plain GET so phones and the CDN cache each phrase (no sign-in: an <audio>
     // fetch carries no headers; rate-limited and capped by the shared allowance).

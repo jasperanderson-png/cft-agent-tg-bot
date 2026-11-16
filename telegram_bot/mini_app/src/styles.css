@@ -448,6 +448,7 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .d-search label .icon { position: absolute; left: 13px; top: 14px; color: var(--muted); }
 .d-search input { width: 100%; height: 44px; padding: 0 12px 0 38px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.04); color: #fff; font-size: 15px; outline: none; }
 .d-search input:focus { border-color: var(--blue); }
+.d-search input:focus-visible { outline: none; } /* one frame: the border, not the browser ring too */
 .d-sq { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; cursor: pointer; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--muted); }
 .d-sq.on { border-color: var(--blue); background: var(--blue); color: #000; }
 .d-main { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 22px; overscroll-behavior: contain; }
@@ -533,8 +534,8 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .d-pricecard > img { position: absolute; left: -30%; bottom: -120%; width: 360px; opacity: .35; pointer-events: none; }
 .d-pricecard > div { position: relative; }
 .d-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .09em; color: var(--muted); }
-.d-bigprice { display: block; margin-top: 8px; font-family: var(--cond); font-weight: 700; font-size: 72px; line-height: .8; color: var(--blue); font-variant-numeric: tabular-nums; }
-.d-pricecard dl { position: relative; margin: 0; display: grid; grid-template-columns: auto auto; gap: 8px 14px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.d-bigprice { display: block; margin-top: 8px; font-family: var(--cond); font-weight: 700; font-size: clamp(48px, 15vw, 72px); line-height: .8; color: var(--blue); font-variant-numeric: tabular-nums; }
+.d-pricecard dl { position: relative; flex: none; margin: 0; display: grid; grid-template-columns: auto auto; gap: 8px 14px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .d-pricecard dt { color: var(--muted); }
 .d-pricecard dd { margin: 0; text-align: right; }
 .d-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

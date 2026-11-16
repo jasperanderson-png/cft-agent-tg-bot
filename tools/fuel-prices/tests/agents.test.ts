@@ -440,7 +440,13 @@ describe.skipIf(!DB)('agents in the bot and the Mini App (PostgreSQL)', () => {
     delete process.env.ORS_API_KEY; // a developer's .env.local may have one
     expect((await api('GET', 'driver/stations', CANDIDATE)).status).toBe(403);
     expect((await api('GET', 'driver/stations', null)).status).toBe(401);
+    // The list answers at once (no lookups); the page then asks for the missing map points in the background.
     let body = (await api('GET', 'driver/stations', AGENT)).body as any;
+    expect(body).toMatchObject({ routing: false, pendingGeocode: 4 });
+    expect(body.stations.every((s: any) => s.lat === null)).toBe(true);
+    expect((await api('POST', 'driver/locate', CANDIDATE)).status).toBe(403);
+    expect((await api('POST', 'driver/locate', AGENT)).body).toMatchObject({ placed: 4, pending: 0 });
+    body = (await api('GET', 'driver/stations', AGENT)).body as any;
     expect(body).toMatchObject({ routing: false, pendingGeocode: 0 });
     // Love's 300 from Love's own store list (by store number); the others by street address.
     expect(body.stations.find((s: any) => s.station === "Love's 300")).toMatchObject({ brand: 'l', retail: 6.1, discounted: 5.51, lat: 41.1239, lng: -100.7654 });

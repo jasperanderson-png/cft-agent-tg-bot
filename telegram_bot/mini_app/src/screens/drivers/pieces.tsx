@@ -106,11 +106,11 @@ export function StationCard({ s, badge, near, detail, onToggle, primary, onPrima
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <span className={'dm-badge' + (near ? ' near' : '')}>{badge}</span>
-          <b className="num" style={{ display: 'block', marginTop: 8, fontSize: 23, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.station}</b>
-          <span style={{ display: 'block', marginTop: 5, fontSize: 15, color: '#ccc' }}>{placeOf(s)}</span>
+          <b className="num" style={{ display: 'block', marginTop: 6, fontSize: 21, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.station}</b>
+          <span style={{ display: 'block', marginTop: 4, fontSize: 14, color: '#ccc' }}>{placeOf(s)}</span>
         </div>
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <b className="num" style={{ fontSize: 40, lineHeight: 0.85, color: '#a0dcff' }}>{money(payPrice(s))}</b>
+          <b className="num" style={{ fontSize: 34, lineHeight: 0.85, color: '#a0dcff' }}>{money(payPrice(s))}</b>
           {s.discounted != null && s.retail != null && <s style={{ marginTop: 4, fontSize: 13, color: '#999' }}>{money(s.retail)}</s>}
         </span>
       </div>

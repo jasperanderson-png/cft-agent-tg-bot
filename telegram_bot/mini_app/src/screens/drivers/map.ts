@@ -86,7 +86,8 @@ export async function createMap(el: HTMLElement): Promise<MlMap> {
     // Icons the style refers to but hides: a transparent pixel instead of a warning.
     if (!map.hasImage(e.id)) map.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
   });
-  map.on('load', () => {
+  // As soon as the style is read (not after every first tile): the stations show while the map fills in.
+  map.once('style.load', () => {
     map.addImage('chip', chipImage('#10161b', '#3a4650'), CHIP);
     for (const [b, c] of Object.entries(BRAND_COLORS)) {
       map.addImage(`chip-${b}`, chipImage(c, '#05080c'), CHIP);
@@ -96,7 +97,8 @@ export async function createMap(el: HTMLElement): Promise<MlMap> {
     // Under the first label layer: street and place names stay readable on top of the route.
     const labels = map.getStyle().layers?.find((l) => l.type === 'symbol')?.id;
     for (const id of ['route-base', 'route', 'traffic', 'done', 'turn', 'stations', 'rstations']) {
-      map.addSource(id, { type: 'geojson', data: empty });
+      // The route keeps line metrics: it draws itself on from start to end when it arrives.
+      map.addSource(id, { type: 'geojson', data: empty, ...(id === 'route' ? { lineMetrics: true } : {}) });
     }
     const width = (a: number, b: number) => ['interpolate', ['linear'], ['zoom'], 4, a, 14, b] as maplibregl.ExpressionSpecification;
     const round = { 'line-cap': 'round', 'line-join': 'round' } as const;
@@ -170,11 +172,77 @@ export function drawTurn(map: MlMap, at: LatLng | null) {
 export interface MapStation { id: number; brand: string; lat: number | null; lng: number | null; price: number | null }
 const money = (n: number | null) => (n != null ? '$' + n.toFixed(2) : '');
 
-/** Every station with a map point (the clustered layer). */
-export function setStations(map: MlMap, stations: MapStation[]) {
-  setData(map, 'stations', fc(stations.filter((s) => s.lat != null && s.lng != null).map((s) => ({
-    type: 'Feature', properties: { id: s.id, brand: s.brand, price: money(s.price), cost: s.price ?? 99 }, geometry: { type: 'Point', coordinates: [s.lng!, s.lat!] },
+const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+/** Runs `step(0..1)` over `ms` on animation frames; returns a stop function. */
+function animate(ms: number, step: (t: number) => void, done?: () => void) {
+  const t0 = performance.now();
+  let raf = 0;
+  let over = false;
+  const finish = () => { if (over) return; over = true; cancelAnimationFrame(raf); clearTimeout(guard); step(1); done?.(); };
+  // Frames can be paused (power saving, a hidden page): the end state comes anyway, never stuck halfway.
+  const guard = setTimeout(finish, ms + 400);
+  step(0);
+  const frame = (now: number) => {
+    const t = Math.min(1, (now - t0) / ms);
+    if (t >= 1) { finish(); return; }
+    step(ease(t));
+    raf = requestAnimationFrame(frame);
+  };
+  raf = requestAnimationFrame(frame);
+  return () => { over = true; cancelAnimationFrame(raf); clearTimeout(guard); };
+}
+
+/**
+ * Every station with a map point. `reveal`: the first time, they scatter in as a wave from the middle
+ * of the screen outwards (each icon fades in by its distance, `r`), in under a second.
+ */
+export function setStations(map: MlMap, stations: MapStation[], reveal = false) {
+  const c = map.getCenter();
+  const placed = stations.filter((s) => s.lat != null && s.lng != null);
+  const d = placed.map((s) => Math.hypot(s.lng! - c.lng, (s.lat! - c.lat) * 1.3));
+  const far = Math.max(1e-6, ...d);
+  setData(map, 'stations', fc(placed.map((s, i) => ({
+    type: 'Feature', properties: { id: s.id, brand: s.brand, price: money(s.price), cost: s.price ?? 99, r: Math.min(1, (d[i] / far) * 0.85 + Math.random() * 0.15) },
+    geometry: { type: 'Point', coordinates: [s.lng!, s.lat!] },
   }))));
+  if (!reveal || !map.getLayer('st-icon')) return;
+  const W = 0.18;
+  const at = (t: number) => ['interpolate', ['linear'], ['get', 'r'], t * (1 + W) - W, 1, t * (1 + W), 0] as maplibregl.ExpressionSpecification;
+  animate(900, (t) => {
+    map.setPaintProperty('st-icon', 'icon-opacity', at(t));
+    map.setPaintProperty('st-icon', 'text-opacity', at(t));
+  }, () => {
+    map.setPaintProperty('st-icon', 'icon-opacity', 1);
+    map.setPaintProperty('st-icon', 'text-opacity', 1);
+  });
+}
+/** Only these stations on the all-stations layer (By state on wide screens); null shows them all. */
+export function filterStations(map: MlMap, ids: number[] | null) {
+  if (map.getLayer('st-icon')) map.setFilter('st-icon', ids ? ['in', ['get', 'id'], ['literal', ids]] : null);
+}
+/** Fits a set of points (By state's picked stations) into the area right of a left panel. */
+export function fitPoints(map: MlMap, pts: LatLng[], pad: { left: number; top: number; bottom: number }) {
+  if (!pts.length) return;
+  const b = new maplibregl.LngLatBounds(ll(pts[0]), ll(pts[0]));
+  for (const p of pts) b.extend(ll(p));
+  map.fitBounds(b, { padding: { top: pad.top + 30, bottom: pad.bottom + 30, left: pad.left + 30, right: 60 }, duration: 600, maxZoom: 11 });
+}
+
+let stopReveal: (() => void) | null = null;
+/** A new route draws itself on from the start to the destination (about 0.8 s). */
+export function revealRoute(map: MlMap) {
+  stopReveal?.();
+  const grad = (t: number, color: string) => ['step', ['line-progress'], color, Math.max(0.0001, t), 'rgba(0,0,0,0)'] as maplibregl.ExpressionSpecification;
+  const clear = () => {
+    for (const id of ['route-line', 'route-casing']) if (map.getLayer(id)) map.setPaintProperty(id, 'line-gradient', undefined);
+    if (map.getLayer('traffic')) map.setPaintProperty('traffic', 'line-opacity', 1);
+    stopReveal = null;
+  };
+  if (map.getLayer('traffic')) map.setPaintProperty('traffic', 'line-opacity', 0);
+  stopReveal = animate(800, (t) => {
+    map.setPaintProperty('route-line', 'line-gradient', grad(t, ACCENT));
+    map.setPaintProperty('route-casing', 'line-gradient', grad(t, '#05080c'));
+  }, clear);
 }
 /** The route's stations: `sel` the chosen one, `tag` those that show their price, `near` those off the route. */
 export function setRouteStations(map: MlMap, stations: (MapStation & { sel: boolean; tag: boolean; near: boolean })[]) {

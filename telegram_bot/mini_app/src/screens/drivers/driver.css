@@ -24,6 +24,8 @@
 :where(.dm) button:active:not(:disabled) { transform: scale(0.96); }
 :where(.dm) input::placeholder { color: #8b949c; }
 :where(.dm) input:focus, :where(.dm) select:focus { outline: none; }
+/* One focus frame: the field's own (below); the app-wide focus ring would draw a second one inside it. */
+.dm input:focus-visible, .dm select:focus-visible { outline: none; }
 .dm .num { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .dm-map { position: absolute; inset: 0; }
@@ -34,28 +36,45 @@
 .dm-error span { font-size: 14px; color: #aaa; line-height: 1.45; }
 
 /* ---- Top: mode tabs + From / To card ---- */
-.dm-top { position: absolute; left: 10px; right: 10px; top: calc(var(--dm-safe-top) + 8px); z-index: 20; display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 0 auto; }
-.dm-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--dm-panel); border: 1px solid var(--dm-line); }
-.dm-tab { flex: 1; height: 34px; border: 0; border-radius: 9px; background: transparent; color: #c9d1d7; font-size: 14px; }
+.dm-top { position: absolute; left: 8px; right: 8px; top: calc(var(--dm-safe-top) + 6px); z-index: 20; display: flex; flex-direction: column; gap: 6px; max-width: 520px; margin: 0 auto; }
+.dm-tabs { display: flex; gap: 2px; padding: 2px; border-radius: 11px; background: var(--dm-panel); border: 1px solid var(--dm-line); }
+.dm-tab { flex: 1; height: 30px; border: 0; border-radius: 9px; background: transparent; color: #c9d1d7; font-size: 13.5px; }
 .dm-tab[aria-selected='true'] { background: var(--dm-accent); color: #000; font-weight: 600; }
-.dm-trip { border-radius: 16px; background: var(--dm-panel); border: 1px solid var(--dm-line); padding: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+.dm-trip { border-radius: 14px; background: var(--dm-panel); border: 1px solid var(--dm-line); padding: 3px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
 /* Each row is its own rounded field: the focus ring sits fully inside the card, never cut off. */
-.dm-input { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px 0 8px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow 0.15s, background-color 0.15s; }
-.dm-input + .dm-input { margin-top: 2px; }
-.dm-input.on { background: rgba(160, 220, 255, 0.07); box-shadow: inset 0 0 0 1.5px var(--dm-accent); }
-.dm-input input { flex: 1; min-width: 0; height: 40px; padding: 0; border: 0; background: transparent; color: #fff; font: inherit; font-size: 16px; font-weight: 600; }
+.dm-input { display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 3px 0 7px; border-radius: 11px; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow 0.15s, background-color 0.15s; }
+.dm-input + .dm-input { margin-top: 1px; }
+/* The field being typed in: one frame that softly pulses. */
+.dm-input.on { background: rgba(160, 220, 255, 0.07); box-shadow: inset 0 0 0 1.5px var(--dm-accent); animation: dm-typing 1.6s ease-in-out infinite; }
+.dm-input input { flex: 1; min-width: 0; height: 38px; padding: 0; border: 0; background: transparent; color: #fff; font: inherit; font-size: 16px; font-weight: 600; }
 .dm-input input.me { color: var(--dm-accent); }
 .dm-input input:disabled { opacity: 0.5; }
-.dm-trip-ico { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
+.dm-trip-ico { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; }
 .dm-trip-ico.truck { background: var(--dm-accent); color: #000; }
 .dm-trip-ico.pin { color: var(--dm-accent); }
-.dm-x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: #9aa3ab; display: grid; place-items: center; }
-.dm-truckrow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; margin-top: 2px; padding: 0 12px; border: 0; border-top: 1px solid var(--dm-line); border-radius: 0 0 12px 12px; background: none; color: #b9c6cf; font-size: 13px; font-weight: 600; text-align: left; }
+.dm-x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: #9aa3ab; display: grid; place-items: center; }
+.dm-truckrow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; margin-top: 2px; padding: 0 12px; border: 0; border-top: 1px solid var(--dm-line); border-radius: 0 0 12px 12px; background: none; color: #b9c6cf; font-size: 13px; font-weight: 600; text-align: left; }
 .dm-truckrow span { flex: 1; }
 .dm-sugg { list-style: none; margin: 2px 0 0; padding: 2px 0 0; border-top: 1px solid var(--dm-line); max-height: 42vh; overflow-y: auto; overscroll-behavior: contain; }
 .dm-sugg button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: #eee; font-size: 15px; text-align: left; }
 .dm-sugg button:active { background: rgba(255, 255, 255, 0.06); }
-.dm-sugg button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-sugg button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-sugg button small { flex: none; font-size: 12px; color: #8aa3ae; }
+.dm-sugg-me span { color: var(--dm-accent); font-weight: 600; }
+.dm-x.me { color: var(--dm-accent); background: rgba(160, 220, 255, 0.1); }
+.dm-acc { flex: none; padding-right: 8px; font-size: 12px; color: #8aa3ae; }
+/* A route is planned: the trip shrinks to one line (tap to change it). */
+.dm-mini { display: flex; align-items: center; gap: 4px; padding: 3px 3px 3px 0; }
+.dm-mini-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 8px 0 7px; border: 0; border-radius: 11px; background: none; text-align: left; color: #b9c6cf; }
+.dm-mini-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.dm-mini-text small { font-size: 12px; color: #8aa3ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-mini-text b { font-size: 15.5px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* While the driver moves the map, the panels step aside; they come back when it stops. */
+.dm-tabs, .dm-trip, .dm-sheet, .dm-more { transition: transform 0.28s var(--dm-ease), opacity 0.2s ease; }
+.dm.dm-moving .dm-tabs, .dm.dm-moving .dm-trip { transform: translateY(-18px); opacity: 0; pointer-events: none; }
+.dm.dm-moving .dm-sheet { transform: translateY(calc(100% + 24px)); opacity: 0; pointer-events: none; }
+.dm.dm-moving .dm-more { opacity: 0; pointer-events: none; }
 
 /* ---- Navigation banner ---- */
 .dm-banner { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 16px; background: #a0dcff; color: #000; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); animation: dm-in 0.25s var(--dm-ease) backwards; }
@@ -72,13 +91,38 @@
 .dm-fabs { position: absolute; right: 12px; bottom: calc(max(var(--sheet-h), var(--dm-safe-bottom)) + 14px); z-index: 18; display: flex; flex-direction: column; gap: 10px; transition: bottom 0.2s var(--dm-ease); }
 .dm-fab { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--dm-line); background: var(--dm-panel); color: #fff; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
 .dm-fab[aria-pressed='true'] { background: var(--dm-accent); color: #000; }
+.dm-fab.busy { box-shadow: 0 0 0 2px rgba(160, 220, 255, 0.25), 0 6px 18px rgba(0, 0, 0, 0.4); animation: dm-pulse 1s ease-in-out infinite; }
+
+/* "Nearby stations": above the card on the left. It nudges three times, each time softer, then rests. */
+.dm-more { position: absolute; left: 12px; bottom: calc(max(var(--sheet-h), var(--dm-safe-bottom)) + 14px); z-index: 18; display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px 0 12px; border: 1px solid var(--dm-line); border-radius: 18px; background: var(--dm-panel); color: #e6edf2; font-size: 13.5px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); animation: dm-fade 0.25s ease backwards; }
+.dm-more::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; animation: dm-nudge 6s ease-out 0.9s 1 both; }
+.dm-more.on { background: var(--dm-accent); color: #000; }
+.dm-more.on::after { animation: none; }
+.dm-toast { position: absolute; left: 50%; top: calc(var(--dm-safe-top) + 120px); z-index: 45; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 9px 14px; border-radius: 12px; background: #1b2329; border: 1px solid rgba(160, 220, 255, 0.25); color: #e6edf2; font-size: 14px; line-height: 1.35; text-align: center; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5); animation: dm-fade 0.22s ease backwards; pointer-events: none; }
+
+/* Building a route: the screen is the app's until the route is ready (or the driver cancels). */
+.dm-building { position: absolute; inset: 0; z-index: 35; display: flex; align-items: flex-end; justify-content: center; padding: 16px 12px calc(var(--dm-safe-bottom) + 16px); background: linear-gradient(to bottom, rgba(5, 8, 12, 0.15), rgba(5, 8, 12, 0.7)); animation: dm-fade 0.25s ease backwards; }
+.dm-build-card { width: 100%; max-width: 420px; padding: 18px 18px 14px; border-radius: 20px; background: #111518; border: 1px solid var(--dm-line); box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 6px; animation: dm-up 0.3s var(--dm-ease) backwards; }
+.dm-build-card > b { font: 700 22px/1.1 'Barlow Semi Condensed', sans-serif; }
+.dm-build-to { font-size: 14px; color: #9aa3ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-build-road { position: relative; height: 28px; margin-bottom: 6px; overflow: hidden; }
+.dm-build-road i { position: absolute; left: 0; right: 0; top: 13px; height: 3px; border-radius: 2px; background: repeating-linear-gradient(90deg, var(--dm-accent) 0 14px, transparent 14px 24px); opacity: 0.55; animation: dm-road 0.6s linear infinite; }
+.dm-build-road span { position: absolute; top: 2px; left: 0; width: 26px; height: 24px; border-radius: 8px; background: var(--dm-accent); color: #000; display: grid; place-items: center; animation: dm-drive 2.4s var(--dm-ease) infinite alternate; }
+.dm-build-steps { list-style: none; margin: 8px 0 6px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dm-build-steps li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: #6f7a83; transition: color 0.25s; }
+.dm-build-steps li i { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #3a4650; display: grid; place-items: center; color: #000; transition: background-color 0.25s, border-color 0.25s; }
+.dm-build-steps li.now { color: #fff; }
+.dm-build-steps li.now i { border-color: rgba(160, 220, 255, 0.3); border-top-color: var(--dm-accent); animation: dm-spin 0.8s linear infinite; }
+.dm-build-steps li.done { color: #c3ccd2; }
+.dm-build-steps li.done i { background: var(--dm-accent); border-color: var(--dm-accent); }
+.dm-build-card .dm-soft { width: 100%; min-height: 42px; margin-top: 4px; }
 
 /* ---- Bottom card (only when there is something to show) ---- */
-.dm-sheet { position: absolute; left: 8px; right: 8px; bottom: calc(var(--dm-safe-bottom) + 8px); z-index: 25; max-width: 560px; margin: 0 auto; max-height: calc(100% - var(--dm-safe-top) - 120px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; border-radius: 20px; background: var(--dm-panel); border: 1px solid var(--dm-line); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; gap: 12px; animation: dm-up 0.22s var(--dm-ease) backwards; }
+.dm-sheet { position: absolute; left: 8px; right: 8px; bottom: calc(var(--dm-safe-bottom) + 8px); z-index: 25; max-width: 560px; margin: 0 auto; max-height: calc(100% - var(--dm-safe-top) - 120px); overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; border-radius: 18px; background: var(--dm-panel); border: 1px solid var(--dm-line); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; gap: 10px; animation: dm-up 0.22s var(--dm-ease) backwards; }
 .dm-close { position: absolute; top: 10px; right: 10px; z-index: 1; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.07); color: #aab3ba; display: grid; place-items: center; }
 .dm-note { margin: 0; font-size: 15px; line-height: 1.45; color: #ccd3d8; }
 .dm-summary { display: flex; align-items: baseline; gap: 10px; }
-.dm-summary b { font: 700 24px/1 'Barlow Semi Condensed', sans-serif; }
+.dm-summary b { font: 700 21px/1 'Barlow Semi Condensed', sans-serif; }
 .dm-summary span { flex: 1; font-size: 13px; color: #9aa3ab; }
 .dm-spin { flex: none !important; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(160, 220, 255, 0.25); border-top-color: var(--dm-accent); animation: dm-spin 0.8s linear infinite; }
 .dm-tripline { display: flex; align-items: center; gap: 12px; }
@@ -107,9 +151,9 @@
 .dm-cell { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
 .dm-cell dt { font-size: 12px; color: #999; }
 .dm-cell dd { margin: 2px 0 0; }
-.dm-primary { flex: 1; min-height: 50px; padding: 0 16px; border: 0; border-radius: 13px; background: var(--dm-accent); color: #000; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.dm-primary { flex: 1; min-height: 46px; padding: 0 16px; border: 0; border-radius: 13px; background: var(--dm-accent); color: #000; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .dm-primary:disabled { opacity: 0.45; }
-.dm-soft { flex: none; min-height: 50px; min-width: 50px; padding: 0 14px; border: 0; border-radius: 13px; background: rgba(160, 220, 255, 0.12); color: var(--dm-accent); font-weight: 600; display: grid; place-items: center; }
+.dm-soft { flex: none; min-height: 46px; min-width: 46px; padding: 0 14px; border: 0; border-radius: 13px; background: rgba(160, 220, 255, 0.12); color: var(--dm-accent); font-weight: 600; display: grid; place-items: center; }
 .dm-danger { background: rgba(242, 139, 130, 0.12) !important; color: #f28b82 !important; }
 .dm-tile { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #000; font: 700 20px/1 'Barlow Semi Condensed', sans-serif; }
 .dm-save { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--dm-accent); color: #000; font-size: 12px; font-weight: 700; }
@@ -145,24 +189,23 @@
 .dm-switch[aria-checked='true'] i { background: var(--dm-accent); }
 .dm-switch[aria-checked='true'] i::after { transform: translateX(18px); }
 
-/* ---- By state: a full screen over the map, built from the agents' screen parts (.d-*) ---- */
-.dm-bystate { position: absolute; inset: 0; z-index: 30; max-width: none !important; margin: 0 !important; background: #000; animation: dm-fade 0.2s ease backwards; }
-/* On wide screens the content is a comfortable centred column on a full black screen (no map peeking). */
-.dm-bystate > .d-head, .dm-bystate > .d-main, .dm-bystate > .d-results, .dm-bystate > .d-foot { width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
-.dm-bystate > .d-head { border-bottom: 0; }
-.dm-bystate > .d-head::after { content: ''; position: absolute; left: 0; right: 0; margin-top: 12px; border-bottom: 1px solid #333; }
-.dm-bystate .d-head { padding-top: calc(var(--dm-safe-top) + 8px); }
-.dm-bystate .d-foot { padding-bottom: calc(16px + var(--dm-safe-bottom)); }
-.dm-brand-letter { color: #000; font: 700 16px/1 'Barlow Semi Condensed', sans-serif; }
-.d-brand.on .dm-brand-letter { box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--blue); }
-.dm-bystate-top { position: absolute; right: 16px; bottom: calc(96px + var(--dm-safe-bottom)); z-index: 5; background: rgba(0, 0, 0, 0.7); }
-.dm-sheet-over { z-index: 25; background: #111518; }
+/* ---- By state: the agents' own Find discounts screen (.d-*): full screen on phones, like theirs ---- */
+.dm-bystate { position: absolute; inset: 0; z-index: 30; background: #000; animation: dm-fade 0.2s ease backwards; }
+.dm-bystate > .d-screen { height: 100%; }
 
 /* Wider screens (tablets, desktop Telegram): cards stay a comfortable width on the left. */
 @media (min-width: 720px) {
   .dm-top { left: 16px; right: auto; width: 380px; margin: 0; }
   .dm-sheet { left: 16px; right: auto; width: 380px; margin: 0; bottom: calc(var(--dm-safe-bottom) + 16px); }
   .dm-fabs { right: 16px; bottom: calc(var(--dm-safe-bottom) + 20px); }
+  .dm-more { left: 16px; }
+  .dm-building { justify-content: flex-start; padding-left: 16px; }
+  .dm-build-card { width: 380px; }
+}
+/* Wide screens: By state is a panel on the left and the map beside it shows the stations picked. */
+@media (min-width: 900px) {
+  .dm-bystate { right: auto; width: 420px; border-right: 1px solid #222; box-shadow: 12px 0 40px rgba(0, 0, 0, 0.45); }
+  .dm-bystate > .d-screen { max-width: none; }
 }
 /* Small phones (iPhone SE, 320-360 px): tighter type. */
 @media (max-width: 360px) {
@@ -175,4 +218,17 @@
 @keyframes dm-in { from { transform: translateY(-8px); opacity: 0; } }
 @keyframes dm-fade { from { opacity: 0; } }
 @keyframes dm-spin { to { transform: rotate(360deg); } }
+@keyframes dm-typing { 50% { box-shadow: inset 0 0 0 1.5px rgba(160, 220, 255, 0.45); } }
+@keyframes dm-pulse { 50% { box-shadow: 0 0 0 6px rgba(160, 220, 255, 0.12), 0 6px 18px rgba(0, 0, 0, 0.4); } }
+@keyframes dm-road { to { background-position: 24px 0; } }
+@keyframes dm-drive { from { transform: translateX(0); } to { transform: translateX(calc(min(384px, 100vw - 84px) - 26px)); } }
+@keyframes dm-nudge {
+  0% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0.7); }
+  12% { box-shadow: 0 0 0 10px rgba(160, 220, 255, 0); }
+  30% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0.45); }
+  42% { box-shadow: 0 0 0 7px rgba(160, 220, 255, 0); }
+  60% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0.25); }
+  72% { box-shadow: 0 0 0 4px rgba(160, 220, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0); }
+}
 @media (prefers-reduced-motion: reduce) { .dm *, .dm *::before, .dm *::after { animation: none !important; transition: none !important; } }

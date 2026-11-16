@@ -112,6 +112,8 @@ type Picks = { states: string[]; brands: PartnerBrand[] };
 /** The drivers' fuel map (/route). Signed in like Find discounts. */
 export const driverApi = {
   stations: () => viewer<DriverStations>('GET', 'driver/stations'),
+  /** Looks up map points for stations that have none yet (in the background). */
+  locate: () => viewer<{ placed: number; pending: number }>('POST', 'driver/locate'),
   /** A truck route. Places are points (a picked suggestion, the GPS fix) or typed text. */
   route: (b: { from: unknown; to: unknown; via?: { lat: number; lng: number }; truck: TruckProfile }) => viewer<DriverRoute>('POST', 'driver/route', b),
   places: (q: string, near: { lat: number; lng: number } | null) =>

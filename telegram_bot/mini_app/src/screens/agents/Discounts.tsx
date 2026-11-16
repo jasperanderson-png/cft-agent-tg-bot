@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BRANDS, byPrice, normalize, parseQuery, stateName, titleCase, usd, type AgentDiscounts, type AgentStation, type PartnerBrand } from '../../../../../shared/discounts';
 import { discountsApi, type ApiError } from '../../lib/api';
 import { haptic, openExternal, routePageUrl, useBackButton } from '../../lib/telegram';
@@ -101,9 +101,24 @@ export function Discounts({ onBack }: { onBack?: () => void }) {
   return (
     <>
       <Picker
-        data={data} all={all} cities={cities} states={states} brands={brands} text={text} picked={picked}
+        ready={!!data} pulledAt={data?.pulledAt ?? null} all={all} cities={cities} states={states} brands={brands} text={text} picked={picked}
         setStates={setStates} setBrands={setBrands} setText={setText}
-        onShow={() => setView('results')} onProfile={() => setView('profile')} toast={toast}
+        onShow={() => setView('results')} toast={toast}
+        head={(
+          <>
+            <div className="d-head-row">
+              <img src="/assets/cft-primary.svg" alt="CF Transport" className="d-logo" />
+              <button type="button" className="d-sq" style={{ marginLeft: 'auto', marginRight: 8 }} aria-label="Driver route map" title="Route map" onClick={() => { haptic.tap(); location.assign(routePageUrl()); }}><Icon name="pin" size={18} /></button>
+              {data && (
+                <button type="button" className="d-me" aria-label="Your profile" onClick={() => setView('profile')}>
+                  <span>{data.me.name}</span>
+                  <span className="d-avatar">{initials(data.me.name)}</span>
+                </button>
+              )}
+            </div>
+            <h1 className="d-h1">Find discounts</h1>
+          </>
+        )}
       />
       {toastNode}
     </>
@@ -112,12 +127,17 @@ export function Discounts({ onBack }: { onBack?: () => void }) {
 
 // ---- Find discounts ------------------------------------------------------------------------------
 
-function Picker(p: {
-  data: AgentDiscounts | null; all: AgentStation[]; cities: string[]; states: string[]; brands: PartnerBrand[]; text: string; picked: AgentStation[];
+/**
+ * The state and brand picker (shared: agents' Find discounts, drivers' By state on the route map).
+ * `head` is what sits above the search: the agents' logo, title and profile, or the drivers' tabs.
+ */
+export function Picker(p: {
+  ready: boolean; pulledAt: string | null; head: ReactNode; className?: string;
+  all: AgentStation[]; cities: string[]; states: string[]; brands: PartnerBrand[]; text: string; picked: AgentStation[];
   setStates: (f: (s: string[]) => string[]) => void; setBrands: (f: (b: PartnerBrand[]) => PartnerBrand[]) => void; setText: (t: string) => void;
-  onShow: () => void; onProfile: () => void; toast: (m: string) => void;
+  onShow: () => void; toast: (m: string) => void;
 }) {
-  const { data, all, states, brands, text } = p;
+  const { all, states, brands, text } = p;
   const scroll = useScrollTop();
   const toggle = <T,>(set: (f: (x: T[]) => T[]) => void, v: T) => () => {
     haptic.select();
@@ -149,19 +169,9 @@ function Picker(p: {
   };
 
   return (
-    <div className="d-screen">
+    <div className={'d-screen' + (p.className ? ' ' + p.className : '')}>
       <header className="d-head" data-enter>
-        <div className="d-head-row">
-          <img src="/assets/cft-primary.svg" alt="CF Transport" className="d-logo" />
-          <button type="button" className="d-sq" style={{ marginLeft: 'auto', marginRight: 8 }} aria-label="Driver route map" title="Route map" onClick={() => { haptic.tap(); location.assign(routePageUrl()); }}><Icon name="pin" size={18} /></button>
-          {data && (
-            <button type="button" className="d-me" aria-label="Your profile" onClick={p.onProfile}>
-              <span>{data.me.name}</span>
-              <span className="d-avatar">{initials(data.me.name)}</span>
-            </button>
-          )}
-        </div>
-        <h1 className="d-h1">Find discounts</h1>
+        {p.head}
         <form className="d-search" onSubmit={apply}>
           <label>
             <span className="sr-only">Type states or stations</span>
@@ -173,7 +183,7 @@ function Picker(p: {
       </header>
 
       <main className="d-main" data-stagger ref={scroll.ref} onScroll={scroll.onScroll}>
-        {!data ? <Skeleton /> : !data.pulledAt ? (
+        {!p.ready ? <Skeleton /> : !p.pulledAt ? (
           <div className="d-empty"><Icon name="fuel" size={22} /><span>Fuel discounts are not loaded yet. An admin needs to update the prices first.</span></div>
         ) : (
           <>
@@ -246,9 +256,10 @@ function Picker(p: {
 
 // ---- Results -------------------------------------------------------------------------------------
 
-function Results(p: {
-  stations: AgentStation[]; states: string[]; brands: PartnerBrand[]; pulledAt: string | null;
-  onEdit: () => void; onOpen: (s: AgentStation) => void; toast: (m: string) => void;
+/** The result list (shared). `foot` replaces the agents' Send list / Excel buttons (drivers have none). */
+export function Results(p: {
+  stations: AgentStation[]; states: string[]; brands: PartnerBrand[]; pulledAt: string | null; className?: string;
+  onEdit: () => void; onOpen: (s: AgentStation) => void; toast: (m: string) => void; foot?: ReactNode; hint?: string;
 }) {
   const [tab, setTab] = useState<'state' | 'cheap' | 'discount'>('state');
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -300,7 +311,7 @@ function Results(p: {
   );
 
   return (
-    <div className="d-screen">
+    <div className={'d-screen' + (p.className ? ' ' + p.className : '')}>
       <header className="d-head" data-enter>
         <div className="d-head-row">
           <button type="button" className="d-back" aria-label="Back to the picker" onClick={p.onEdit}><Icon name="left" /></button>
@@ -352,25 +363,30 @@ function Results(p: {
               )}
             </section>
           )}
-        {p.pulledAt && <p className="d-hint" style={{ padding: '18px 0 4px' }}>Prices per gallon with the CFT discount · updated {fmtDay(p.pulledAt)}. Tap a station for the address and map.</p>}
+        {p.pulledAt && <p className="d-hint" style={{ padding: '18px 0 4px' }}>Prices per gallon with the CFT discount · updated {fmtDay(p.pulledAt)}. {p.hint ?? 'Tap a station for the address and map.'}</p>}
       </main>
 
-      <div className="d-foot">
-        <button type="button" className="d-cta wide" data-sheen disabled={!!busy || !p.stations.length} onClick={() => run('send')}>
-          {busy === 'send' ? <Spinner size={16} /> : <Icon name="send" />}Send list to chat
-        </button>
-        <button type="button" className="d-ghost" disabled={!!busy || !p.stations.length} onClick={() => run('excel')}>
-          {busy === 'excel' ? <Spinner size={16} /> : <Icon name="download" size={15} />}Excel
-        </button>
-        {scroll.show && <ToTop onClick={scroll.toTop} />}
-      </div>
+      {p.foot !== undefined ? (
+        (p.foot || scroll.show) && <div className="d-foot">{p.foot}{scroll.show && <ToTop onClick={scroll.toTop} />}</div>
+      ) : (
+        <div className="d-foot">
+          <button type="button" className="d-cta wide" data-sheen disabled={!!busy || !p.stations.length} onClick={() => run('send')}>
+            {busy === 'send' ? <Spinner size={16} /> : <Icon name="send" />}Send list to chat
+          </button>
+          <button type="button" className="d-ghost" disabled={!!busy || !p.stations.length} onClick={() => run('excel')}>
+            {busy === 'excel' ? <Spinner size={16} /> : <Icon name="download" size={15} />}Excel
+          </button>
+          {scroll.show && <ToTop onClick={scroll.toTop} />}
+        </div>
+      )}
     </div>
   );
 }
 
 // ---- Station details -----------------------------------------------------------------------------
 
-function StationSheet({ s, onClose, toast }: { s: AgentStation; pulledAt: string | null; onClose: () => void; toast: (m: string) => void }) {
+/** A station's details (shared). `actions` replaces the agents' Google Maps / Send buttons. */
+export function StationSheet({ s, onClose, toast, actions }: { s: AgentStation; pulledAt: string | null; onClose: () => void; toast: (m: string) => void; actions?: ReactNode }) {
   const [sending, setSending] = useState(false);
   const updated = s.updatedAt ? new Date(s.updatedAt) : null;
   const send = async () => {
@@ -424,8 +440,12 @@ function StationSheet({ s, onClose, toast }: { s: AgentStation; pulledAt: string
           </div>
         </div>
         <div className="d-stack">
-          <button type="button" className="d-cta" onClick={() => openExternal(mapsUrl(s))}><Icon name="ext" />Open in Google Maps</button>
-          <button type="button" className="d-ghost" disabled={sending} onClick={send}>{sending ? <Spinner size={16} /> : <Icon name="send" />}Send to a driver</button>
+          {actions ?? (
+            <>
+              <button type="button" className="d-cta" onClick={() => openExternal(mapsUrl(s))}><Icon name="ext" />Open in Google Maps</button>
+              <button type="button" className="d-ghost" disabled={sending} onClick={send}>{sending ? <Spinner size={16} /> : <Icon name="send" />}Send to a driver</button>
+            </>
+          )}
         </div>
       </section>
     </>

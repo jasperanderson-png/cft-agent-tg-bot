@@ -4,17 +4,18 @@ import { BRANDS, cheapest, payPrice, STATE_NAMES, stationsAlongRoute, type LatLn
 import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
-import { haptic, useBackButton } from '../../lib/telegram';
+import { haptic, telegramLocation, useBackButton } from '../../lib/telegram';
 import { ByState } from './ByState';
 import {
-  ALL_STATION_LAYERS, createMap, drawDriven, drawRoute, drawTurn, driverMarker, fitPath, ll, onStationTap, setRouteStations, setStations, showLayers, type MlMap,
+  ALL_STATION_LAYERS, createMap, drawDriven, drawRoute, drawTurn, driverMarker, filterStations, fitPath, fitPoints, ll, onStationTap, revealRoute, setRouteStations, setStations,
+  showLayers, type MlMap,
 } from './map';
 import { drivenPath, locate, navOf, pointAt, speedLimitAt, stepsAt, unwrap, type Nav } from './nav';
 import {
   CHECK, DEFAULT_TRUCK, EDIT, LAYERS, LOCATE, MUTE, NAV, PIN, PriceBox, SOUND, StationCard, Svg, Truck, TruckSheet, X,
   fullAddress, hm, money, placeOf, truckText, turnIcon,
 } from './pieces';
-import { hush, LEAD_INS, leadIn, prefetchVoice, sentence, speak, unlockVoice } from './voice';
+import { hush, LEAD_INS, leadIn, packForSteps, packTurn, prefetchPack, prefetchVoice, sentence, speak, unlockVoice, voiceKind } from './voice';
 import './driver.css';
 
 // The drivers' route map (/route). A clear map with every CFT station; tap one, or type where you are
@@ -28,11 +29,18 @@ type Mode = 'route' | 'states';
 type Phase = 'go1' | 'stop' | 'go2' | 'done';
 interface Trip { phase: Phase; stopId: number | null }
 interface Field { text: string; place: DriverPlace | null }
-interface Fix extends LatLng { heading: number | null; speed: number | null }
+interface Fix extends LatLng { heading: number | null; speed: number | null; accuracy: number | null }
 
 const CORRIDOR_MI = 1.5;
 const NEARBY_MI = 20;
 const NEARBY_MAX = 30;
+/** On a planned route the map shows only the cheapest few; "Nearby stations" shows the rest. */
+const CHEAP_SHOWN = 3;
+const STATIONS_KEY = 'cft.stations.v1';
+const BUILD_STEPS = ['Finding roads for your truck', 'Checking live traffic', 'Finding CFT stations on the way'];
+const toFix = (p: GeolocationPosition): Fix => ({ lat: p.coords.latitude, lng: p.coords.longitude, heading: p.coords.heading ?? null, speed: p.coords.speed ?? null, accuracy: p.coords.accuracy ?? null });
+const byPay = (a: Placed<DriverStation>, b: Placed<DriverStation>) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99);
+const wide = () => window.matchMedia('(min-width: 900px)').matches;
 const ARRIVE_MI = 0.12;
 const OFF_ROUTE_MI = 0.12;
 /** /route?simulate drives the route without moving (about three minutes for any trip). */
@@ -62,20 +70,26 @@ function store(key: string, value: unknown) {
 export function DriverMap({ onExit }: { onExit: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>('route');
+  const [statesOpen, setStatesOpen] = useState<number | null>(null);
 
   // ---- stations
-  const [data, setData] = useState<DriverStations | null>(null);
+  // The list from the last visit shows at once (from the phone), the fresh one replaces it.
+  const cachedAtStart = useRef(stored<DriverStations | null>(STATIONS_KEY, null));
+  const [data, setData] = useState<DriverStations | null>(cachedAtStart.current);
   const [loadErr, setLoadErr] = useState('');
+  const fresh = useCallback((d: DriverStations) => { setData(d); store(STATIONS_KEY, d); }, []);
   const load = useCallback(() => {
     setLoadErr('');
-    driverApi.stations().then(setData, (e: ApiError) => { setLoadErr(e.message); reportMapError(`stations: ${e.message}`); });
-  }, []);
+    driverApi.stations().then(fresh, (e: ApiError) => { if (!cachedAtStart.current) setLoadErr(e.message); reportMapError(`stations: ${e.message}`); });
+  }, [fresh]);
   useEffect(load, [load]);
+  // Stations still without a map point: looked up in the background, then the list again.
   useEffect(() => {
-    if (!data?.pendingGeocode) return;
-    const t = setTimeout(() => driverApi.stations().then(setData, () => {}), 40_000);
-    return () => clearTimeout(t);
-  }, [data]);
+    if (!data?.pendingGeocode || data === cachedAtStart.current) return;
+    let live = true;
+    driverApi.locate().then((r) => { if (live && r.placed > 0) driverApi.stations().then(fresh, () => {}); }, () => {});
+    return () => { live = false; };
+  }, [data, fresh]);
   const byId = useMemo(() => new Map((data?.stations ?? []).map((s) => [s.id, s])), [data]);
 
   // ---- refs the map callbacks read (they are set up once)
@@ -87,7 +101,10 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [sel, setSel] = useState<number | null>(null);
   const [detail, setDetail] = useState(false);
   /** A tap on a station: on a planned route it becomes the stop; otherwise its card opens. */
+  const modeRef = useRef<Mode>('route');
+  const [mapTap, setMapTap] = useState<{ id: number; n: number } | null>(null);
   const pickStation = useRef((id: number) => {
+    if (modeRef.current === 'states') { setMapTap((t) => ({ id, n: (t?.n ?? 0) + 1 })); return; }
     if (tripRef.current) return;
     if (baseRef.current) { setSel(id); setDetail(true); return; }
     setTapped(id);
@@ -106,8 +123,18 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       if (dead) { m.remove(); return; }
       mapRef.current = m;
       puck.current = driverMarker(m);
-      m.on('load', () => setReady(true));
+      if (m.getLayer('st-icon')) setReady(true);
+      else m.once('style.load', () => setReady(true));
       m.on('dragstart', () => { following.current = false; setFollowUi(false); });
+      // The driver moves the map: the panels step aside, and come back when the map stops.
+      let idle = 0;
+      m.on('movestart', (ev: { originalEvent?: Event }) => {
+        if (!ev.originalEvent || (document.activeElement as HTMLElement | null)?.tagName === 'INPUT') return;
+        clearTimeout(idle);
+        rootRef.current?.classList.add('dm-moving');
+        setEditing(false);
+      });
+      m.on('moveend', () => { clearTimeout(idle); idle = window.setTimeout(() => rootRef.current?.classList.remove('dm-moving'), 450); });
       // A pinch or wheel by the driver: their zoom wins until they recentre.
       m.on('zoomstart', (ev: { originalEvent?: Event }) => { if (ev.originalEvent) engine.current.autoZoom = false; });
       m.on('error', (e: { error?: Error }) => { if (!m.loaded()) { setMapErr('The map could not load. Check the connection.'); reportMapError(`map: ${e.error?.message ?? 'error'}`); } });
@@ -146,23 +173,43 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   // ---- where the driver is (the arrow moves straight from the GPS; React hears only big moves)
   const fix = useRef<Fix | null>(null);
   const [myPos, setMyPos] = useState<LatLng | null>(null);
+  const [myAcc, setMyAcc] = useState<number | null>(null);
   const [posErr, setPosErr] = useState('');
-  useEffect(() => {
-    if (!navigator.geolocation) { setPosErr('This device cannot share its location. Type where you start from.'); return; }
-    const id = navigator.geolocation.watchPosition(
-      (p) => {
-        const f: Fix = { lat: p.coords.latitude, lng: p.coords.longitude, heading: p.coords.heading ?? null, speed: p.coords.speed ?? null };
-        const prev = fix.current;
-        fix.current = f;
-        setPosErr('');
-        if (!prev || Math.abs(prev.lat - f.lat) + Math.abs(prev.lng - f.lng) > 0.003) setMyPos({ lat: f.lat, lng: f.lng });
-        if (!tripRef.current) puck.current?.set(f, f.speed != null && f.speed > 1 ? f.heading : null);
-      },
-      () => setPosErr('Location is off. Allow it, or type where you start from.'),
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 },
-    );
-    return () => navigator.geolocation.clearWatch(id);
+  const accept = useCallback((f: Fix) => {
+    const prev = fix.current;
+    fix.current = f;
+    setPosErr('');
+    if (!prev || Math.abs(prev.lat - f.lat) + Math.abs(prev.lng - f.lng) > 0.003) setMyPos({ lat: f.lat, lng: f.lng });
+    setMyAcc(f.accuracy != null ? Math.round(f.accuracy / 5) * 5 : null);
+    if (!tripRef.current) puck.current?.set(f, f.speed != null && f.speed > 1 ? f.heading : null);
   }, []);
+  useEffect(() => {
+    let poll = 0;
+    let id: number | null = null;
+    // The page's own location is blocked (some Telegram apps): Telegram's location instead.
+    const viaTelegram = () => {
+      if (poll) return;
+      const tick = () => telegramLocation().then((f) => {
+        if (f) accept(f);
+        else if (!fix.current) setPosErr('Location is off. Allow it, or type where you start from.');
+      });
+      void tick();
+      poll = window.setInterval(tick, 3000);
+    };
+    if (!navigator.geolocation) viaTelegram();
+    else id = navigator.geolocation.watchPosition((p) => accept(toFix(p)), viaTelegram, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+    return () => { if (id != null) navigator.geolocation.clearWatch(id); clearInterval(poll); };
+  }, [accept]);
+  /** A fresh, precise fix now (the "use my location" and locate buttons). */
+  const locateNow = useCallback(() => new Promise<Fix | null>((resolve) => {
+    const viaTelegram = () => telegramLocation().then((f) => { if (f) accept(f); resolve(f ?? fix.current); });
+    if (!navigator.geolocation) { void viaTelegram(); return; }
+    navigator.geolocation.getCurrentPosition((p) => { const f = toFix(p); accept(f); resolve(f); }, () => void viaTelegram(), { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+  }), [accept]);
+  const [locating, setLocating] = useState(false);
+  const [note, setNote] = useState('');
+  const noteTimer = useRef(0);
+  const flash = useCallback((t: string) => { setNote(t); clearTimeout(noteTimer.current); noteTimer.current = window.setTimeout(() => setNote(''), 3200); }, []);
   useEffect(() => { if (ready && fix.current && !tripRef.current) puck.current?.set(fix.current, null); }, [ready]);
 
   // ---- the truck and the voice switch
@@ -171,7 +218,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [muted, setMuted] = useState(() => stored('cft.voiceOff', false));
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
-  const say = useCallback((parts: string[]) => { if (!mutedRef.current) void speak(parts); }, []);
+  /** Speaks `parts`; `pack` is the same message from the built-in voice pack (phones with no voice). */
+  const say = useCallback((parts: string[], pack: string[] = []) => { if (!mutedRef.current) void speak(parts, pack); }, []);
 
   // ---- planning
   const [from, setFrom] = useState<Field>({ text: '', place: null });
@@ -183,6 +231,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [via, setVia] = useState<DriverRoute | null>(null);
   const [routeErr, setRouteErr] = useState('');
   const [routing, setRouting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [buildStep, setBuildStep] = useState(0);
   const planSeq = useRef(0);
   const target = useRef<number | null>(null);
   const myPosRef = useRef(myPos);
@@ -228,11 +278,15 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const plan = useCallback((fromF: Field, toF: Field, tr: TruckProfile) => {
     const dest = toF.place ?? toF.text.trim();
     if (!dest) { setBase(null); setVia(null); setRouteErr(''); return; }
-    const origin = fromF.place ?? (fromF.text.trim() || myPosRef.current);
+    const here = fix.current ? { lat: fix.current.lat, lng: fix.current.lng } : myPosRef.current;
+    const origin = fromF.place ?? (fromF.text.trim() || here);
     if (!origin) { setBase(null); setRouteErr(posErr || 'Finding your location… or type where you start from.'); return; }
     const seq = ++planSeq.current;
     setRouting(true);
     setRouteErr('');
+    // While the route is built, the camera already shows both ends.
+    const m = mapRef.current;
+    if (m && typeof origin === 'object' && typeof dest === 'object') fitPath(m, [origin, dest], { top: sizes.current.top, bottom: 260 });
     driverApi.route({ from: origin, to: dest, truck: tr }).then(
       (r) => { if (seq === planSeq.current) { setBase(r); setVia(null); setTapped(null); } },
       (e: ApiError) => { if (seq === planSeq.current) { setBase(null); setRouteErr(e.message); } },
@@ -264,6 +318,30 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     plan(from, f, truck);
   };
   const clearRoute = () => { planSeq.current++; setRouting(false); setTo({ text: '', place: null }); setBase(null); setVia(null); setRouteErr(''); target.current = null; };
+  const cancelPlan = () => { haptic.tap(); planSeq.current++; setRouting(false); };
+  /** From: back to the driver's own location, freshly and precisely located. */
+  const toMyLocation = async () => {
+    haptic.tap();
+    setSugg([]);
+    setFocus(null);
+    (document.activeElement as HTMLElement | null)?.blur();
+    const nf = { text: '', place: null };
+    setFrom(nf);
+    setLocating(true);
+    const f = await locateNow();
+    setLocating(false);
+    if (!f) { flash('Location is off. Allow it for Telegram in the phone settings, or type a place.'); return; }
+    flash(f.accuracy != null ? `You are here (within ${dist(f.accuracy / 1609.34)})` : 'You are here');
+    if (to.text.trim()) plan(nf, to, truck);
+  };
+  // The route-building screen: its steps tick on while the route is worked out.
+  useEffect(() => {
+    if (!routing) return;
+    setBuildStep(0);
+    const a = setTimeout(() => setBuildStep(1), 900), b = setTimeout(() => setBuildStep(2), 2200);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [routing]);
+  useEffect(() => setEditing(false), [base]);
 
   // ---- the stations along the route
   const placed = useMemo(() => {
@@ -273,6 +351,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   }, [base, data]);
   const best = useMemo(() => cheapest(placed.onRoute), [placed]);
   const [nearbyOn, setNearbyOn] = useState(false);
+  useEffect(() => setNearbyOn(false), [base]);
+  const cheapIds = useMemo(() => new Set(placed.onRoute.slice().sort(byPay).slice(0, CHEAP_SHOWN).map((p) => p.item.id)), [placed]);
   useEffect(() => {
     const t = target.current != null ? placed.onRoute.find((p) => p.item.id === target.current) : undefined;
     setSel(t?.item.id ?? best?.item.id ?? null);
@@ -360,11 +440,11 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (trip.phase === 'go1' && stopAlong != null && stopAlong - along < ARRIVE_MI && stopStation) {
       haptic.success();
       setTrip({ ...trip, phase: 'stop' });
-      say([`You have arrived at ${stopStation.station}.`, `Your CFT price is ${money(payPrice(stopStation))} a gallon.`]);
+      say([`You have arrived at ${stopStation.station}.`, `Your CFT price is ${money(payPrice(stopStation))} a gallon.`], ['arrived_stop']);
     } else if (trip.phase === 'go2' && nav.route.totalMi - along < ARRIVE_MI) {
       haptic.success();
       setTrip({ ...trip, phase: 'done' });
-      say([`You have arrived at ${dest}.`]);
+      say([`You have arrived at ${dest}.`], ['arrived']);
     }
   }, [along]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -377,6 +457,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (fresh) { e.sim = 0; e.shown = e.along; e.heading = null; e.zoom = 15; e.autoZoom = true; } else e.shown = e.along;
     setNav(n);
     prefetchVoice([...LEAD_INS, ...r.steps.map((s) => sentence(s.text)), 'Rerouting.']);
+    prefetchPack(packForSteps(r.steps));
   };
 
   // Off the route for about two seconds: plan again from here (real GPS only).
@@ -387,7 +468,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (e.offCount < 8 || Date.now() - e.lastReroute < 20_000) return;
     e.lastReroute = Date.now();
     e.offCount = 0;
-    say(['Rerouting.']);
+    say(['Rerouting.'], ['rerouting']);
     const viaStop = trip.phase === 'go1' && stopStation?.lat != null ? { lat: stopStation.lat, lng: stopStation.lng! } : undefined;
     driverApi.route({ from: { lat: fix.current.lat, lng: fix.current.lng }, to: nav.route.to, via: viaStop, truck }).then((r) => startNav(r, false), () => {});
   }, [ui.off]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -403,7 +484,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (said.current.has(key)) return;
     said.current.add(key);
     if (stage === 'now') said.current.add(`${navId.current}:${nextIdx}:near`);
-    say([leadIn(toTurn), sentence(next.text)]);
+    say([leadIn(toTurn), sentence(next.text)], [packTurn(toTurn, next.type, next.text)]);
   }, [along]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the screen on while driving.
@@ -425,7 +506,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     startNav(route, true);
     setTrip({ phase: stopId != null ? 'go1' : 'go2', stopId });
     const s = stopId != null ? byId.get(stopId) : null;
-    say([s ? `Starting the route to ${s.station}.` : 'Starting the route.', sentence(route.steps[0]?.text ?? 'Start driving')]);
+    say([s ? `Starting the route to ${s.station}.` : 'Starting the route.', sentence(route.steps[0]?.text ?? 'Start driving')], [s ? 'starting_stop' : 'starting']);
+    if (!muted && voiceKind() === 'none') flash('This phone cannot play spoken directions. Follow the arrows on the screen.');
   };
   const endTrip = () => {
     const m = mapRef.current;
@@ -442,30 +524,61 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   };
 
   // ---- draw on the map
+  const revealed = useRef(false);
   useEffect(() => {
     const m = mapRef.current;
     if (!m || !ready || !data) return;
-    setStations(m, data.stations.map((s) => ({ id: s.id, brand: s.brand, lat: s.lat, lng: s.lng, price: payPrice(s) })));
+    setStations(m, data.stations.map((s) => ({ id: s.id, brand: s.brand, lat: s.lat, lng: s.lng, price: payPrice(s) })), !revealed.current);
+    revealed.current = true;
   }, [ready, data]);
   useEffect(() => {
     const m = mapRef.current;
     if (!m || !ready) return;
-    showLayers(m, ALL_STATION_LAYERS, !base && !trip);
+    showLayers(m, ALL_STATION_LAYERS, mode === 'states' || (!base && !trip));
     const shown = trip ? nav?.route ?? null : route;
     drawRoute(m, shown?.path ?? null, !trip && via && base ? base.path : null, shown?.traffic ?? []);
-  }, [ready, base, via, trip, nav, route]);
+  }, [ready, base, via, trip, nav, route, mode]);
+  // A new route draws itself on.
+  useEffect(() => { if (ready && base && !trip && mapRef.current) revealRoute(mapRef.current); }, [base]); // eslint-disable-line react-hooks/exhaustive-deps
+  // By state on a wide screen: the map beside the list shows the stations picked.
+  const [picked, setPicked] = useState<number[] | null>(null);
+  modeRef.current = mode;
+  // The station whose card is open in By state: highlighted, and brought into view beside the panel.
+  useEffect(() => {
+    const m = mapRef.current;
+    const s = statesOpen != null ? byId.get(statesOpen) : null;
+    if (!m || !s || s.lat == null || !wide()) return;
+    m.easeTo({ center: [s.lng!, s.lat!], zoom: Math.max(m.getZoom(), 9), padding: { left: 420, top: 0, bottom: 0, right: 0 }, duration: 500 });
+  }, [statesOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const m = mapRef.current;
     if (!m || !ready) return;
-    const cheap = new Set(placed.onRoute.slice().sort((a, b) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99)).slice(0, 5).map((p) => p.item.id));
+    if (mode !== 'states') { filterStations(m, null); return; }
+    filterStations(m, picked);
+    if (!picked || !wide()) return;
+    const t = setTimeout(() => {
+      const pts = picked.map((id) => byId.get(id)).filter((s): s is DriverStation => s?.lat != null).map((s) => ({ lat: s.lat!, lng: s.lng! }));
+      fitPoints(m, pts, { left: 440, top: 0, bottom: 0 });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [mode, picked, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !ready) return;
+    if (mode === 'states') {
+      const s = statesOpen != null ? byId.get(statesOpen) : null;
+      setRouteStations(m, s ? [{ id: s.id, brand: s.brand, lat: s.lat, lng: s.lng, price: payPrice(s), sel: true, tag: true, near: false }] : []);
+      return;
+    }
+    // The cheapest few on the route (and the chosen one); all of them, and those near it, on request.
     const list = trip
       ? [...placed.onRoute, ...placed.nearby].filter((p) => p.item.id === trip.stopId)
-      : [...placed.onRoute, ...(nearbyOn ? placed.nearby : [])];
+      : nearbyOn ? [...placed.onRoute, ...placed.nearby] : [...placed.onRoute, ...placed.nearby].filter((p) => cheapIds.has(p.item.id) || p.item.id === sel);
     setRouteStations(m, list.map((p) => ({
       id: p.item.id, brand: p.item.brand, lat: p.item.lat, lng: p.item.lng, price: payPrice(p.item),
-      sel: p.item.id === (trip ? trip.stopId : sel), tag: !trip && cheap.has(p.item.id), near: !placed.onRoute.includes(p),
+      sel: p.item.id === (trip ? trip.stopId : sel), tag: !trip && cheapIds.has(p.item.id), near: !placed.onRoute.includes(p),
     })));
-  }, [ready, placed, sel, nearbyOn, trip]);
+  }, [ready, placed, sel, nearbyOn, trip, cheapIds, mode, statesOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const m = mapRef.current;
     if (m && ready) drawTurn(m, trip && next && next.type !== 10 ? next.at : null);
@@ -474,8 +587,10 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   useEffect(() => {
     const m = mapRef.current;
     if (!m || !ready || !route || trip) return;
-    const id = requestAnimationFrame(() => { measure(); fitPath(m, route.path, sizes.current); });
-    return () => cancelAnimationFrame(id);
+    // After the card below has its final height (the cheapest station is picked a moment later), with
+    // room for the "Nearby stations" button above it.
+    const id = setTimeout(() => { measure(); fitPath(m, route.path, { top: sizes.current.top, bottom: sizes.current.bottom + 46 }); }, 90);
+    return () => clearTimeout(id);
   }, [ready, route, trip, measure]);
   // Once: the stations around the driver (in the US) when nothing is planned.
   const centered = useRef(false);
@@ -498,10 +613,16 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     haptic.tap();
     const m = mapRef.current;
     if (trip) { following.current = true; engine.current.autoZoom = true; setFollowUi(true); return; }
-    const p = fix.current;
     if (!m) return;
-    if (!p) { setRouteErr(posErr || 'Finding your location…'); return; }
-    m.easeTo({ center: ll(p), zoom: Math.max(m.getZoom(), 11), padding: { top: sizes.current.top, bottom: sizes.current.bottom, left: 0, right: 0 }, duration: 500 });
+    const go = (p: LatLng) => m.easeTo({ center: ll(p), zoom: Math.max(m.getZoom(), 12), padding: { top: sizes.current.top, bottom: sizes.current.bottom, left: 0, right: 0 }, duration: 500 });
+    if (fix.current) go(fix.current);
+    setLocating(true);
+    void locateNow().then((f) => {
+      setLocating(false);
+      if (!f) { flash(posErr || 'Location is off. Allow it for Telegram in the phone settings.'); return; }
+      go(f);
+      if (f.accuracy != null) flash(`You are here (within ${dist(f.accuracy / 1609.34)})`);
+    });
   };
 
   // ---- Telegram's back button (By state has its own)
@@ -539,11 +660,11 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
           className={which === 'from' && !f.text ? 'me' : ''}
           aria-label={which === 'from' ? 'From' : 'To'}
           value={f.text}
-          placeholder={which === 'from' ? 'My location' : 'Where are you going?'}
+          placeholder={which === 'from' ? (locating ? 'Finding your location…' : fix.current || myPos ? 'My location' : posErr ? 'Type where you start from' : 'Finding your location…') : 'Where are you going?'}
           enterKeyHint="go"
           autoComplete="off"
           disabled={!!data && !data.routing}
-          onFocus={() => setFocus(which)}
+          onFocus={() => { setFocus(which); setEditing(true); }}
           onBlur={() => setTimeout(() => setFocus((x) => (x === which ? null : x)), 150)}
           onChange={(e) => set({ text: e.target.value, place: null })}
           onKeyDown={(e) => {
@@ -553,17 +674,19 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
             else plan(which === 'from' ? f : from, which === 'to' ? f : to, truck);
           }}
         />
-        {f.text && (
-          <button type="button" className="dm-x" aria-label={which === 'from' ? 'Back to my location' : 'Clear destination'}
-            onClick={() => { if (which === 'from') { const nf = { text: '', place: null }; setFrom(nf); plan(nf, to, truck); } else clearRoute(); }}>
-            <Svg d={X} size={15} />
-          </button>
-        )}
+        {which === 'from' && !f.text && myAcc != null && focus !== 'from' && <span className="dm-acc">±{dist(myAcc / 1609.34)}</span>}
+        {which === 'from' && f.text ? (
+          <button type="button" className="dm-x me" aria-label="Use my location" onClick={toMyLocation}><Svg d={LOCATE} size={16} /></button>
+        ) : f.text ? (
+          <button type="button" className="dm-x" aria-label="Clear destination" onClick={clearRoute}><Svg d={X} size={15} /></button>
+        ) : null}
       </div>
     );
   };
 
-  const showSheet = mode === 'route' && !!(trip || base || tappedStation || routing || (routeErr && to.text.trim()));
+  const showSheet = mode === 'route' && !!(trip || base || tappedStation || (!routing && routeErr && to.text.trim()));
+  const shownOnRoute = placed.onRoute.filter((p) => cheapIds.has(p.item.id) || p.item.id === sel).length;
+  const moreCount = placed.onRoute.length - shownOnRoute + placed.nearby.length;
 
   return (
     <div className="dm" ref={rootRef}>
@@ -591,11 +714,33 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
                 <button type="button" className="dm-tab" role="tab" aria-selected>My route</button>
                 <button type="button" className="dm-tab" role="tab" aria-selected={false} onClick={() => { haptic.select(); setMode('states'); }}>By state</button>
               </div>
+              {base && !focus && !editing ? (
+                <div className="dm-trip dm-mini">
+                  <button type="button" className="dm-mini-main" aria-label="Change the trip" onClick={() => { haptic.tap(); setEditing(true); }}>
+                    <span className="dm-trip-ico truck"><Truck size={13} /></span>
+                    <span className="dm-mini-text">
+                      <small>{from.text ? firstPart(from.text) : 'My location'}</small>
+                      <b>{firstPart(to.text || base.to.label)}</b>
+                    </span>
+                    <Svg d={EDIT} size={15} />
+                  </button>
+                  <button type="button" className="dm-x" aria-label="Clear the route" onClick={() => { haptic.tap(); clearRoute(); }}><Svg d={X} size={15} /></button>
+                </div>
+              ) : (
               <div className="dm-trip">
                 {field('from')}
                 {field('to')}
-                {focus && sugg.length > 0 ? (
+                {focus && (sugg.length > 0 || focus === 'from') ? (
                   <ul className="dm-sugg" role="listbox" aria-label="Places">
+                    {focus === 'from' && (
+                      <li>
+                        <button type="button" role="option" aria-selected={!from.text} className="dm-sugg-me" onPointerDown={(e) => e.preventDefault()} onClick={toMyLocation}>
+                          <Svg d={LOCATE} size={16} color="#a0dcff" />
+                          <span>Use my current location</span>
+                          <small>{locating ? 'locating…' : myAcc != null ? `±${dist(myAcc / 1609.34)}` : posErr ? 'off' : ''}</small>
+                        </button>
+                      </li>
+                    )}
                     {sugg.map((p) => (
                       <li key={`${p.lat},${p.lng},${p.label}`}>
                         <button type="button" role="option" aria-selected={false} onPointerDown={(e) => e.preventDefault()} onClick={() => pickPlace(focus, p)}>
@@ -610,6 +755,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
                   </button>
                 )}
               </div>
+              )}
             </>
           )}
         </div>
@@ -619,20 +765,36 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
         <div className="dm-fabs">
           {trip && (
             <button type="button" className="dm-fab" aria-label={muted ? 'Turn the voice on' : 'Turn the voice off'} aria-pressed={!muted}
-              onClick={() => { const v = !muted; setMuted(v); store('cft.voiceOff', v); if (v) hush(); else { unlockVoice(); say(['Voice on.']); } }}>
+              onClick={() => { const v = !muted; setMuted(v); store('cft.voiceOff', v); if (v) hush(); else { unlockVoice(); say(['Voice on.'], ['voice_on']); } }}>
               <Svg d={muted ? MUTE : SOUND} size={20} />
             </button>
           )}
-          {!trip && base && placed.nearby.length > 0 && (
-            <button type="button" className="dm-fab" aria-pressed={nearbyOn} aria-label={nearbyOn ? 'Hide stations near the route' : 'Show stations near the route'} onClick={() => { haptic.tap(); setNearbyOn((v) => !v); }}>
-              <Svg d={LAYERS} size={20} />
-            </button>
-          )}
           {(!trip || !followUi) && (
-            <button type="button" className="dm-fab" aria-label={trip ? 'Follow the truck again' : 'Show my location'} onClick={locateMe}>
+            <button type="button" className={'dm-fab' + (locating && !trip ? ' busy' : '')} aria-label={trip ? 'Follow the truck again' : 'Show my location'} onClick={locateMe}>
               <Svg d={trip ? NAV : LOCATE} size={20} />
             </button>
           )}
+        </div>
+      )}
+
+      {mode === 'route' && !trip && base && !routing && moreCount > 0 && (
+        <button key={`${base.totalMi}`} type="button" className={'dm-more' + (nearbyOn ? ' on' : '')} aria-pressed={nearbyOn} onClick={() => { haptic.tap(); setNearbyOn((v) => !v); }}>
+          <Svg d={LAYERS} size={15} />{nearbyOn ? 'Only the cheapest' : `Nearby stations · ${moreCount}`}
+        </button>
+      )}
+      {note && <div className="dm-toast" role="status">{note}</div>}
+
+      {mode === 'route' && routing && !trip && (
+        <div className="dm-building" role="status" aria-live="polite">
+          <div className="dm-build-card">
+            <div className="dm-build-road" aria-hidden="true"><i /><span><Truck size={15} /></span></div>
+            <b>Building your truck route</b>
+            <span className="dm-build-to">{from.text ? firstPart(from.text) : 'My location'} → {firstPart(to.text) || 'destination'}</span>
+            <ul className="dm-build-steps">
+              {BUILD_STEPS.map((t, i) => <li key={t} className={i < buildStep ? 'done' : i === buildStep ? 'now' : ''}><i>{i < buildStep && <Svg d={CHECK} size={12} w={3} />}</i>{t}</li>)}
+            </ul>
+            <button type="button" className="dm-soft" onClick={cancelPlan}>Cancel</button>
+          </div>
         </div>
       )}
 
@@ -645,13 +807,13 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
                 primary={data?.routing ? 'Route here' : 'Routes are not on yet'} onPrimary={() => { if (data?.routing) routeTo(tappedStation); }} />
             </>
           )}
-          {!trip && !base && !tappedStation && <p className="dm-note">{routing ? 'Finding a truck route…' : routeErr}</p>}
+          {!trip && !base && !tappedStation && !routing && <p className="dm-note">{routeErr}</p>}
           {!trip && base && route && (
             <>
               <div className="dm-summary">
                 <b>{hm(route.durationS)}</b>
                 <span>{Math.round(route.totalMi).toLocaleString('en-US')} mi{route.delayMin ? ` · ${route.delayMin} min traffic` : ''}{route.source === 'tomtom' ? ' · live traffic' : ''}</span>
-                {routing && <span className="dm-spin" aria-label="Updating" />}
+
               </div>
               {selPlaced ? (
                 <StationCard
@@ -703,7 +865,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
               </div>
               <PriceBox s={stopStation} />
               <div className="dm-row-btns">
-                <button type="button" className="dm-primary" onClick={() => { said.current.clear(); setTrip({ ...trip, phase: 'go2' }); say([`Continuing to ${dest}.`]); }}><Svg d={NAV} size={18} />Continue to {dest}</button>
+                <button type="button" className="dm-primary" onClick={() => { said.current.clear(); setTrip({ ...trip, phase: 'go2' }); say([`Continuing to ${dest}.`], ['continuing']); }}><Svg d={NAV} size={18} />Continue to {dest}</button>
                 <button type="button" className="dm-soft dm-danger" onClick={endTrip}>End</button>
               </div>
             </div>
@@ -720,7 +882,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       {truckOpen && <TruckSheet truck={truck} onClose={() => setTruckOpen(false)} onSave={(t) => { setTruck(t); store('cft.truck', t); setTruckOpen(false); haptic.success(); if (base) plan(from, to, t); }} />}
 
       {mode === 'states' && (
-        <ByState stations={data?.stations ?? null} fetchedAt={data?.fetchedAt ?? null} routing={!!data?.routing} onRouteTo={routeTo} onMyRoute={() => setMode('route')} />
+        <ByState stations={data?.stations ?? null} fetchedAt={data?.fetchedAt ?? null} routing={!!data?.routing} onRouteTo={routeTo} onMyRoute={() => setMode('route')} onPicked={setPicked}
+          mapTap={mapTap} onOpenChange={setStatesOpen} />
       )}
     </div>
   );
