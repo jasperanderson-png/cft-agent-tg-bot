@@ -173,22 +173,11 @@ export function PickRow({ s, rank, count, sub, detail, onToggle, onPrev, onNext,
         </button>
       </div>
       <Collapse open={detail}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 2 }}>
-          <div style={{ display: 'flex', gap: 10, fontSize: 14, lineHeight: 1.4, color: '#ddd' }}><Svg d={PIN} size={17} color="#a0dcff" />{fullAddress(s)}</div>
-          <dl className="dm-grid2" style={{ margin: 0 }}>
-            <div className="dm-cell"><dt>You save</dt><dd className="num" style={{ fontSize: 19, color: '#a0dcff' }}>{save != null ? `${money(save)} / gal` : 'No discount'}</dd></div>
-            <div className="dm-cell"><dt>On 150 gal</dt><dd className="num" style={{ fontSize: 19 }}>{save != null ? money(save * 150) : '—'}</dd></div>
-          </dl>
-          <span style={{ fontSize: 12, color: '#8a939b' }}>{BRANDS[s.brand].label} · price updated {updated(s.updatedAt)}</span>
+        <div className="dm-pick-more">
+          <span><Svg d={PIN} size={15} color="#a0dcff" />{fullAddress(s)}</span>
+          <span>{save != null ? `Save ${money(save)}/gal · ${money(save * 150)} on 150 gal` : 'No CFT discount here'} · updated {updated(s.updatedAt)}</span>
         </div>
       </Collapse>
-      {count > 1 && rank != null && (
-        <div className="dm-pager">
-          <button type="button" aria-label="Previous station" onClick={onPrev}><Svg d="m15 18-6-6 6-6" size={16} w={2.4} /></button>
-          <span>{rank + 1} of {count}</span>
-          <button type="button" aria-label="Next station" onClick={onNext}><Svg d="m9 18 6-6-6-6" size={16} w={2.4} /></button>
-        </div>
-      )}
     </div>
   );
 }

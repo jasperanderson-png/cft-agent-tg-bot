@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../shared/types';
 import {
-  BRAND_ORDER, BRANDS, payPrice, RANK_LABEL, rankStations, STATE_NAMES, stationsAlongRoute, type DriverBrand, type LatLng, type Placed, type RankBy,
+  BRAND_ORDER, BRANDS, payPrice, rankStations, STATE_NAMES, stationsAlongRoute, type DriverBrand, type LatLng, type Placed, type RankBy,
 } from '../../../../../shared/driverRoute';
 import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
@@ -14,7 +14,7 @@ import {
 } from './map';
 import { drivenPath, locate, navOf, pointAt, speedLimitAt, stepsAt, unwrap, type Nav } from './nav';
 import {
-  CHECK, CHEVRON, DEFAULT_TRUCK, EDIT, LOCATE, MUTE, NAV, PickRow, PIN, PriceBox, PUMP, SOUND, STAR, StationCard, Svg, Truck, TruckSheet, X,
+  CHECK, DEFAULT_TRUCK, EDIT, LOCATE, MUTE, NAV, PickRow, PIN, PriceBox, SOUND, StationCard, Svg, Truck, TruckSheet, X,
   fullAddress, hm, money, placeOf, truckText, turnIcon,
 } from './pieces';
 import { hush, LEAD_INS, leadIn, packForSteps, packTurn, prefetchPack, prefetchVoice, sentence, speak, unlockVoice, voiceKind } from './voice';
@@ -37,7 +37,11 @@ const CORRIDOR_MI = 1.5;
 const NEARBY_MI = 20;
 /** On a planned route the map shows the best few, by the driver's choice of brands and ranking. */
 const BEST_SHOWN = 3;
-const RANKS: RankBy[] = ['rec', 'cheap', 'disc'];
+/** What the route card shows: every station on and near the route (by price), or the best 3 by a ranking. */
+type Show = 'all' | RankBy;
+const SHOWS: Show[] = ['all', 'rec', 'cheap', 'disc'];
+const SHOW_LABEL: Record<Show, string> = { all: 'All', rec: 'Recommended', cheap: 'Cheapest', disc: 'Biggest discount' };
+const byPay = (a: Placed<DriverStation>, b: Placed<DriverStation>) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99) || a.offMi - b.offMi;
 const STATIONS_KEY = 'cft.stations.v1';
 const BUILD_STEPS = ['Finding roads for your truck', 'Checking live traffic', 'Finding CFT stations on the way'];
 const toFix = (p: GeolocationPosition): Fix => ({ lat: p.coords.latitude, lng: p.coords.longitude, heading: p.coords.heading ?? null, speed: p.coords.speed ?? null, accuracy: p.coords.accuracy ?? null });
@@ -73,8 +77,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [mode, setMode] = useState<Mode>('route');
   // The driver's station choice on a route, remembered on the phone: brands (none = all) and ranking.
   const [brandSel, setBrandSel] = useState<DriverBrand[]>(() => stored<DriverBrand[]>('cft.brands', []).filter((b) => b in BRANDS));
-  const [rankBy, setRankBy] = useState<RankBy>(() => { const r = stored<RankBy>('cft.rankBy', 'rec'); return RANKS.includes(r) ? r : 'rec'; });
-  const [menu, setMenu] = useState<'brands' | 'rank' | null>(null);
+  const [rankBy, setRankBy] = useState<Show>(() => { const r = stored<Show>('cft.rankBy', 'rec'); return SHOWS.includes(r) ? r : 'rec'; });
   const [rank, setRank] = useState(0);
   const bestRef = useRef<Placed<DriverStation>[]>([]);
   const [statesOpen, setStatesOpen] = useState<number | null>(null);
@@ -363,7 +366,9 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   }, [base, data]);
   const pool = useMemo(() => [...placed.onRoute, ...placed.nearby], [placed]);
   // The best three by the driver's choice; the card shows one of them (‹ 1 of 3 ›).
-  const top = useMemo(() => rankStations(pool, rankBy, brandSel, BEST_SHOWN), [pool, rankBy, brandSel]);
+  const top = useMemo(() => (rankBy === 'all'
+    ? pool.filter((p) => payPrice(p.item) != null && (!brandSel.length || brandSel.includes(p.item.brand))).sort(byPay)
+    : rankStations(pool, rankBy, brandSel, BEST_SHOWN)), [pool, rankBy, brandSel]);
   bestRef.current = top;
   useEffect(() => setRank(0), [top]);
   useEffect(() => {
@@ -378,6 +383,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (top.length < 2) return;
     haptic.select();
     target.current = null;
+    setDetail(false);
     const i = ((selRank < 0 ? 0 : selRank + step) + top.length) % top.length;
     setRank(i);
     const s = top[i].item;
@@ -392,9 +398,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     setBrandSel(all);
     store('cft.brands', all);
   };
-  const pickRank = (r: RankBy) => { haptic.select(); target.current = null; setRankBy(r); store('cft.rankBy', r); setMenu(null); };
-  useEffect(() => setMenu(null), [base]);
-  const brandText = !brandSel.length ? 'All brands' : brandSel.length === 1 ? BRANDS[brandSel[0]].short : `${brandSel.length} brands`;
+  const pickRank = (r: Show) => { haptic.select(); target.current = null; setRankBy(r); store('cft.rankBy', r); };
+  const brandText = !brandSel.length ? 'CFT' : brandSel.map((b) => BRANDS[b].short).join(' / ');
   const selOn = !!selPlaced && placed.onRoute.includes(selPlaced);
   useEffect(() => setDetail(false), [base]);
   // A station off the route changes the way: route through it.
@@ -612,10 +617,10 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     const list = trip ? pool.filter((p) => p.item.id === trip.stopId) : [...top, ...chosen];
     setRouteStations(m, list.map((p) => ({
       id: p.item.id, brand: p.item.brand, lat: p.item.lat, lng: p.item.lng, price: payPrice(p.item),
-      sel: p.item.id === (trip ? trip.stopId : sel), tag: !trip, near: !placed.onRoute.includes(p),
-      rank: !trip && top.includes(p) ? top.indexOf(p) : undefined,
+      sel: p.item.id === (trip ? trip.stopId : sel), tag: !trip && (rankBy !== 'all' || p.item.id === sel), near: !placed.onRoute.includes(p),
+      rank: !trip && rankBy !== 'all' && top.includes(p) ? top.indexOf(p) : undefined,
     })));
-  }, [ready, pool, top, sel, trip, mode, statesOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, pool, top, sel, trip, mode, statesOpen, rankBy]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const m = mapRef.current;
     if (m && ready) drawTurn(m, trip && next && next.type !== 10 ? next.at : null);
@@ -843,40 +848,32 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
             <>
               <div className="dm-summary">
                 <b>{hm(route.durationS)}</b>
-                <span>{Math.round(route.totalMi).toLocaleString('en-US')} mi{route.delayMin ? ` · ${route.delayMin} min traffic` : ''}{route.source === 'tomtom' ? ' · live traffic' : ''}</span>
-
+                <span>{Math.round(route.totalMi).toLocaleString('en-US')} mi{route.delayMin ? ` · ${route.delayMin} min traffic` : ''}{route.source === 'tomtom' && !route.delayMin ? ' · live traffic' : ''}</span>
+                {top.length > 1 && (
+                  <span className="dm-pager">
+                    <button type="button" aria-label="Previous station" onClick={() => page(-1)}><Svg d="m15 18-6-6 6-6" size={15} w={2.4} /></button>
+                    <span>{(selRank < 0 ? 0 : selRank) + 1}/{top.length}</span>
+                    <button type="button" aria-label="Next station" onClick={() => page(1)}><Svg d="m9 18 6-6-6-6" size={15} w={2.4} /></button>
+                  </span>
+                )}
               </div>
-              <div className="dm-filters">
-                <button type="button" className={'dm-chip' + (menu === 'brands' ? ' on' : '') + (brandSel.length ? ' set' : '')} aria-expanded={menu === 'brands'}
-                  onClick={() => { haptic.tap(); setMenu((v) => (v === 'brands' ? null : 'brands')); }}>
-                  <Svg d={PUMP} size={14} />{brandText}<Svg d={CHEVRON} size={14} w={2.4} />
-                </button>
-                <button type="button" className={'dm-chip' + (menu === 'rank' ? ' on' : '')} aria-expanded={menu === 'rank'}
-                  onClick={() => { haptic.tap(); setMenu((v) => (v === 'rank' ? null : 'rank')); }}>
-                  <Svg d={STAR} size={13} />{RANK_LABEL[rankBy]}<Svg d={CHEVRON} size={14} w={2.4} />
-                </button>
+              <div className="dm-seg" role="radiogroup" aria-label="Show stations">
+                {SHOWS.map((r) => (
+                  <button key={r} type="button" role="radio" aria-checked={rankBy === r} onClick={() => pickRank(r)}>{SHOW_LABEL[r]}</button>
+                ))}
               </div>
-              {menu === 'brands' && (
-                <div className="dm-menu" role="group" aria-label="Brands">
-                  <button type="button" className="dm-opt" aria-pressed={!brandSel.length} onClick={() => pickBrand(null)}>All</button>
-                  {BRAND_ORDER.map((b) => (
-                    <button key={b} type="button" className="dm-opt" aria-pressed={brandSel.includes(b)} onClick={() => pickBrand(b)}>
-                      <i style={{ background: BRANDS[b].color }} />{BRANDS[b].label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {menu === 'rank' && (
-                <div className="dm-menu" role="radiogroup" aria-label="Best by">
-                  {RANKS.map((r) => (
-                    <button key={r} type="button" role="radio" className="dm-opt" aria-checked={rankBy === r} aria-pressed={rankBy === r} onClick={() => pickRank(r)}>{RANK_LABEL[r]}</button>
-                  ))}
-                </div>
-              )}
+              <div className="dm-brands" role="group" aria-label="Brands">
+                <button type="button" className="dm-opt" aria-pressed={!brandSel.length} onClick={() => pickBrand(null)}>All</button>
+                {BRAND_ORDER.map((b) => (
+                  <button key={b} type="button" className="dm-opt" aria-pressed={brandSel.includes(b)} aria-label={BRANDS[b].label} onClick={() => pickBrand(b)}>
+                    <i style={{ background: BRANDS[b].color }} />{BRANDS[b].short}
+                  </button>
+                ))}
+              </div>
               {selPlaced ? (
                 <PickRow
                   s={selPlaced.item}
-                  rank={selRank >= 0 ? selRank : null}
+                  rank={selRank >= 0 && rankBy !== 'all' ? selRank : null}
                   count={top.length}
                   sub={[
                     placeOf(selPlaced.item),
@@ -889,7 +886,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
                 />
               ) : (
                 <div className="dm-pick">
-                  <p className="dm-note" style={{ flex: 1, fontSize: 14 }}>{pool.length ? `No ${brandText} stations on this route.` : 'No CFT stations along this route.'}</p>
+                  <p className="dm-note" style={{ flex: 1, fontSize: 14 }}>{pool.length ? `No ${brandText} stations on or near this route.` : 'No CFT stations along this route.'}</p>
                   <button type="button" className="dm-go" onClick={startTrip}><Svg d={NAV} size={16} />Go</button>
                 </div>
               )}
