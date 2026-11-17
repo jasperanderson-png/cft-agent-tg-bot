@@ -1,4 +1,4 @@
--- Drivers' route map: a map point for each partner station, looked up once (tools/fuel-prices/geocode.ts).
+-- Drivers' route map: a map point for each partner station, looked up once (tools/driver-map/geocode.ts).
 --   key     brand|store number|street|city|state, lower case: a station that changes address is looked up again
 --   status  ok; zero_results (no source could place it: no pin, tried again after a week); error (tried again on the next request)
 --   source  where the point came from: chain (the chain's own store locator), census (US Census address service),

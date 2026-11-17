@@ -1,10 +1,10 @@
 // Points the bot at the deployed app: webhook, commands, menu button and descriptions.
 // Usage: npm run telegram:setup   (needs TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, APP_URL)
-import { adminMenu, setAdminMenu } from './handlers/admins/index.js';
-import { setAgentMenu } from './handlers/agents/fuel-search.js';
-import { setDriverMenu } from './handlers/drivers/index.js';
+import { adminMenu, setAdminMenu } from '../telegram_bot/handlers/admins/index.js';
+import { setAgentMenu } from '../telegram_bot/handlers/agents/fuel-search.js';
+import { setDriverMenu } from '../telegram_bot/handlers/drivers/index.js';
 import { closePool, getPool } from '../db_storage/db.js';
-import { CANDIDATE_COMMANDS } from './handlers/candidates/index.js';
+import { CANDIDATE_COMMANDS } from '../telegram_bot/handlers/candidates/index.js';
 import { env } from '../core/env.js';
 import { botApi } from '../core/telegram.js';
 import { hubMenuButton } from '../core/home.js';

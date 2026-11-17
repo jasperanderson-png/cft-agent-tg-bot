@@ -9,12 +9,12 @@ import { commandOf, type RoleHandlers } from '../viewer.js';
 import { ACADEMY_ADMIN_COMMANDS, ACADEMY_COMMAND, academyMessage } from './academy.js';
 import { FUEL_COMMAND, FUEL_HELP, fuelMessage } from './fuel.js';
 import { LEADS_COMMAND, leadsCallback, leadsMessage } from './leads.js';
-import { ADD_ADMIN_COMMAND, ADMINS_COMMAND, ADMIN_TEAM_HELP, adminTeamCallback, adminTeamMessage } from './admin-team.js';
-import { teamMenuCallback, teamMenuMessage } from './team-menu.js';
+import { ADD_ADMIN_COMMAND, ADMINS_COMMAND, ADMIN_TEAM_HELP, adminTeamCallback, adminTeamMessage } from './team/admins.js';
+import { teamMenuCallback, teamMenuMessage } from './team/menu.js';
 import { DESIGN_COMMAND, designMessage } from './system-design.js';
 import { DRIVERS_COMMAND, DRIVERS_HELP, INVITE_DRIVER_COMMAND, driverInviteCallback, driverInviteMessage } from '../driver-invites.js';
 import { SHIFT_CALLBACK, SHIFT_COMMANDS, SHIFT_HELP, shiftCallback, shiftMessage } from './shift.js';
-import { AGENTS_COMMAND, INVITE_COMMAND, TEAM_HELP, teamCallback, teamMessage } from './team.js';
+import { AGENTS_COMMAND, INVITE_COMMAND, TEAM_HELP, teamCallback, teamMessage } from './team/agents.js';
 
 // What CFT administrators (and owners) have in the bot: the home screen with every section, each
 // section's buttons and commands, and the agents' price search to see what agents see.

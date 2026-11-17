@@ -3,9 +3,9 @@ import { NOT_AUTHORIZED } from '../../tools/driver-leads/messages.js';
 import { DISCOUNT_CALLBACK } from '../../tools/fuel-prices/agent-prices.js';
 import { isFuelRequest } from './admins/fuel.js';
 import { LEADS_CALLBACK, parseAction } from './admins/leads.js';
-import { ADMIN_TEAM_CALLBACK } from './admins/admin-team.js';
+import { ADMIN_TEAM_CALLBACK } from './admins/team/admins.js';
 import { SHIFT_CALLBACK } from './admins/shift.js';
-import { TEAM_CALLBACK } from './admins/team.js';
+import { TEAM_CALLBACK } from './admins/team/agents.js';
 import { DRIVER_CALLBACK } from './driver-invites.js';
 
 // Polite refusals, for people who type or tap something their role doesn't have (an agent pressing

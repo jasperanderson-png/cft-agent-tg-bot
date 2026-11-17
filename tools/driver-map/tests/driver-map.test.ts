@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   cheapest, milesBetween, payPrice, pointAlong, projectOnPath, stationsAlongRoute, type LatLng,
-} from '../../../shared/driverRoute.js';
+} from '../../../shared/driver-route.js';
 import { censusLookup, chainMatch, chainStores, geoKey, orsLookup, storeNo, type GeoStation } from '../geocode.js';
 import { planRoute, readRoute, truckOf } from '../routing.js';
 import { readTomTom } from '../tomtom.js';

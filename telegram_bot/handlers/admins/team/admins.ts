@@ -1,12 +1,12 @@
-import { escHtml as esc } from '../../../shared/html.js';
-import { fmtDMY, fmtDMYHM } from '../../../shared/time.js';
-import { ADMIN_INVITE_HOURS, createAdminInvite, listAdmins, revokeAdminInvite } from '../../../core/admin-invites.js';
-import { removeAdmin, telegramAdmin, type Admin } from '../../../core/admins.js';
-import type { Db } from '../../../db_storage/db.js';
-import { HttpError, UUID_RE } from '../../../core/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../../core/telegram.js';
-import { firstSight, reportTimeZone } from '../../../core/updates.js';
-import { commandOf, type Viewer } from '../viewer.js';
+import { escHtml as esc } from '../../../../shared/html.js';
+import { fmtDMY, fmtDMYHM } from '../../../../shared/time.js';
+import { ADMIN_INVITE_HOURS, createAdminInvite, listAdmins, revokeAdminInvite } from '../../../../core/admin-invites.js';
+import { removeAdmin, telegramAdmin, type Admin } from '../../../../core/admins.js';
+import type { Db } from '../../../../db_storage/db.js';
+import { HttpError, UUID_RE } from '../../../../core/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../core/telegram.js';
+import { firstSight, reportTimeZone } from '../../../../core/updates.js';
+import { commandOf, type Viewer } from '../../viewer.js';
 
 // Admins, for owners: send an invite link (it works for one person, until it expires or is turned
 // off), see who the admins are, remove one. Every admin can see the list; only owners change it.

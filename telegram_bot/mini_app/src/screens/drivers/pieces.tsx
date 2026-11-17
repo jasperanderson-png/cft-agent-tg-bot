@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { DriverStation, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, payPrice, savingOf } from '../../../../../shared/driverRoute';
+import { BRANDS, payPrice, savingOf } from '../../../../../shared/driver-route';
 import { titleCase } from '../../../../../shared/discounts';
 import { fmtDate } from '../../components/ui';
 

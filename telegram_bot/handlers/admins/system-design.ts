@@ -16,6 +16,7 @@ const TOOL_INFO: Record<string, { name: string; what: string }> = {
   'agent-academy': { name: 'Agent Academy', what: 'The Sales Agent test, grading, results, Excel and the Monday summary' },
   'driver-leads': { name: 'Driver Leads', what: 'Sign-up page, vendor webhooks, daily FMCSA sync, each lead sent once' },
   'fuel-prices': { name: 'Fuel prices', what: 'United Fuel cabinet, the Excel of every station, agent prices minus the margin' },
+  'driver-map': { name: 'Driver map', what: 'Partner stations on a map, the cheapest along a truck route, directions and voice' },
   agents: { name: 'Agents', what: 'Invite links and the agent list' },
   'task-report': { name: 'Task report', what: 'Shifts, the work log, daily / weekly / monthly reports to the chat' },
 };

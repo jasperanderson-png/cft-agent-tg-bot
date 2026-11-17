@@ -1,5 +1,5 @@
 // Drivers' fuel map: which stations are CFT partners, and which of them lie along a route.
-// Pure functions, used by the server (tools/fuel-prices/driver-map.ts) and the Mini App
+// Pure functions, used by the server (tools/driver-map/stations.ts) and the Mini App
 // (telegram_bot/mini_app/src/screens/drivers/).
 
 /** The four partner networks drivers see. Every other station in the cabinet is left out. */

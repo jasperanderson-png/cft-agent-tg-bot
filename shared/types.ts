@@ -236,11 +236,11 @@ export interface LeadsSummary {
   total: number;
 }
 
-/** A partner station on the drivers' fuel map (tools/fuel-prices/driver-map.ts). */
+/** A partner station on the drivers' fuel map (tools/driver-map/stations.ts). */
 export interface DriverStation {
   id: number;
   station: string;
-  /** p Pilot / Flying J, l Love's, t TA / Petro, s Speedway (shared/driverRoute.ts). */
+  /** p Pilot / Flying J, l Love's, t TA / Petro, s Speedway (shared/driver-route.ts). */
   brand: 'p' | 'l' | 't' | 's';
   retail: number | null;
   /** The driver's price with the CFT discount: the same price agents see (never the cabinet's own price). Null without a discount. */

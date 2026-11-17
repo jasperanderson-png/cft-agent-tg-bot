@@ -1,17 +1,17 @@
-import { listAdmins } from '../../../core/admin-invites.js';
-import { listAgents } from '../../../core/agents.js';
-import { listDrivers } from '../../../core/drivers.js';
-import { DRIVER_CALLBACK } from '../driver-invites.js';
-import { OLD_AGENTS_BUTTON, SECTION } from '../../../core/home.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../../core/telegram.js';
-import type { Db } from '../../../db_storage/db.js';
-import type { Viewer } from '../viewer.js';
-import { ADMIN_TEAM_CALLBACK } from './admin-team.js';
-import { agentsText, TEAM_CALLBACK } from './team.js';
+import { listAdmins } from '../../../../core/admin-invites.js';
+import { listAgents } from '../../../../core/agents.js';
+import { listDrivers } from '../../../../core/drivers.js';
+import { DRIVER_CALLBACK } from '../../driver-invites.js';
+import { OLD_AGENTS_BUTTON, SECTION } from '../../../../core/home.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../core/telegram.js';
+import type { Db } from '../../../../db_storage/db.js';
+import type { Viewer } from '../../viewer.js';
+import { ADMIN_TEAM_CALLBACK } from './admins.js';
+import { agentsText, TEAM_CALLBACK } from './agents.js';
 
 // The two home buttons for people: ➕ Invite (who is the link for: an agent or an admin?) and
 // 👥 Team (how many agents and admins there are, and a way into each list). The links and lists
-// themselves are in team.ts (agents) and admin-team.ts (admins).
+// themselves are in agents.ts and admins.ts.
 
 const CB = 'tm:';
 const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>

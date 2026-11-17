@@ -1,4 +1,4 @@
-import { cumulativeMiles, headingDeg, type LatLng } from '../../../../../shared/driverRoute';
+import { cumulativeMiles, headingDeg, type LatLng } from '../../../../../shared/driver-route';
 import type { DriverRoute, DriverRouteStep } from '../../../../../shared/types';
 
 // Driving along a route: where the truck is on it, how far off it, which turn is next, and the road's

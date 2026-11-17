@@ -3,8 +3,8 @@
 // The password is read from ADMIN_PASSWORD or prompted for (input hidden), never passed as an argument.
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
-import { hashPassword } from '../crypto.js';
-import { closePool, getPool } from '../../db_storage/db.js';
+import { hashPassword } from '../core/crypto.js';
+import { closePool, getPool } from '../db_storage/db.js';
 
 function promptHidden(q: string): Promise<string> {
   return new Promise((resolve) => {

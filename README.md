@@ -64,38 +64,51 @@ One bot, one Mini App, one database and one deployment. The code is split two wa
 telegram_bot/                THE BOT: talks to Telegram, decides who may do what
   webhook.ts                 Front door: checks the update, works out the sender's role, hands it over
   handlers/
-    viewer.ts                Who is writing (admin / agent / candidate) and what a role folder provides
+    viewer.ts                Who is writing (admin / agent / driver / candidate) and what a role folder provides
     admins/                  Admins and owners: home screen, /help, command menu, and per section:
-                             academy.ts, leads.ts, fuel.ts (📥 button), team.ts (/invite, /agents)
+                             academy.ts, leads.ts, fuel.ts (📥 button), shift.ts, system-design.ts (/design)
+      team/                  👥 Team and ➕ Invite: menu.ts (the buttons), agents.ts (/invite, /agents),
+                             admins.ts (/addadmin, /admins)
     agents/                  Agents: home screen and the fuel price search (fuel-search.ts)
     candidates/              Candidates: the test only
-    drivers/                 (empty for now)
+    drivers/                 Drivers: the route map button
     invite.ts                Agent invite links, which anyone may open
+    driver-invites.ts        Driver links (/invitedriver, /drivers), made by admins and allowed agents
+    channel.ts               The reports chat: the bot added to a group or channel
     not-allowed.ts           Polite refusals for buttons and commands someone's role doesn't have
   mini_app/                  The Mini App (React + Vite)
     src/                     App.tsx, lib/, components/, styles.css
     src/screens/             Screens by role: admins/ (Hub, Academy console, Team, fuel), agents/
-                             (Discounts), candidates/ (the test), shared/
+                             (Discounts), candidates/ (the test), drivers/ (the route map), shared/
   server/                    router.ts (every /api route), tools.ts (the list of tools), node-adapter.ts, dev.ts
-  setup.ts                   npm run telegram:setup (webhook, menus, descriptions)
 tools/                       THE BUSINESS: one folder per tool, never imports telegram_bot/
   agent-academy/             🎓 The test: candidate.ts, console.ts, notify.ts, reports.ts, sheets.ts,
                              chat.ts (what it sends in a chat), index.ts (its API), tests/
   driver-leads/              🚚 Leads (see docs/DRIVER_LEADS.md): actions.ts (what it does in a chat),
                              messages.ts (every text), ingest.ts, store.ts, files.ts, fmcsa.ts, signup-page/
   fuel-prices/               ⛽ Cabinet prices: cabinet.ts, export.ts (📥 Excel), dataset.ts and
-                             agent-prices.ts (the agents' prices), table-image.ts, excel.ts, brand/
+                             agent-prices.ts (the agents' prices), driver-message.ts, table-image.ts, excel.ts
+  driver-map/                🗺 The drivers' route map: stations.ts (partner stations, read from fuel-prices),
+                             geocode.ts, routing.ts + tomtom.ts (truck routes), voice.ts
   agents/                    👥 Invite links and the agent list (API for the Team screen)
 task_report/                 Work reports (shifts, daily/weekly/monthly reports to a channel)
 db_storage/                  THE DATABASE: db.ts (connection), migrate.ts, migrations/, seeds/academy/
-core/                        Plumbing everyone uses: env, http, telegram (Bot API client), admins and
-                             agents (who is who), home.ts (section names, home keyboard), tool.ts, xlsx
+core/                        Plumbing everyone uses: env, http, telegram (Bot API client), admins, agents
+                             and drivers (who is who), home.ts (section names, home keyboard), tool.ts, xlsx,
+                             brand/ (fonts and logo for server-drawn pictures)
 shared/                      Code server and browser both use: types, grading, analytics, CSV, dates
+scripts/                     Things you run by hand: telegram-setup.ts (npm run telegram:setup),
+                             create-admin.ts (npm run admin:create), worklog.ts (npm run worklog)
 api/main.ts                  Vercel Function entry (Vercel requires it here); hands over to telegram_bot/server/
+deploy/                      Running on our own VM instead of Vercel (guide: docs/VM_DEPLOY.md):
+                             setup-server.sh, update.sh, Caddyfile, the bot service, scheduled jobs
+.github/workflows/           deploy-vm.yml: the "Deploy to VM" button on GitHub
 ```
 
 The rule that keeps it expandable: imports only go **down**:
 `telegram_bot` → `tools` / `task_report` → `core` / `db_storage` / `shared`.
+A tool may read another tool's data in one direction only (today: `driver-map` reads `fuel-prices`).
+`scripts/` sits on top and may import anything.
 
 Where new work goes:
 - **A new tool:** `tools/<name>/` with an `index.ts` (see `core/tool.ts`), added to `telegram_bot/server/tools.ts`.
@@ -166,7 +179,7 @@ node --env-file=.env.production.local --import tsx db_storage/migrate.ts
 
 1. Run the bot setup from your machine with the production values:
    ```bash
-   node --env-file=.env.production.local --import tsx telegram_bot/setup.ts
+   node --env-file=.env.production.local --import tsx scripts/telegram-setup.ts
    ```
    It sets the webhook (with a secret), the commands, the menu button ("Start test") and the bot descriptions.
 2. In **@BotFather**, open `/mybots` → **@cft_Agentbot** → **Bot Settings** → **Configure Mini App** → **Enable Mini App**. Set the URL to your `APP_URL` and, where offered, choose the **fullscreen** launch mode. This makes it the bot's Main Mini App, which also gives you a shareable fullscreen link:
@@ -205,7 +218,7 @@ None of these are exposed to the browser. There are no `VITE_` variables.
 
 **Owners** are the Telegram IDs in `ADMIN_TELEGRAM_IDS`. They are admins automatically the first time they open the bot, and they can't be removed from inside the app.
 
-**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `core/admin-invites.ts`, `telegram_bot/handlers/admins/admin-team.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/handlers/admins/team-menu.ts`.
+**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `core/admin-invites.ts`, `telegram_bot/handlers/admins/team/admins.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/handlers/admins/team/menu.ts`.
 
 **Signing in.** Inside Telegram, admins tap **Admin console** (or send `/admin`) and are signed in by their Telegram account, with no password. Email and password sign-in exists for opening the console in a normal browser. Create those accounts with `npm run admin:create -- --email … [--telegram-id …]`.
 
@@ -357,7 +370,7 @@ A station without a discounted price in the cabinet (about 230, mostly Casey's) 
 Each role has its own Telegram menu button: admins **CFT Hub**, agents **Discounts**, drivers **Route map**, everyone else the default **Start test**. Telegram sometimes misses the change (a timeout), and a person kept the old button. Now:
 - calls that are safe to repeat (setting menus, editing, answering taps) are tried once more after a timeout (`core/telegram.ts`); new messages never are, so nobody gets one twice;
 - `telegram_users.menu_role` records what each person was last given; when it differs from their role, the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/webhook.ts`);
-- `telegram_bot/setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
+- `scripts/telegram-setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
 
 ## Driver route map
 
@@ -378,7 +391,7 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Who can open it:** admins, agents and drivers (driver links, see "Menu buttons" and `core/drivers.ts`). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
 - **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `vercel.json`.
 - **Limits:** TomTom's truck data is good but not perfect: drivers still follow road signs. On Android Telegram, until Google billing is on, directions are spoken from the voice pack (no street names).
-- Code: `tools/fuel-prices/driver-map.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`; `core/kv.ts`; `shared/driverRoute.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
+- Code: `tools/driver-map/stations.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`; `core/kv.ts`; `shared/driver-route.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
 
 ## Driver leads
 

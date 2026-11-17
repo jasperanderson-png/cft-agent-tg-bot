@@ -1,0 +1,39 @@
+# "Deploy to VM": puts a branch live on the VM (docs/VM_DEPLOY.md). Started by hand only, from
+# GitHub → Actions → Deploy to VM → Run workflow. Vercel deploys separately and is not touched.
+# Needs these repository secrets: VM_HOST, VM_USER (cft), VM_SSH_KEY, VM_HOST_KEY.
+name: Deploy to VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy
+        default: main
+        required: true
+
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy over SSH
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST_KEY: ${{ secrets.VM_HOST_KEY }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          case "$BRANCH" in *[!A-Za-z0-9._/-]*|"") echo "Bad branch name"; exit 1;; esac
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$VM_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+          ssh -o StrictHostKeyChecking=yes "$VM_USER@$VM_HOST" "cd ~/app && deploy/update.sh '$BRANCH'"

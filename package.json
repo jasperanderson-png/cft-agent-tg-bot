@@ -7,6 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "node --env-file-if-exists=.env --import tsx telegram_bot/server/start.ts",
     "dev": "node --env-file-if-exists=.env.local --import tsx telegram_bot/server/dev.ts",
     "build": "vite build telegram_bot/mini_app",
     "preview": "vite preview telegram_bot/mini_app",
@@ -14,9 +15,9 @@
     "test": "vitest run",
     "db:migrate": "node --env-file-if-exists=.env.local --import tsx db_storage/migrate.ts",
     "db:seed": "node --env-file-if-exists=.env.local --import tsx db_storage/seeds/academy/seed.ts",
-    "admin:create": "node --env-file-if-exists=.env.local --import tsx core/scripts/create-admin.ts",
-    "telegram:setup": "node --env-file-if-exists=.env.local --import tsx telegram_bot/setup.ts",
-    "worklog": "node --env-file-if-exists=.env.production.local --import tsx task_report/scripts/log.ts"
+    "admin:create": "node --env-file-if-exists=.env.local --import tsx scripts/create-admin.ts",
+    "telegram:setup": "node --env-file-if-exists=.env.local --import tsx scripts/telegram-setup.ts",
+    "worklog": "node --env-file-if-exists=.env.production.local --import tsx scripts/worklog.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",

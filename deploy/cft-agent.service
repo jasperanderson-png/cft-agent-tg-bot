@@ -1,0 +1,19 @@
+# The bot as a background service: starts with the server, restarts if it stops.
+# Installed by deploy/setup-server.sh. Logs: journalctl -u cft-agent -f
+[Unit]
+Description=CFT Agent bot (API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=cft
+WorkingDirectory=/home/cft/app
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

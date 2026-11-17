@@ -49,6 +49,9 @@ export function verifyInitData(initData: string, botToken: string, maxAgeSec: nu
   return { user, authDate, startParam: params.get('start_param') };
 }
 
+/** The Mini App sends Telegram's signed initData in this header on agent and driver calls. */
+export const INIT_HEADER = 'x-telegram-init-data';
+
 export function requireInitData(initData: unknown): VerifiedInitData {
   if (!env.botToken) throw new HttpError(503, 'The server is not configured yet (TELEGRAM_BOT_TOKEN is missing).');
   const v = typeof initData === 'string' ? verifyInitData(initData, env.botToken, env.initDataMaxAgeSec) : null;
