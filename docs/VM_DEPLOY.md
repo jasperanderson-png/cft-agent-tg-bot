@@ -70,7 +70,7 @@ Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u caddy` (the website
 Do these together, then Vercel can be retired:
 
 1. Turn on the VM's scheduled jobs:
-   `systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer`
+   `systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer cft-cron-stations.timer`
 2. Point Telegram at the VM: as `cft`, `cd ~/app && npm run telegram:setup`.
 3. Remove the `crons` from `vercel.json` (or the Vercel project), or every job runs twice.
 

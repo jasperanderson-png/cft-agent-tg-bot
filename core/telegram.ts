@@ -97,6 +97,8 @@ export interface TelegramMessage {
   document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
   /** Where a forwarded message came from (a channel post forwarded to the bot, for example). */
   forward_origin?: { type?: string; chat?: { id: number; title?: string; type?: string } };
+  /** A shared location. With live_period it is a live location: its updates arrive as edited_message. */
+  location?: { latitude: number; longitude: number; live_period?: number; heading?: number; horizontal_accuracy?: number };
 }
 
 /** A message in a private chat with a known sender: the only kind the products handle. */
@@ -115,6 +117,8 @@ export type PrivateCallback = TelegramCallback & { data: string; message: { mess
 export interface TelegramUpdate {
   update_id?: number;
   message?: TelegramMessage;
+  /** An edited message; for a live location, each new position. */
+  edited_message?: TelegramMessage;
   callback_query?: TelegramCallback;
   my_chat_member?: ChatMemberUpdate;
 }

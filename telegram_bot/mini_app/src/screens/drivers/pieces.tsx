@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { DriverStation, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, payPrice, savingOf } from '../../../../../shared/driver-route';
+import { BRANDS, payPrice, priceAge, rangeOf, savingOf } from '../../../../../shared/driver-route';
 import { titleCase } from '../../../../../shared/discounts';
 import { fmtDate } from '../../components/ui';
 
@@ -35,13 +35,15 @@ export function store(key: string, value: unknown) {
 }
 
 
-export function TruckSheet({ truck, onClose, onSave }: { truck: TruckProfile; onClose: () => void; onSave: (t: TruckProfile) => void }) {
+export function TruckSheet({ truck, rangeMi, onClose, onSave }: { truck: TruckProfile; rangeMi: number | null; onClose: () => void; onSave: (t: TruckProfile, rangeMi: number | null) => void }) {
   const [ft, setFt] = useState(Math.floor(truck.heightIn / 12));
   const [inch, setInch] = useState(truck.heightIn % 12);
   const [lb, setLb] = useState(String(truck.weightLb));
   const [hz, setHz] = useState(truck.hazmat);
+  const [range, setRange] = useState(rangeMi != null ? String(rangeMi) : '');
   const weight = Number(lb.replace(/[^\d]/g, ''));
   const okWeight = weight >= 10_000 && weight <= 120_000;
+  const okRange = !range.trim() || rangeOf(range) != null;
   return (
     <>
       <button className="dm-scrim" aria-label="Close truck settings" onClick={onClose} />
@@ -65,11 +67,15 @@ export function TruckSheet({ truck, onClose, onSave }: { truck: TruckProfile; on
           <button className="dm-cell dm-switch" role="switch" aria-checked={hz} onClick={() => setHz((v) => !v)}>
             <span><b>Hazardous materials</b><span>Avoid roads and tunnels closed to hazmat</span></span><i />
           </button>
+          <label className="dm-cell dm-field"><span>Miles until empty (optional)</span>
+            <input inputMode="numeric" placeholder="e.g. 450" value={range} onChange={(e) => setRange(e.target.value)} aria-invalid={!okRange} />
+          </label>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="dm-primary" disabled={!okWeight} onClick={() => onSave({ heightIn: ft * 12 + inch, weightLb: weight, hazmat: hz })}>Save</button>
-            <button className="dm-soft" onClick={() => onSave(DEFAULT_TRUCK)}>Standard</button>
+            <button className="dm-primary" disabled={!okWeight || !okRange} onClick={() => onSave({ heightIn: ft * 12 + inch, weightLb: weight, hazmat: hz }, rangeOf(range))}>Save</button>
+            <button className="dm-soft" onClick={() => onSave(DEFAULT_TRUCK, null)}>Standard</button>
           </div>
           {!okWeight && <span style={{ fontSize: 13, color: '#f28b82' }}>Weight: 10,000 to 120,000 lb.</span>}
+          {!okRange && <span style={{ fontSize: 13, color: '#f28b82' }}>Miles until empty: a number from 1 to 3,000, or leave it empty.</span>}
         </div>
       </section>
     </>
@@ -91,7 +97,18 @@ export function turnIcon(type: number): string {
 
 // ---- pieces
 
-export function StationCard({ s, badge, near, detail, onToggle, primary, onPrimary }: { s: DriverStation; badge: string; near: boolean; detail: boolean; onToggle: () => void; primary: string; onPrimary: () => void }) {
+/** How old the price is: "5 h ago", and an amber "Old price" tag past DRIVER_MAP.stalePriceHours. */
+export function PriceAge({ at }: { at: string | null }) {
+  const age = priceAge(at);
+  if (!age) return null;
+  return (
+    <span className={'dm-age' + (age.stale ? ' old' : '')} title={fmtDate(at)}>
+      {age.stale && <b>Old price · </b>}{age.text}
+    </span>
+  );
+}
+
+export function StationCard({ s, badge, near, detail, onToggle, primary, onPrimary, note }: { s: DriverStation; badge: string; near: boolean; detail: boolean; onToggle: () => void; primary: string; onPrimary: () => void; note?: { text: string; warn?: boolean } | null }) {
   const save = savingOf(s);
   return (
     <div className="dm-swap" key={s.id}>
@@ -104,8 +121,10 @@ export function StationCard({ s, badge, near, detail, onToggle, primary, onPrima
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
           <b className="num" style={{ fontSize: 34, lineHeight: 0.85, color: '#a0dcff' }}>{money(payPrice(s))}</b>
           {s.discounted != null && s.retail != null && <s style={{ marginTop: 4, fontSize: 13, color: '#999' }}>{money(s.retail)}</s>}
+          <PriceAge at={s.updatedAt} />
         </span>
       </div>
+      {note && <span className={'dm-cardnote' + (note.warn ? ' warn' : '')}>{note.text}</span>}
       <Collapse open={detail}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 10, fontSize: 15, lineHeight: 1.4, color: '#ddd' }}><Svg d={PIN} size={18} color="#a0dcff" />{fullAddress(s)}</div>
@@ -113,7 +132,7 @@ export function StationCard({ s, badge, near, detail, onToggle, primary, onPrima
             <div className="dm-cell"><dt>You save</dt><dd className="num" style={{ fontSize: 20, color: '#a0dcff' }}>{save != null ? `${money(save)} / gal` : 'No discount'}</dd></div>
             <div className="dm-cell"><dt>On 150 gal</dt><dd className="num" style={{ fontSize: 20 }}>{save != null ? money(save * 150) : '—'}</dd></div>
             <div className="dm-cell"><dt>Brand</dt><dd style={{ fontSize: 16, fontWeight: 600 }}>{BRANDS[s.brand].label}</dd></div>
-            <div className="dm-cell"><dt>Price updated</dt><dd style={{ fontSize: 16, fontWeight: 600 }}>{fmtDate(s.updatedAt)}</dd></div>
+            <div className="dm-cell"><dt>Price updated</dt><dd style={{ fontSize: 16, fontWeight: 600 }}>{fmtDate(s.updatedAt)}<br /><PriceAge at={s.updatedAt} /></dd></div>
           </dl>
         </div>
       </Collapse>
@@ -134,6 +153,7 @@ export function PriceBox({ s }: { s: DriverStation }) {
       <span style={{ flex: 1 }}>
         <span style={{ display: 'block', fontSize: 12, color: '#999' }}>Your price</span>
         <b className="num" style={{ fontSize: 34, lineHeight: 1, color: '#a0dcff' }}>{money(payPrice(s))}</b><span style={{ fontSize: 12, color: '#8aa3ae' }}> /gal</span>
+        <PriceAge at={s.updatedAt} />
       </span>
       {save != null && (
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>

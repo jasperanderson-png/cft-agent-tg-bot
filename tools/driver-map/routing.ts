@@ -1,7 +1,6 @@
 import type { DriverPlace, DriverRoute, DriverRouteStep, TruckProfile } from '../../shared/types.js';
 import { env } from '../../core/env.js';
 import { HttpError } from '../../core/http.js';
-import { rateLimit } from '../../core/kv.js';
 import { tomtomReady, tomtomRoute } from './tomtom.js';
 
 // Truck routes and place search for the drivers' route map, through OpenRouteService (free plan:
@@ -9,7 +8,7 @@ import { tomtomReady, tomtomRoute } from './tomtom.js';
 // Routes use the "heavy vehicle" profile, so they respect the truck's height, weight and hazmat
 // limits where OpenStreetMap knows them.
 
-const ORS = 'https://api.openrouteservice.org';
+export const ORS = 'https://api.openrouteservice.org';
 const MI_PER_M = 1 / 1609.344;
 
 export interface Point {
@@ -24,18 +23,18 @@ export function truckOf(input: unknown): TruckProfile {
   return { heightIn: Math.round(clamp(t.heightIn, 120, 180, 162)), weightLb: Math.round(clamp(t.weightLb, 10_000, 120_000, 80_000)), hazmat: t.hazmat === true };
 }
 
-const asPoint = (v: unknown): Point | null => {
+export const asPoint = (v: unknown): Point | null => {
   const p = v as Point | null;
   return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180 ? { lat: p.lat, lng: p.lng } : null;
 };
 
-function key(): string {
+export function key(): string {
   const k = env.orsKey;
   if (!k) throw new HttpError(503, 'Routes are not set up yet (ORS_API_KEY).', 'routing_off');
   return k;
 }
 
-async function orsFetch(url: string, init: RequestInit, fetchImpl: typeof fetch): Promise<unknown> {
+export async function orsFetch(url: string, init: RequestInit, fetchImpl: typeof fetch): Promise<unknown> {
   let res: Response;
   try {
     res = await fetchImpl(url, { ...init, signal: AbortSignal.timeout(15_000) });
@@ -136,18 +135,17 @@ export function readRoute(body: unknown, from: DriverPlace, to: DriverPlace): Dr
 /**
  * A truck route from one place to another, optionally through a fuel stop: TomTom with live traffic
  * first (shared monthly allowance), OpenRouteService when TomTom is not set up, used up or failing.
+ * The per-user request limit is applied by the caller (index.ts), whichever service answers.
  */
-export async function planRoute(body: Record<string, unknown>, fetchImpl: typeof fetch = fetch, client: string | null = null): Promise<DriverRoute> {
+export async function planRoute(body: Record<string, unknown>, fetchImpl: typeof fetch = fetch): Promise<DriverRoute> {
   const near = asPoint(body.from);
   const [from, to] = await Promise.all([placeOf(body.from, null, fetchImpl), placeOf(body.to, near, fetchImpl)]);
   const via = asPoint(body.via);
   const truck = truckOf(body.truck);
   if (tomtomReady()) {
     try {
-      await rateLimit('route', client, 20);
       return { ...(await tomtomRoute([from, ...(via ? [via] : []), to], truck, fetchImpl)), from, to };
     } catch (e) {
-      if (e instanceof HttpError && e.status === 429) throw e;
       if (!(e instanceof HttpError && e.status === 422)) console.warn('TomTom route failed, using OpenRouteService:', (e as Error).message);
     }
   }

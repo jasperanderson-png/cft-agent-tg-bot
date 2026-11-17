@@ -9,6 +9,7 @@ import { candidates } from './handlers/candidates/index.js';
 import { drivers } from './handlers/drivers/index.js';
 import { channelMembership, groupMessage } from './handlers/channel.js';
 import { inviteToken, joinWithInvite } from './handlers/invite.js';
+import { liveLocation } from './handlers/live-location.js';
 import { menuKey, roleOf, viewerOf, type Role, type RoleHandlers, type Viewer } from './handlers/viewer.js';
 import type { Db } from '../db_storage/db.js';
 
@@ -78,6 +79,9 @@ export async function handleWebhook(req: ApiRequest) {
     await groupMessage(db, update.message).catch((e) => console.error('group message failed', (e as Error).message));
     return { ok: true };
   }
+
+  // A shared location (live location alerts on the road): handlers/live-location.ts.
+  if (await liveLocation(db, update).catch((e) => { console.error('location update failed', (e as Error).message); return true; })) return { ok: true };
 
   // A message in a private chat.
   if (!update.message?.chat?.id || !update.message.from || update.message.chat.type !== 'private') return { ok: true };

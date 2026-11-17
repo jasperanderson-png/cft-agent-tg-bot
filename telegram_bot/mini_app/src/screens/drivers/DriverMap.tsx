@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, cheapest, payPrice, stationsAlongRoute, type LatLng, type Placed } from '../../../../../shared/driver-route';
+import { applyDetours, bestStop, BRANDS, detourAsks, payPrice, rangeOf, reachable, stationsAlongRoute, type LatLng, type Placed } from '../../../../../shared/driver-route';
+import { DRIVER_MAP } from '../../../../../shared/driver-config';
 import { US_STATES as STATE_NAMES } from '../../../../../shared/states';
 import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
@@ -34,11 +35,9 @@ interface Trip { phase: Phase; stopId: number | null }
 interface Field { text: string; place: DriverPlace | null }
 interface Fix extends LatLng { heading: number | null; speed: number | null; accuracy: number | null }
 
-const CORRIDOR_MI = 1.5;
-const NEARBY_MI = 20;
-const NEARBY_MAX = 30;
-/** On a planned route the map shows only the cheapest few; "Nearby stations" shows the rest. */
-const CHEAP_SHOWN = 3;
+// Thresholds: shared/driver-config.ts. On a planned route the map shows only the cheapest few
+// (cheapShown); "Nearby stations" shows the rest.
+const { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI, nearbyMax: NEARBY_MAX, cheapShown: CHEAP_SHOWN } = DRIVER_MAP;
 const STATIONS_KEY = 'cft.stations.v1';
 const BUILD_STEPS = ['Finding roads for your truck', 'Checking live traffic', 'Finding CFT stations on the way'];
 const toFix = (p: GeolocationPosition): Fix => ({ lat: p.coords.latitude, lng: p.coords.longitude, heading: p.coords.heading ?? null, speed: p.coords.speed ?? null, accuracy: p.coords.accuracy ?? null });
@@ -92,7 +91,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const pickStation = useRef((id: number) => {
     if (modeRef.current === 'states') { setMapTap((t) => ({ id, n: (t?.n ?? 0) + 1 })); return; }
     if (tripRef.current) return;
-    if (baseRef.current) { setSel(id); setDetail(true); return; }
+    if (baseRef.current) { userPicked.current = true; setSel(id); setDetail(true); return; }
     setTapped(id);
     setDetail(false);
   }).current;
@@ -224,6 +223,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   // ---- the truck and the voice switch
   const [truck, setTruck] = useState<TruckProfile>(() => ({ ...DEFAULT_TRUCK, ...stored<Partial<TruckProfile>>('cft.truck', {}) }));
   const [truckOpen, setTruckOpen] = useState(false);
+  /** Miles until empty (optional): the pick prefers stations the truck can reach. */
+  const [rangeMi, setRangeMi] = useState<number | null>(() => rangeOf(stored<number | null>('cft.rangeMi', null)));
   const [muted, setMuted] = useState(() => stored('cft.voiceOff', false));
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -354,21 +355,56 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   useEffect(() => setEditing(false), [base]);
 
   // ---- the stations along the route
-  const placed = useMemo(() => {
+  // First filter: straight-line distance from the route (the corridor).
+  const straight = useMemo(() => {
     if (!base || !data) return { onRoute: [] as Placed<DriverStation>[], nearby: [] as Placed<DriverStation>[] };
-    const r = stationsAlongRoute(base.path, data.stations, { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI });
-    return { onRoute: r.onRoute, nearby: r.nearby.slice().sort((a, b) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99)).slice(0, NEARBY_MAX) };
+    return stationsAlongRoute(base.path, data.stations, { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI });
   }, [base, data]);
-  const best = useMemo(() => cheapest(placed.onRoute), [placed]);
+  // Then the cheapest few get a real driving-time check: one across a divided highway or far from an
+  // exit costs real minutes and is moved to "nearby" (tools/driver-map/detours.ts).
+  const asks = useMemo(() => (base ? detourAsks(base.path, straight.onRoute) : []), [base, straight]);
+  const asksKey = asks.map((a) => a.id).join(',');
+  const [detours, setDetours] = useState<Map<number, number | null>>(() => new Map());
+  useEffect(() => {
+    setDetours(new Map());
+    if (!asks.length) return;
+    let live = true;
+    driverApi.detours(asks).then((r) => { if (live) setDetours(new Map(r.detours.map((d) => [d.id, d.detourMin]))); }, () => {});
+    return () => { live = false; };
+  }, [base, asksKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const placed = useMemo(() => {
+    const r = applyDetours(straight, detours);
+    return { onRoute: r.onRoute, nearby: r.nearby.slice().sort((a, b) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99)).slice(0, NEARBY_MAX) };
+  }, [straight, detours]);
+  // The pick: the cheapest the truck can reach before empty (when the driver gave a range).
+  const best = useMemo(() => bestStop(placed.onRoute, rangeMi), [placed, rangeMi]);
   const [nearbyOn, setNearbyOn] = useState(false);
   useEffect(() => setNearbyOn(false), [base]);
   const cheapIds = useMemo(() => new Set(placed.onRoute.slice().sort(byPay).slice(0, CHEAP_SHOWN).map((p) => p.item.id)), [placed]);
+  /** The driver picked a station on this route: a late detour answer must not take it away. */
+  const userPicked = useRef(false);
+  useEffect(() => { userPicked.current = false; }, [base]);
   useEffect(() => {
+    if (userPicked.current && sel != null && [...placed.onRoute, ...placed.nearby].some((p) => p.item.id === sel)) return;
     const t = target.current != null ? placed.onRoute.find((p) => p.item.id === target.current) : undefined;
     setSel(t?.item.id ?? best?.item.id ?? null);
-  }, [best, placed]);
+  }, [best, placed]); // eslint-disable-line react-hooks/exhaustive-deps
   const selPlaced = placed.onRoute.find((p) => p.item.id === sel) ?? placed.nearby.find((p) => p.item.id === sel) ?? null;
   const selOn = !!selPlaced && placed.onRoute.includes(selPlaced);
+  /** Under the picked station: its real detour, and whether the truck gets there before empty. */
+  const selNote = useMemo(() => {
+    if (!selPlaced) return null;
+    const parts: string[] = [];
+    const d = detours.get(selPlaced.item.id);
+    if (d != null) parts.push(d < 1 ? 'Right off your route' : `+${Math.round(d)} min off your route`);
+    let warn = false;
+    if (rangeMi != null) {
+      const mi = Math.round(selPlaced.alongMi + selPlaced.offMi);
+      if (reachable(selPlaced, rangeMi)) parts.push(`Reachable before empty (${mi} of ${rangeMi} mi)`);
+      else { warn = true; parts.push(`Beyond your range: ${mi} mi away, ${rangeMi} mi left`); }
+    }
+    return parts.length ? { text: parts.join(' · '), warn } : null;
+  }, [selPlaced, detours, rangeMi]);
   useEffect(() => setDetail(false), [base]);
   // A station off the route changes the way: route through it.
   useEffect(() => {
@@ -795,7 +831,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
                   </ul>
                 ) : (
                   <button type="button" className="dm-truckrow" onClick={() => { haptic.tap(); setTruckOpen(true); }} aria-label={`Truck: ${truckText(truck)}. Change`}>
-                    <Truck size={13} /><span>{truckText(truck)}</span><Svg d={EDIT} size={13} />
+                    <Truck size={13} /><span>{truckText(truck)}{rangeMi != null ? ` · ${rangeMi} mi left` : ''}</span><Svg d={EDIT} size={13} />
                   </button>
                 )}
               </div>
@@ -867,8 +903,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
               {selPlaced ? (
                 <StationCard
                   s={selPlaced.item}
-                  badge={selPlaced === best ? 'CHEAPEST ON YOUR ROUTE' : selOn ? `ON YOUR ROUTE · ${Math.round(selPlaced.alongMi)} MI` : extraMi != null ? `NEW ROUTE · +≈ ${extraMi} MI` : 'NEAR YOUR ROUTE'}
-                  near={!selOn} detail={detail} onToggle={() => setDetail((v) => !v)}
+                  badge={selPlaced === best ? (rangeMi != null && reachable(selPlaced, rangeMi) ? 'CHEAPEST YOU CAN REACH' : 'CHEAPEST ON YOUR ROUTE') : selOn ? `ON YOUR ROUTE · ${Math.round(selPlaced.alongMi)} MI` : extraMi != null ? `NEW ROUTE · +≈ ${extraMi} MI` : 'NEAR YOUR ROUTE'}
+                  near={!selOn} detail={detail} onToggle={() => setDetail((v) => !v)} note={selNote}
                   primary={selOn || via ? 'Navigate' : 'Finding the way…'} onPrimary={() => { if (selOn || via) startTrip(); }}
                 />
               ) : (
@@ -944,7 +980,12 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
           </section>
         </>
       )}
-      {truckOpen && <TruckSheet truck={truck} onClose={() => setTruckOpen(false)} onSave={(t) => { setTruck(t); store('cft.truck', t); setTruckOpen(false); haptic.success(); if (base) plan(from, to, t); }} />}
+      {truckOpen && <TruckSheet truck={truck} rangeMi={rangeMi} onClose={() => setTruckOpen(false)} onSave={(t, r) => {
+        const truckChanged = t.heightIn !== truck.heightIn || t.weightLb !== truck.weightLb || t.hazmat !== truck.hazmat;
+        setTruck(t); store('cft.truck', t); setRangeMi(r); store('cft.rangeMi', r); setTruckOpen(false); haptic.success();
+        // Only the truck changes the way; the range only changes which station is picked.
+        if (base && truckChanged) plan(from, to, t);
+      }} />}
 
       {mode === 'states' && (
         <ByState stations={data?.stations ?? null} fetchedAt={data?.fetchedAt ?? null} routing={!!data?.routing} onRouteTo={routeTo} onMyRoute={() => setMode('route')} onPicked={setPicked}

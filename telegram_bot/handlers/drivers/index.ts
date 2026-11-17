@@ -1,4 +1,5 @@
 import { escHtml as esc } from '../../../shared/html.js';
+import { DRIVER_MAP } from '../../../shared/driver-config.js';
 import { env } from '../../../core/env.js';
 import { botApi } from '../../../core/telegram.js';
 import { refuseAdminCallback, refuseAdminMessage, refuseAgentCallback } from '../not-allowed.js';
@@ -24,7 +25,9 @@ const DRIVER_HELP = [
   '3. The map shows a truck route and CFT partner stations on the way (Pilot / Flying J, Love\'s, TA / Petro, Speedway) with your CFT price. The cheapest one is picked for you.',
   '4. Press <b>Navigate</b>: turn-by-turn directions with street names and voice.',
   '',
-  'Set your truck\'s height and weight once (the chip under the address): routes then avoid low bridges and roads closed to trucks where the map knows them. Always follow road signs.',
+  'Set your truck\'s height and weight once (the chip under the address): routes then avoid low bridges and roads closed to trucks where the map knows them. Add how many miles you can still drive before empty, and the map shows which stations you can reach. Always follow road signs.',
+  '',
+  `📍 <b>Alerts on the road:</b> share your <b>live</b> location in this chat (📎 → Location → Share My Live Location) and I'll tell you when a CFT station is within ${DRIVER_MAP.alerts.aheadMi} mi ahead.`,
 ].join('\n');
 
 /** The driver's home: what they can do, the map button, the Route map menu button and commands. */

@@ -1,5 +1,6 @@
 import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../shared/types';
 import type { AgentDiscounts, PartnerBrand } from '../../../../shared/discounts';
+import type { DetourAsk, DetourResult } from '../../../../shared/driver-route';
 import { initData } from './telegram';
 
 export class ApiError extends Error {
@@ -124,6 +125,8 @@ export const driverApi = {
   locate: () => viewer<{ placed: number; pending: number }>('POST', 'driver/locate'),
   /** A truck route. Places are points (a picked suggestion, the GPS fix) or typed text. */
   route: (b: { from: unknown; to: unknown; via?: { lat: number; lng: number }; truck: TruckProfile }) => viewer<DriverRoute>('POST', 'driver/route', b),
+  /** Real extra driving minutes for the cheapest stations near a route (at most 5). */
+  detours: (stops: DetourAsk[]) => viewer<{ detours: DetourResult[] }>('POST', 'driver/detours', { stops }),
   places: (q: string, near: { lat: number; lng: number } | null) =>
     viewer<{ places: DriverPlace[] }>('GET', `driver/places?q=${encodeURIComponent(q)}${near ? `&lat=${near.lat.toFixed(4)}&lng=${near.lng.toFixed(4)}` : ''}`),
   /** Trip history: a driver starts navigating (others get id null: nothing is recorded). */

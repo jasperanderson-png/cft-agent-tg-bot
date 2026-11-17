@@ -262,3 +262,11 @@
 .dm-trip-legend .ln.planned { border-top: 3px dashed #a0dcff; }
 .dm-trip-legend .ln.driven { border-color: #ff9f1a; }
 .dm-trip-legend .ln.gap { border-top: 3px dotted #ff3b4e; }
+
+/* How old a price is ("5 h ago"); amber past a day ("Old price"). */
+.dm-age { display: block; margin-top: 4px; font-size: 12px; color: #8aa3ae; white-space: nowrap; }
+.dm-age.old { color: #ffb74d; }
+.dm-age.old b { font-weight: 700; }
+/* A line under the station: real detour time, or whether the truck can reach it before empty. */
+.dm-cardnote { display: block; font-size: 13.5px; line-height: 1.35; color: #a7c4d0; }
+.dm-cardnote.warn { color: #ffb74d; }

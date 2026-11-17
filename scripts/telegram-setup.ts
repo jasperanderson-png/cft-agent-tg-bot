@@ -21,7 +21,7 @@ async function main() {
   await botApi('setWebhook', {
     url: `${env.appUrl}/api/telegram/webhook`,
     secret_token: env.webhookSecret,
-    allowed_updates: ['message', 'callback_query', 'my_chat_member'],
+    allowed_updates: ['message', 'edited_message', 'callback_query', 'my_chat_member'], // edited_message: live location updates
     drop_pending_updates: true,
   });
   console.log(`Webhook → ${env.appUrl}/api/telegram/webhook`);

@@ -1,6 +1,7 @@
 // Drivers' fuel map: which stations are CFT partners, and which of them lie along a route.
 // Pure functions, used by the server (tools/driver-map/stations.ts) and the Mini App
-// (telegram_bot/mini_app/src/screens/drivers/).
+// (telegram_bot/mini_app/src/screens/drivers/). Thresholds: shared/driver-config.ts.
+import { DRIVER_MAP } from './driver-config.js';
 
 /** The four partner networks drivers see. Every other station in the cabinet is left out. */
 export type DriverBrand = 'p' | 'l' | 't' | 's';
@@ -93,7 +94,7 @@ export interface Placed<T> {
 export function stationsAlongRoute<T extends { lat?: number | null; lng?: number | null }>(
   path: LatLng[],
   stations: T[],
-  { corridorMi = 1.5, nearbyMi = 25 }: { corridorMi?: number; nearbyMi?: number } = {},
+  { corridorMi = DRIVER_MAP.corridorMi, nearbyMi = DRIVER_MAP.nearbyMi }: { corridorMi?: number; nearbyMi?: number } = {},
 ): { onRoute: Placed<T>[]; nearby: Placed<T>[] } {
   const onRoute: Placed<T>[] = [];
   const nearby: Placed<T>[] = [];
@@ -134,4 +135,88 @@ export function cheapest<T extends { retail: number | null; discounted: number |
     if (best == null || bv == null || v < bv) best = p;
   }
   return best;
+}
+
+/**
+ * The best stop: the cheapest station the truck can reach before empty when a range is given (and
+ * at least one is reachable), else the cheapest on the route.
+ */
+export function bestStop<T extends { retail: number | null; discounted: number | null }>(list: Placed<T>[], rangeMi: number | null): Placed<T> | null {
+  if (rangeMi != null) {
+    const ok = cheapest(list.filter((p) => reachable(p, rangeMi)));
+    if (ok) return ok;
+  }
+  return cheapest(list);
+}
+
+// ---- fuel range ("miles until empty", optional, set by the driver)
+
+/** Can the truck get there before the tank is empty? Miles along the route plus the way off it. */
+export const reachable = (p: { alongMi: number; offMi: number }, rangeMi: number) => p.alongMi + p.offMi <= rangeMi;
+
+/** A driver's typed range made safe: whole miles from 1 to 3,000, or null (not set). */
+export function rangeOf(v: unknown): number | null {
+  const n = Math.round(Number(String(v ?? '').replace(/[^\d.]/g, '')));
+  return Number.isFinite(n) && n >= 1 && n <= 3000 ? n : null;
+}
+
+// ---- real detour time (tools/driver-map/detours.ts measures it)
+
+/** A station to check, with a route point before it and one after it. */
+export interface DetourAsk {
+  id: number;
+  at: LatLng;
+  before: LatLng;
+  after: LatLng;
+}
+export interface DetourResult {
+  id: number;
+  /** Extra minutes of driving to stop there; null when no road was found. */
+  detourMin: number | null;
+}
+
+/** The cheapest `n` corridor stations to check, each with the route `aroundMi` before and after it. */
+export function detourAsks<T extends { id: number; lat?: number | null; lng?: number | null; retail: number | null; discounted: number | null }>(
+  path: LatLng[],
+  onRoute: Placed<T>[],
+  n: number = DRIVER_MAP.detour.candidates,
+  aroundMi: number = DRIVER_MAP.detour.aroundMi,
+): DetourAsk[] {
+  const cum = cumulativeMiles(path);
+  return onRoute
+    .filter((p) => p.item.lat != null && p.item.lng != null && payPrice(p.item) != null)
+    .sort((a, b) => payPrice(a.item)! - payPrice(b.item)!)
+    .slice(0, n)
+    .map((p) => ({
+      id: p.item.id,
+      at: { lat: p.item.lat!, lng: p.item.lng! },
+      before: pointAlong(path, p.alongMi - aroundMi, cum).point,
+      after: pointAlong(path, p.alongMi + aroundMi, cum).point,
+    }));
+}
+
+/**
+ * Applies measured detours: a corridor station that costs more than `maxMin` extra minutes is not
+ * "on the route" any more (it moves to the nearby list). Unmeasured stations stay where they are.
+ */
+export function applyDetours<T extends { id: number }>(
+  placed: { onRoute: Placed<T>[]; nearby: Placed<T>[] },
+  detours: Map<number, number | null>,
+  maxMin: number = DRIVER_MAP.detour.maxMin,
+): { onRoute: Placed<T>[]; nearby: Placed<T>[] } {
+  const far = (p: Placed<T>) => { const d = detours.get(p.item.id); return d != null && d > maxMin; };
+  const moved = placed.onRoute.filter(far);
+  if (!moved.length) return placed;
+  return { onRoute: placed.onRoute.filter((p) => !far(p)), nearby: [...placed.nearby, ...moved].sort((a, b) => a.alongMi - b.alongMi) };
+}
+
+// ---- how old a price is
+
+/** "just now", "25 min ago", "5 h ago", "3 days ago", and whether it is older than `staleHours`. */
+export function priceAge(updatedAt: string | null | undefined, now = Date.now(), staleHours: number = DRIVER_MAP.stalePriceHours): { text: string; stale: boolean } | null {
+  const t = updatedAt ? Date.parse(updatedAt) : NaN;
+  if (!Number.isFinite(t)) return null;
+  const min = Math.max(0, Math.floor((now - t) / 60_000));
+  const text = min < 2 ? 'just now' : min < 60 ? `${min} min ago` : min < 48 * 60 ? `${Math.floor(min / 60)} h ago` : `${Math.floor(min / 1440)} days ago`;
+  return { text, stale: min >= staleHours * 60 };
 }

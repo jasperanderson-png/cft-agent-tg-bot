@@ -225,4 +225,23 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     await expect(botApi('sendMessage', { chat_id: AGENT, text: 'x' })).rejects.toThrow();
     expect(of(AGENT)).toHaveLength(0);
   });
+
+  it('limits route requests per signed-in user, whichever map service would answer', async () => {
+    // No route service is set up here: under the limit the answer is "routes are off" (503), over it 429.
+    const route = (user: number) => router({ method: 'POST', path: 'driver/route', query: new URLSearchParams(), headers: { 'x-telegram-init-data': signInitData({ id: user, first_name: 'D' }, BOT), 'content-type': 'application/json' }, body: { from: 'Omaha NE', to: 'Kearney NE' }, ip: '10.0.0.9' } as ApiRequest);
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++) statuses.push((await route(AGENT)).status);
+    expect(statuses.slice(0, 20).every((s) => s !== 429)).toBe(true);
+    expect(statuses[20]).toBe(429);
+    // Same address, another person: not affected (limits are per user, not per IP).
+    expect((await route(OWNER)).status).not.toBe(429);
+  });
+
+  it('answers a live location from an agent and ignores one from a candidate', async () => {
+    const share = (from: number) => hook({ update_id: ++id, message: { chat: { id: from, type: 'private' }, from: { id: from, first_name: 'U' }, location: { latitude: 40.81, longitude: -96.7, live_period: 3600 } } });
+    await share(AGENT);
+    expect(of(AGENT).map((m) => m.text).join('\n')).toContain('Live location on');
+    await share(CANDIDATE);
+    expect(of(CANDIDATE)).toHaveLength(0);
+  });
 });

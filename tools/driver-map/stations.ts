@@ -3,7 +3,8 @@ import type { PartnerBrand } from '../../shared/discounts.js';
 import type { DriverStation, DriverStations } from '../../shared/types.js';
 import { env } from '../../core/env.js';
 import type { Db } from '../../db_storage/db.js';
-import { kv, kvReady } from '../../core/kv.js';
+import { firstTime, kv, kvReady } from '../../core/kv.js';
+import { DRIVER_MAP } from '../../shared/driver-config.js';
 import { agentStations } from '../fuel-prices/dataset.js';
 import { cachedCoords, geoKey, locateMissing } from './geocode.js';
 
@@ -51,6 +52,33 @@ export async function locateStations(db: Db, locate = locateMissing): Promise<{ 
   const placed = await locating;
   const after = await cachedCoords(db, keys);
   return { placed, pending: keys.filter((k) => !after.has(k)).length };
+}
+
+/**
+ * The daily job (GET /api/cron/stations, after the daily price pull): map points for stations that
+ * have none (new stations in the pull), and a fresh look at points older than
+ * DRIVER_MAP.relocateDays (a station that moved). A changed address gets a new key, so it is looked
+ * up as a new station. Stations without a point first; capped per run (free services' limits).
+ */
+export async function refreshStationLocations(db: Db, locate = locateMissing): Promise<{ placed: number; rechecked: number; pending: number }> {
+  const { keyed, keys, ready, coords } = await load(db);
+  if (!ready || !keys.length) return { placed: 0, rechecked: 0, pending: 0 };
+  const { rows } = await db.query<{ key: string }>(
+    'select key from station_geo where key = any($1::text[]) and geocoded_at < now() - make_interval(days => $2)',
+    [keys, DRIVER_MAP.relocateDays],
+  );
+  const old = new Set(rows.map((r) => r.key));
+  const seen = new Set<string>();
+  const todo = keyed
+    .filter((k) => k.key && (!coords.has(k.key) || old.has(k.key)) && !seen.has(k.key) && seen.add(k.key))
+    .sort((a, b) => Number(coords.has(a.key!)) - Number(coords.has(b.key!)))
+    .slice(0, DRIVER_MAP.relocateMax);
+  if (!todo.length) return { placed: 0, rechecked: 0, pending: 0 };
+  // The same lock as the map's background lookups: never two passes at once.
+  if (!(await firstTime('cft:geocode:lock', 180))) return { placed: 0, rechecked: 0, pending: keys.filter((k) => !coords.has(k)).length };
+  const placed = await locate(db, todo.map((k) => ({ key: k.key!, station: k.s })), { budgetMs: DRIVER_MAP.relocateBudgetS * 1000, limit: DRIVER_MAP.relocateMax });
+  const after = await cachedCoords(db, keys);
+  return { placed, rechecked: todo.filter((k) => old.has(k.key!)).length, pending: keys.filter((k) => !after.has(k)).length };
 }
 
 /** Partner stations with their cached map points (stations still without one come with lat/lng null). */

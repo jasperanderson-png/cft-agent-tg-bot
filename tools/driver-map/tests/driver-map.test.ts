@@ -224,19 +224,19 @@ describe('TomTom truck routes and the natural voice (shared with United Fuel)', 
       });
       vi.stubGlobal('fetch', fetchStub);
       const from = { label: 'Omaha', lat: 41.2565, lng: -95.9345 }, to = { label: 'Kearney', lat: 40.6993, lng: -99.0832 };
-      const r = await planRoute({ from, to, truck: { heightIn: 162, weightLb: 80000, hazmat: true } }, fetchStub as unknown as typeof fetch, '1.2.3.4');
+      const r = await planRoute({ from, to, truck: { heightIn: 162, weightLb: 80000, hazmat: true } }, fetchStub as unknown as typeof fetch);
       expect(r.source).toBe('tomtom');
       const q = new URL(urls.find((u) => u.startsWith('https://api.tomtom.com/'))!).searchParams;
       expect(Object.fromEntries(['travelMode', 'traffic', 'vehicleHeight', 'vehicleWeight', 'vehicleLoadType'].map((k) => [k, q.get(k)]))).toEqual({ travelMode: 'truck', traffic: 'true', vehicleHeight: '4.11', vehicleWeight: '36287', vehicleLoadType: 'USHazmatClass3' });
       const month = new Date().toISOString().slice(0, 7);
       expect(redis.kv.get(`fuel:budget:route:${month}`)).toBe('1'); // United Fuel's own counter
       tomtomUp = false;
-      expect((await planRoute({ from, to }, fetchStub as unknown as typeof fetch, '1.2.3.4')).source).toBe('ors');
+      expect((await planRoute({ from, to }, fetchStub as unknown as typeof fetch)).source).toBe('ors');
       // Used up: TomTom is not asked at all, the route still comes (OpenRouteService).
       redis.kv.set(`fuel:budget:route:${month}`, '19000');
       tomtomUp = true;
       const before = urls.filter((u) => u.startsWith('https://api.tomtom.com/')).length;
-      expect((await planRoute({ from, to }, fetchStub as unknown as typeof fetch, '1.2.3.4')).source).toBe('ors');
+      expect((await planRoute({ from, to }, fetchStub as unknown as typeof fetch)).source).toBe('ors');
       expect(urls.filter((u) => u.startsWith('https://api.tomtom.com/')).length).toBe(before);
     } finally {
       env(false);

@@ -45,10 +45,69 @@ export async function spend(name: Budget, amount: number): Promise<void> {
   }
 }
 
-/** At most `perMinute` calls per client per minute (abuse guard). */
+// Without Redis (local work, the VM without it) or when it does not answer, counters live in this
+// server's memory: still a guard, per server instead of shared.
+const local = new Map<string, { n: number; until: number }>();
+function localIncr(key: string, ttlSec: number, now = Date.now()): number {
+  if (local.size > 5000) for (const [k, v] of local) if (v.until <= now) local.delete(k);
+  const e = local.get(key);
+  if (!e || e.until <= now) { local.set(key, { n: 1, until: now + ttlSec * 1000 }); return 1; }
+  return ++e.n;
+}
+
+/**
+ * At most `perMinute` calls per client per minute (abuse guard). `client` is a Telegram user
+ * ("tg:<id>") for signed-in calls, else the IP address.
+ */
 export async function rateLimit(name: string, client: string | null, perMinute: number): Promise<void> {
   const key = `fuel:nav:rate:${name}:${digest(client ?? 'local')}:${Math.floor(Date.now() / 60_000)}`;
-  const count = Number(await kv('INCR', key));
-  if (count === 1) await kv('EXPIRE', key, 120);
+  let count: number;
+  try {
+    if (!kvReady()) throw new Error('no redis');
+    count = Number(await kv('INCR', key));
+    if (count === 1) await kv('EXPIRE', key, 120);
+  } catch {
+    count = localIncr(key, 120);
+  }
   if (count > perMinute) throw new HttpError(429, 'Too many requests. Please wait a moment.', 'rate');
+}
+
+/**
+ * True the first time `key` is seen within `ttlSec` (Redis SET NX, else this server's memory): for
+ * "say it once" messages such as the live location alerts.
+ */
+export async function firstTime(key: string, ttlSec: number): Promise<boolean> {
+  try {
+    if (!kvReady()) throw new Error('no redis');
+    return (await kv('SET', key, '1', 'NX', 'EX', ttlSec)) === 'OK';
+  } catch {
+    return localIncr(key, ttlSec) === 1;
+  }
+}
+
+/** A small JSON value kept for `ttlSec` (Redis, else memory). */
+const localJson = new Map<string, { v: string; until: number }>();
+export async function putJson(key: string, value: unknown, ttlSec: number): Promise<void> {
+  const v = JSON.stringify(value);
+  try {
+    if (!kvReady()) throw new Error('no redis');
+    await kv('SET', key, v, 'EX', ttlSec);
+  } catch {
+    localJson.set(key, { v, until: Date.now() + ttlSec * 1000 });
+  }
+}
+export async function getJson<T>(key: string): Promise<T | null> {
+  let v: string | null = null;
+  try {
+    if (!kvReady()) throw new Error('no redis');
+    v = (await kv('GET', key)) as string | null;
+  } catch {
+    const e = localJson.get(key);
+    v = e && e.until > Date.now() ? e.v : null;
+  }
+  try {
+    return v == null ? null : (JSON.parse(v) as T);
+  } catch {
+    return null;
+  }
 }

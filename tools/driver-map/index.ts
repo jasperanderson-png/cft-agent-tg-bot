@@ -2,11 +2,15 @@ import { asAdmin, telegramAdmin } from '../../core/admins.js';
 import { isAgent } from '../../core/agents.js';
 import { isDriver } from '../../core/drivers.js';
 import { getPool } from '../../db_storage/db.js';
-import { bodyObject, HttpError, type ApiRequest } from '../../core/http.js';
+import { bodyObject, HttpError, ok, requireCron, type ApiRequest } from '../../core/http.js';
+import { env } from '../../core/env.js';
+import { rateLimit } from '../../core/kv.js';
+import { DRIVER_MAP } from '../../shared/driver-config.js';
+import { detourMinutes, readAsks } from './detours.js';
 import type { Tool } from '../../core/tool.js';
 import { INIT_HEADER, requireInitData, type TelegramUser } from '../../core/telegram.js';
 import { touchTelegramUser } from '../../core/users.js';
-import { driverStations, locateStations } from './stations.js';
+import { driverStations, locateStations, refreshStationLocations } from './stations.js';
 import { planRoute, searchPlaces } from './routing.js';
 import { voiceClip } from './voice.js';
 import { addTripPoints, adminDrivers, adminTrip, adminTrips, sendTripFile, startTrip, tripNoticeSeen } from './trips.js';
@@ -26,6 +30,8 @@ async function mapViewer(req: ApiRequest): Promise<{ user: TelegramUser; role: '
 }
 type MapViewer = { user: TelegramUser; role: 'agent' | 'admin' | 'driver' };
 const asMapViewer = (h: (v: MapViewer, req: ApiRequest, params: string[]) => Promise<unknown>) => async (req: ApiRequest, params: string[]) => ({ status: 200, body: await h(await mapViewer(req), req, params) });
+/** Per Telegram user (not per IP: many trucks share a phone carrier's addresses), whichever service answers. */
+const limit = (v: MapViewer, name: 'route' | 'places' | 'detours') => rateLimit(name, `tg:${v.user.id}`, env.driverRate(name, DRIVER_MAP.ratePerMinute[name]));
 const driverName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || null;
 
 export const driverMap: Tool = {
@@ -51,7 +57,20 @@ export const driverMap: Tool = {
     route('GET', 'admin/trips/:id', asAdmin((_a, _r, [id]) => adminTrip(getPool(), id)));
     route('POST', 'admin/trips/:id/send', asAdmin((a, _r, [id]) => sendTripFile(getPool(), a.telegramUserId, id)));
     route('POST', 'driver/locate', asMapViewer(() => locateStations(getPool())));
-    route('POST', 'driver/route', asMapViewer((_v, req) => planRoute(bodyObject(req), fetch, req.ip)));
+    route('POST', 'driver/route', asMapViewer(async (v, req) => {
+      await limit(v, 'route');
+      return planRoute(bodyObject(req), fetch);
+    }));
+    // Real detour time for the cheapest stations near the route (detours.ts).
+    route('POST', 'driver/detours', asMapViewer(async (v, req) => {
+      await limit(v, 'detours');
+      return { detours: await detourMinutes(readAsks(req.body), fetch) };
+    }));
+    // Daily (Vercel Cron, after the price pull): map points for new stations, old ones checked again.
+    route('GET', 'cron/stations', async (req) => {
+      requireCron(req);
+      return ok(await refreshStationLocations(getPool()));
+    });
     // The natural voice: a plain GET so phones and the CDN cache each phrase (no sign-in: an <audio>
     // fetch carries no headers; rate-limited and capped by the shared allowance).
     route('GET', 'driver/voice', async (req) => {
@@ -66,7 +85,8 @@ export const driverMap: Tool = {
       console.warn('[route page error]', JSON.stringify({ message: clean(b.message, 500), platform: clean(b.platform, 20), version: clean(b.version, 10), signedIn: b.signedIn === true, ua: clean(b.ua, 200), stack: clean(b.stack, 1500) }));
       return { status: 204, body: null };
     });
-    route('GET', 'driver/places', asMapViewer(async (_v, req) => {
+    route('GET', 'driver/places', asMapViewer(async (v, req) => {
+      await limit(v, 'places');
       const lat = Number(req.query.get('lat'));
       const lng = Number(req.query.get('lng'));
       return { places: await searchPlaces(req.query.get('q') ?? '', Number.isFinite(lat) && Number.isFinite(lng) && req.query.has('lat') ? { lat, lng } : null) };

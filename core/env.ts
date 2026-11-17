@@ -124,4 +124,9 @@ export const env = {
     const n = Number(process.env.DRIVER_GEOCODE_BATCH ?? 60);
     return Number.isInteger(n) && n >= 0 && n <= 1000 ? n : 60;
   },
+  /** Route-map requests per user per minute: DRIVER_RATE_ROUTE / _PLACES / _DETOURS, else `fallback`. */
+  driverRate(name: 'route' | 'places' | 'detours', fallback: number) {
+    const n = Number(process.env[`DRIVER_RATE_${name.toUpperCase()}`]);
+    return Number.isInteger(n) && n > 0 && n <= 10_000 ? n : fallback;
+  },
 };
