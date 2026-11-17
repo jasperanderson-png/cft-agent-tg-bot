@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto';
 import { env } from './env.js';
 import { HttpError } from './http.js';
+import { DRIVER_MAP } from '../shared/driver-config.js';
 
-// The Redis store (Upstash, REST) shared with the United Fuel app: monthly budgets that keep TomTom
-// truck routing and Google natural voice inside their free allowances, per-client rate limits, and
-// the voice clip cache. The key names are the same as United Fuel's (server/navigation.mjs), so the
-// two apps count against ONE cap and share cached voice clips.
+// Our Redis store (Upstash, REST): the daily and monthly budgets that keep TomTom truck routing and
+// the Google natural voice inside their free allowances, per-client rate limits, the voice clip cache
+// and small "say it once" markers. Every key starts with "cft:".
 
-/** Free allowances, kept a little under the providers' limits (same numbers as United Fuel). */
-export const BUDGETS = { route: 19_000, voice: 900_000 } as const;
+/** Our free allowances (shared/driver-config.ts). */
+export const BUDGETS = DRIVER_MAP.budgets;
 export type Budget = keyof typeof BUDGETS;
 
 export const kvReady = () => !!(env.kvUrl && env.kvToken);
@@ -34,25 +34,54 @@ export async function kv(...command: (string | number)[]): Promise<unknown> {
   return data.result;
 }
 
-/** Spends `amount` of this month's allowance, or refuses once it is used up (then the caller falls back). */
-export async function spend(name: Budget, amount: number): Promise<void> {
-  const key = `fuel:budget:${name}:${month()}`;
-  const used = Number(await kv('INCRBY', key, amount));
-  if (used === amount) await kv('EXPIRE', key, 60 * 60 * 24 * 40);
-  if (used > BUDGETS[name]) {
-    await kv('DECRBY', key, amount);
-    throw new HttpError(503, "This month's free allowance is used up.", 'allowance');
-  }
-}
+/**
+ * Spends `amount` of a paid service's free allowance (today's and this month's), or refuses once
+ * either is used up: then the caller falls back (OpenRouteService routes, the phone's voice).
+ */
+export const spend = (name: Budget, amount: number): Promise<void> => spendCapped(name, amount, BUDGETS[name]);
 
 // Without Redis (local work, the VM without it) or when it does not answer, counters live in this
 // server's memory: still a guard, per server instead of shared.
 const local = new Map<string, { n: number; until: number }>();
-function localIncr(key: string, ttlSec: number, now = Date.now()): number {
+function localIncr(key: string, ttlSec: number, by = 1, now = Date.now()): number {
   if (local.size > 5000) for (const [k, v] of local) if (v.until <= now) local.delete(k);
   const e = local.get(key);
-  if (!e || e.until <= now) { local.set(key, { n: 1, until: now + ttlSec * 1000 }); return 1; }
-  return ++e.n;
+  if (!e || e.until <= now) { local.set(key, { n: by, until: now + ttlSec * 1000 }); return by; }
+  return (e.n += by);
+}
+
+/**
+ * Spends `amount` against a daily and a monthly cap of our own (for a provider's free plan, e.g.
+ * OpenRouteService's 500 matrix calls a day), counted across all users in Redis, else per server.
+ * Over either cap nothing is counted and a 503 'allowance' error is thrown: the caller falls back.
+ */
+export async function spendCapped(name: string, amount: number, caps: { perDay: number; perMonth: number }): Promise<void> {
+  const day = new Date().toISOString().slice(0, 10);
+  const keys = [{ key: `cft:budget:${name}:${day}`, cap: caps.perDay, ttl: 60 * 60 * 26 }, { key: `cft:budget:${name}:${month()}`, cap: caps.perMonth, ttl: 60 * 60 * 24 * 32 }];
+  let redis = kvReady();
+  const used: number[] = [];
+  for (const k of keys) {
+    let n: number;
+    try {
+      if (!redis) throw new Error('no redis');
+      n = Number(await kv('INCRBY', k.key, amount));
+      if (n === amount) await kv('EXPIRE', k.key, k.ttl);
+    } catch {
+      redis = false;
+      n = localIncr(k.key, k.ttl, amount);
+    }
+    used.push(n);
+  }
+  if (used.every((n, i) => n <= keys[i].cap)) return;
+  for (const k of keys) {
+    try {
+      if (!redis) throw new Error('no redis');
+      await kv('DECRBY', k.key, amount);
+    } catch {
+      localIncr(k.key, k.ttl, -amount);
+    }
+  }
+  throw new HttpError(503, 'The free allowance for this check is used up for now.', 'allowance');
 }
 
 /**
@@ -60,7 +89,7 @@ function localIncr(key: string, ttlSec: number, now = Date.now()): number {
  * ("tg:<id>") for signed-in calls, else the IP address.
  */
 export async function rateLimit(name: string, client: string | null, perMinute: number): Promise<void> {
-  const key = `fuel:nav:rate:${name}:${digest(client ?? 'local')}:${Math.floor(Date.now() / 60_000)}`;
+  const key = `cft:rate:${name}:${digest(client ?? 'local')}:${Math.floor(Date.now() / 60_000)}`;
   let count: number;
   try {
     if (!kvReady()) throw new Error('no redis');

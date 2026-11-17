@@ -1,4 +1,4 @@
-// Ported from the United Fuel app (src/map-style.ts). CF Transport basemaps: OpenFreeMap's free "Liberty" style (OpenMapTiles
+// CF Transport basemaps: OpenFreeMap's free "Liberty" style (OpenMapTiles
 // data from OpenStreetMap), recoloured for the brand at load time. Night is
 // near-black with calm grey roads; day is a soft light grey with white roads.
 // Highways stand out a little, small streets stay quiet, shops and other

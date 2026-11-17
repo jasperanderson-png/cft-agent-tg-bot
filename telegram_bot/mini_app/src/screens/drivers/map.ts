@@ -4,7 +4,7 @@ import type { LatLng } from '../../../../../shared/driver-route';
 import { cfStyle } from './map-style';
 
 // The map under the drivers' route screen: MapLibre with the CF Transport night style (OpenStreetMap
-// data via OpenFreeMap, recoloured like the United Fuel app). Everything on it is drawn by the map
+// data via OpenFreeMap, recoloured for the brand). Everything on it is drawn by the map
 // engine on the GPU (route, traffic, stations, price tags); the only HTML element is the driver arrow,
 // moved every frame without React. That keeps panning, pinching and tilting smooth on phones.
 

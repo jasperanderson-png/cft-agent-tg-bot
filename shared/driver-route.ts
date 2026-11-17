@@ -88,29 +88,64 @@ export interface Placed<T> {
 }
 
 /**
+ * The path with fewer points (Douglas–Peucker): no point of the original is more than `toleranceM`
+ * meters from the result. The first and last points are always kept. A long truck route has
+ * thousands of points; the simplified line is enough to find which stations are near it.
+ */
+export function simplifyPath(path: LatLng[], toleranceM: number): LatLng[] {
+  if (path.length < 3 || toleranceM <= 0) return path.slice();
+  const tolMi = toleranceM / 1609.344;
+  const keep = new Uint8Array(path.length);
+  keep[0] = keep[path.length - 1] = 1;
+  const stack: [number, number][] = [[0, path.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop()!;
+    if (b - a < 2) continue;
+    const seg = [path[a], path[b]];
+    let far = -1, farOff = tolMi;
+    for (let i = a + 1; i < b; i++) {
+      const off = projectOnPath(path[i], seg).offMi;
+      if (off > farOff) { farOff = off; far = i; }
+    }
+    if (far < 0) continue;
+    keep[far] = 1;
+    stack.push([a, far], [far, b]);
+  }
+  return path.filter((_p, i) => keep[i]);
+}
+
+/**
  * Splits stations into those on the route (within corridorMi of the line) and nearby ones (within
- * nearbyMi), each sorted by how far along the route they are.
+ * nearbyMi), each sorted by how far along the route they are. Stations are found on a simplified
+ * line (simplifyM, fast on long routes); the miles along the route and off it are then measured on
+ * the full line, for the stations found only.
  */
 export function stationsAlongRoute<T extends { lat?: number | null; lng?: number | null }>(
   path: LatLng[],
   stations: T[],
-  { corridorMi = DRIVER_MAP.corridorMi, nearbyMi = DRIVER_MAP.nearbyMi }: { corridorMi?: number; nearbyMi?: number } = {},
+  { corridorMi = DRIVER_MAP.corridorMi, nearbyMi = DRIVER_MAP.nearbyMi, simplifyM = DRIVER_MAP.simplifyM }: { corridorMi?: number; nearbyMi?: number; simplifyM?: number } = {},
 ): { onRoute: Placed<T>[]; nearby: Placed<T>[] } {
   const onRoute: Placed<T>[] = [];
   const nearby: Placed<T>[] = [];
   if (path.length < 2) return { onRoute, nearby };
-  const cum = cumulativeMiles(path);
+  const coarse = simplifyPath(path, simplifyM);
+  const coarseCum = cumulativeMiles(coarse);
+  const slack = simplifyM / 1609.344;
+  let cum: number[] | null = null;
   // A cheap bounding box first, so a cross-country route doesn't project every station in the country.
   const pad = nearbyMi / 55;
   let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-  for (const p of path) {
+  for (const p of coarse) {
     minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
     minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng);
   }
   for (const s of stations) {
     if (s.lat == null || s.lng == null) continue;
     if (s.lat < minLat - pad || s.lat > maxLat + pad || s.lng < minLng - pad * 1.4 || s.lng > maxLng + pad * 1.4) continue;
-    const pr = projectOnPath({ lat: s.lat, lng: s.lng }, path, cum);
+    const p = { lat: s.lat, lng: s.lng };
+    if (projectOnPath(p, coarse, coarseCum).offMi > nearbyMi + slack) continue;
+    cum ??= cumulativeMiles(path);
+    const pr = projectOnPath(p, path, cum);
     if (pr.offMi <= corridorMi) onRoute.push({ item: s, alongMi: pr.alongMi, offMi: pr.offMi });
     else if (pr.offMi <= nearbyMi) nearby.push({ item: s, alongMi: pr.alongMi, offMi: pr.offMi });
   }
@@ -160,39 +195,94 @@ export function rangeOf(v: unknown): number | null {
   return Number.isFinite(n) && n >= 1 && n <= 3000 ? n : null;
 }
 
+/** The range as kept on the phone: how many miles, and when the driver typed it. */
+export interface FuelRange {
+  mi: number;
+  setAt: number;
+}
+
+/** The range still in force: forgotten `forgetHours` after the driver typed it (else null). */
+export function rangeNow(r: FuelRange | null | undefined, now = Date.now(), forgetHours: number = DRIVER_MAP.range.forgetHours): FuelRange | null {
+  if (!r || !Number.isFinite(r.mi) || !Number.isFinite(r.setAt)) return null;
+  return now - r.setAt < forgetHours * 3_600_000 ? r : null;
+}
+
+/** The range after driving `drivenMi` more (never below 0; when it was typed does not change). */
+export const afterDriving = (r: FuelRange, drivenMi: number): FuelRange => ({ mi: Math.max(0, Math.round((r.mi - Math.max(0, drivenMi)) * 10) / 10), setAt: r.setAt });
+
 // ---- real detour time (tools/driver-map/detours.ts measures it)
 
-/** A station to check, with a route point before it and one after it. */
+/**
+ * A station to check, with a route point before it and one after it. Only the station's id is
+ * sent: the server looks up where the station is.
+ */
 export interface DetourAsk {
   id: number;
-  at: LatLng;
   before: LatLng;
   after: LatLng;
 }
 export interface DetourResult {
   id: number;
-  /** Extra minutes of driving to stop there; null when no road was found. */
+  /** Extra minutes of driving to stop there; null when not measured (no road, or the allowance is used up). */
   detourMin: number | null;
 }
 
-/** The cheapest `n` corridor stations to check, each with the route `aroundMi` before and after it. */
-export function detourAsks<T extends { id: number; lat?: number | null; lng?: number | null; retail: number | null; discounted: number | null }>(
+type Priced = { id: number; lat?: number | null; lng?: number | null; retail: number | null; discounted: number | null };
+
+/**
+ * The next `n` corridor stations to check, each with the route `aroundMi` before and after it:
+ * those not checked yet (`skip`), the ones the truck can reach first (when a range is given),
+ * cheapest first.
+ */
+export function detourAsks<T extends Priced>(
   path: LatLng[],
   onRoute: Placed<T>[],
   n: number = DRIVER_MAP.detour.candidates,
   aroundMi: number = DRIVER_MAP.detour.aroundMi,
+  { skip, rangeMi = null }: { skip?: ReadonlySet<number> | ReadonlyMap<number, unknown>; rangeMi?: number | null } = {},
 ): DetourAsk[] {
   const cum = cumulativeMiles(path);
+  const can = (p: Placed<T>) => (rangeMi != null && reachable(p, rangeMi) ? 0 : rangeMi != null ? 1 : 0);
   return onRoute
-    .filter((p) => p.item.lat != null && p.item.lng != null && payPrice(p.item) != null)
-    .sort((a, b) => payPrice(a.item)! - payPrice(b.item)!)
+    .filter((p) => p.item.lat != null && p.item.lng != null && payPrice(p.item) != null && !skip?.has(p.item.id))
+    .sort((a, b) => can(a) - can(b) || payPrice(a.item)! - payPrice(b.item)!)
     .slice(0, n)
     .map((p) => ({
       id: p.item.id,
-      at: { lat: p.item.lat!, lng: p.item.lng! },
       before: pointAlong(path, p.alongMi - aroundMi, cum).point,
       after: pointAlong(path, p.alongMi + aroundMi, cum).point,
     }));
+}
+
+/**
+ * The stop to recommend once detours are being measured: the best among the stations actually
+ * checked and found fine (corridor stations with a long detour were already moved out by
+ * applyDetours). Before any measurement arrives (or when the service gives none), the plain best.
+ */
+export function bestChecked<T extends { id: number; retail: number | null; discounted: number | null }>(
+  onRoute: Placed<T>[],
+  detours: ReadonlyMap<number, number | null>,
+  rangeMi: number | null,
+): Placed<T> | null {
+  const checked = onRoute.filter((p) => detours.get(p.item.id) != null);
+  return bestStop(checked, rangeMi) ?? bestStop(onRoute, rangeMi);
+}
+
+/**
+ * The next round of detour checks: needed only while the plain best station (cheapest, reachable
+ * first) has not been checked. Then the next cheapest unchecked stations are asked.
+ */
+export function nextDetourRound<T extends Priced>(
+  path: LatLng[],
+  onRoute: Placed<T>[],
+  detours: ReadonlyMap<number, number | null>,
+  rangeMi: number | null,
+  n: number = DRIVER_MAP.detour.candidates,
+  aroundMi: number = DRIVER_MAP.detour.aroundMi,
+): DetourAsk[] {
+  const best = bestStop(onRoute.filter((p) => p.item.lat != null && p.item.lng != null), rangeMi);
+  if (!best || detours.has(best.item.id)) return [];
+  return detourAsks(path, onRoute, n, aroundMi, { skip: detours, rangeMi });
 }
 
 /**
@@ -201,7 +291,7 @@ export function detourAsks<T extends { id: number; lat?: number | null; lng?: nu
  */
 export function applyDetours<T extends { id: number }>(
   placed: { onRoute: Placed<T>[]; nearby: Placed<T>[] },
-  detours: Map<number, number | null>,
+  detours: ReadonlyMap<number, number | null>,
   maxMin: number = DRIVER_MAP.detour.maxMin,
 ): { onRoute: Placed<T>[]; nearby: Placed<T>[] } {
   const far = (p: Placed<T>) => { const d = detours.get(p.item.id); return d != null && d > maxMin; };

@@ -10,7 +10,7 @@ import { detourMinutes, readAsks } from './detours.js';
 import type { Tool } from '../../core/tool.js';
 import { INIT_HEADER, requireInitData, type TelegramUser } from '../../core/telegram.js';
 import { touchTelegramUser } from '../../core/users.js';
-import { driverStations, locateStations, refreshStationLocations } from './stations.js';
+import { driverStations, locateStations, refreshStationLocations, stationPoints } from './stations.js';
 import { planRoute, searchPlaces } from './routing.js';
 import { voiceClip } from './voice.js';
 import { addTripPoints, adminDrivers, adminTrip, adminTrips, sendTripFile, startTrip, tripNoticeSeen } from './trips.js';
@@ -64,7 +64,8 @@ export const driverMap: Tool = {
     // Real detour time for the cheapest stations near the route (detours.ts).
     route('POST', 'driver/detours', asMapViewer(async (v, req) => {
       await limit(v, 'detours');
-      return { detours: await detourMinutes(readAsks(req.body), fetch) };
+      const asks = readAsks(req.body);
+      return { detours: await detourMinutes(asks, await stationPoints(getPool(), asks.map((a) => a.id)), fetch) };
     }));
     // Daily (Vercel Cron, after the price pull): map points for new stations, old ones checked again.
     route('GET', 'cron/stations', async (req) => {

@@ -2,10 +2,9 @@ import { env } from '../../core/env.js';
 import { HttpError } from '../../core/http.js';
 import { digest, kv, kvReady, rateLimit, spend } from '../../core/kv.js';
 
-// The natural navigation voice: Google Cloud Text-to-Speech, Chirp 3 HD (ported from United Fuel's
-// /api/voice). A phrase is synthesised once: the MP3 is kept in Redis (same keys as United Fuel, so
-// the two apps share clips) and, being a plain GET URL, by the phone and Vercel's CDN. Characters
-// count against the shared monthly allowance (core/kv.ts).
+// The natural navigation voice: Google Cloud Text-to-Speech, Chirp 3 HD. A phrase is synthesised
+// once: the MP3 is kept in our Redis and, being a plain GET URL, by the phone and Vercel's CDN.
+// Characters count against our daily and monthly allowance (core/kv.ts, shared/driver-config.ts).
 
 /** The voices offered (US English); Fenrir, a male voice, is the default the user chose. */
 export const VOICES: Record<string, string> = { fenrir: 'Fenrir', charon: 'Charon', orus: 'Orus', aoede: 'Aoede', kore: 'Kore', leda: 'Leda' };
@@ -19,7 +18,7 @@ export async function voiceClip(textIn: string, voiceId: string, client: string 
   const voice = VOICES[voiceId || 'fenrir'];
   if (!voice) throw new HttpError(400, 'Unknown voice.');
   if (!text || text.length > 240) throw new HttpError(400, 'Send 1–240 characters.');
-  const cacheKey = `fuel:voice:${digest(`${voice}|${text}`)}`;
+  const cacheKey = `cft:voice:${digest(`${voice}|${text}`)}`;
   let audio = (await kv('GET', cacheKey)) as string | null;
   if (!audio) {
     await rateLimit('voice', client, 60);

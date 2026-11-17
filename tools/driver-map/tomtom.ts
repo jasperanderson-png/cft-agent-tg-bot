@@ -3,11 +3,11 @@ import { env } from '../../core/env.js';
 import { HttpError } from '../../core/http.js';
 import { kvReady, spend } from '../../core/kv.js';
 
-// Truck routes with live traffic from TomTom (ported from United Fuel's server/navigation.mjs): the
-// truck's height, weight, length and hazmat, live traffic in the travel time, the slow stretches on
-// the route, speed limits, and turn-by-turn steps with street names and exit numbers. Every call
-// spends one unit of the shared monthly allowance (core/kv.ts); when TomTom is not set up, over its
-// allowance or failing, routing.ts falls back to OpenRouteService.
+// Truck routes with live traffic from TomTom: the truck's height, weight, length and hazmat, live
+// traffic in the travel time, the slow stretches on the route, speed limits, and turn-by-turn steps
+// with street names and exit numbers. Every call spends one unit of our daily and monthly allowance
+// (core/kv.ts, shared/driver-config.ts); when TomTom is not set up, over its allowance or failing,
+// routing.ts falls back to OpenRouteService.
 
 const MI_PER_M = 1 / 1609.344;
 const LEVEL: Record<string, 'slow' | 'jam' | 'closed' | 'roadwork'> = { JAM: 'jam', ROAD_WORK: 'roadwork', ROAD_CLOSURE: 'closed', OTHER: 'slow' };

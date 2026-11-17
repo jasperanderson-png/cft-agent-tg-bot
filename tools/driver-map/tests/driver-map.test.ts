@@ -8,6 +8,7 @@ import { censusLookup, chainMatch, chainStores, geoKey, orsLookup, storeNo, type
 import { planRoute, readRoute, truckOf } from '../routing.js';
 import { readTomTom } from '../tomtom.js';
 import { voiceClip } from '../voice.js';
+import { DRIVER_MAP } from '../../../shared/driver-config.js';
 
 // Omaha → Lincoln → Kearney along I-80, roughly.
 const PATH: LatLng[] = [
@@ -165,8 +166,8 @@ describe('truck routes', () => {
   });
 });
 
-describe('TomTom truck routes and the natural voice (shared with United Fuel)', () => {
-  // A fake Upstash Redis: the monthly counters, rate limits and the voice cache.
+describe('TomTom truck routes and the natural voice, within our free allowances', () => {
+  // A fake Upstash Redis: the daily and monthly counters, rate limits and the voice cache.
   function fakeRedis() {
     const kv = new Map<string, string>();
     const calls: unknown[][] = [];
@@ -209,7 +210,7 @@ describe('TomTom truck routes and the natural voice (shared with United Fuel)', 
     expect(r.steps[1]).toMatchObject({ exit: 305, street: 'US-6' });
   });
 
-  it('routes with TomTom first, counting the shared monthly allowance; OpenRouteService when TomTom fails', async () => {
+  it('routes with TomTom first, counting our daily and monthly allowance; OpenRouteService when TomTom fails', async () => {
     env(true);
     try {
       const redis = fakeRedis();
@@ -228,12 +229,13 @@ describe('TomTom truck routes and the natural voice (shared with United Fuel)', 
       expect(r.source).toBe('tomtom');
       const q = new URL(urls.find((u) => u.startsWith('https://api.tomtom.com/'))!).searchParams;
       expect(Object.fromEntries(['travelMode', 'traffic', 'vehicleHeight', 'vehicleWeight', 'vehicleLoadType'].map((k) => [k, q.get(k)]))).toEqual({ travelMode: 'truck', traffic: 'true', vehicleHeight: '4.11', vehicleWeight: '36287', vehicleLoadType: 'USHazmatClass3' });
-      const month = new Date().toISOString().slice(0, 7);
-      expect(redis.kv.get(`fuel:budget:route:${month}`)).toBe('1'); // United Fuel's own counter
+      const day = new Date().toISOString().slice(0, 10), month = day.slice(0, 7);
+      expect(redis.kv.get(`cft:budget:route:${day}`)).toBe('1');
+      expect(redis.kv.get(`cft:budget:route:${month}`)).toBe('1');
       tomtomUp = false;
       expect((await planRoute({ from, to }, fetchStub as unknown as typeof fetch)).source).toBe('ors');
-      // Used up: TomTom is not asked at all, the route still comes (OpenRouteService).
-      redis.kv.set(`fuel:budget:route:${month}`, '19000');
+      // Today's allowance used up: TomTom is not asked at all, the route still comes (OpenRouteService).
+      redis.kv.set(`cft:budget:route:${day}`, String(DRIVER_MAP.budgets.route.perDay));
       tomtomUp = true;
       const before = urls.filter((u) => u.startsWith('https://api.tomtom.com/')).length;
       expect((await planRoute({ from, to }, fetchStub as unknown as typeof fetch)).source).toBe('ors');
@@ -244,7 +246,7 @@ describe('TomTom truck routes and the natural voice (shared with United Fuel)', 
     }
   });
 
-  it('speaks with Google once per phrase (then from the shared cache), within the character allowance', async () => {
+  it('speaks with Google once per phrase (then from our cache), within the character allowance', async () => {
     await expect(voiceClip('Now, turn left.', 'fenrir', null)).rejects.toMatchObject({ status: 503 }); // not configured
     env(true);
     try {
@@ -266,7 +268,8 @@ describe('TomTom truck routes and the natural voice (shared with United Fuel)', 
       expect(Buffer.from(a).toString()).toBe('ID3-fake-mp3');
       expect(Buffer.from(b).toString()).toBe('ID3-fake-mp3');
       expect(google).toBe(1); // the second time from the cache
-      expect(redis.kv.get(`fuel:budget:voice:${new Date().toISOString().slice(0, 7)}`)).toBe(String('Now, turn left.'.length));
+      expect(redis.kv.get(`cft:budget:voice:${new Date().toISOString().slice(0, 7)}`)).toBe(String('Now, turn left.'.length));
+      expect([...redis.kv.keys()].every((k) => k.startsWith('cft:'))).toBe(true); // only our own keys
       await expect(voiceClip('x'.repeat(241), 'fenrir', null, fetchStub as unknown as typeof fetch)).rejects.toMatchObject({ status: 400 });
       await expect(voiceClip('Hi', 'robot', null, fetchStub as unknown as typeof fetch)).rejects.toMatchObject({ status: 400 });
     } finally {

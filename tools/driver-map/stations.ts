@@ -81,6 +81,16 @@ export async function refreshStationLocations(db: Db, locate = locateMissing): P
   return { placed, rechecked: todo.filter((k) => old.has(k.key!)).length, pending: keys.filter((k) => !after.has(k)).length };
 }
 
+/** Where these stations are (our list and cached map points); stations unknown or without a point are left out. */
+export async function stationPoints(db: Db, ids: number[]): Promise<Map<number, { lat: number; lng: number }>> {
+  const want = new Set(ids);
+  const out = new Map<number, { lat: number; lng: number }>();
+  for (const s of (await driverStations(db)).stations) {
+    if (want.has(s.id) && s.lat != null && s.lng != null) out.set(s.id, { lat: s.lat, lng: s.lng });
+  }
+  return out;
+}
+
 /** Partner stations with their cached map points (stations still without one come with lat/lng null). */
 export async function driverStations(db: Db): Promise<DriverStations> {
   const { pulledAt, keyed, keys, ready, coords } = await load(db);

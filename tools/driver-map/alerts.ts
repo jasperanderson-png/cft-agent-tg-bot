@@ -1,5 +1,5 @@
 import { escHtml as esc } from '../../shared/html.js';
-import { BRANDS, headingDeg, milesBetween, payPrice, savingOf, type LatLng } from '../../shared/driver-route.js';
+import { BRANDS, headingDeg, milesBetween, payPrice, projectOnPath, savingOf, stationsAlongRoute, type LatLng } from '../../shared/driver-route.js';
 import { DRIVER_MAP } from '../../shared/driver-config.js';
 import { titleCase } from '../../shared/discounts.js';
 import type { DriverStation } from '../../shared/types.js';
@@ -50,14 +50,60 @@ export function nextStationAhead<T extends { lat: number | null; lng: number | n
   return best;
 }
 
-/** The alert message (HTML): the station, how far, and the driver's CFT price. */
-export function alertText(s: DriverStation, mi: number): string {
+/**
+ * With an active trip: the next station on the trip's route (in the corridor), ahead of where the
+ * driver is on it, within aheadMi of driving along the route. `undefined` when the driver is far
+ * off the route (then the cone is used instead); null when nothing is ahead on it.
+ */
+export function nextStationOnRoute<T extends { lat: number | null; lng: number | null }>(
+  stations: T[],
+  path: LatLng[],
+  here: LatLng,
+  { aheadMi, offRouteMi }: { aheadMi: number; offRouteMi: number } = DRIVER_MAP.alerts,
+): { station: T; mi: number } | null | undefined {
+  if (path.length < 2) return undefined;
+  const me = projectOnPath(here, path);
+  if (me.offMi > offRouteMi) return undefined;
+  let best: { station: T; mi: number } | null = null;
+  for (const p of stationsAlongRoute(path, stations, { corridorMi: DRIVER_MAP.corridorMi, nearbyMi: DRIVER_MAP.corridorMi }).onRoute) {
+    const mi = p.alongMi - me.alongMi;
+    if (mi < 0.25 || mi > aheadMi) continue;
+    if (!best || mi < best.mi) best = { station: p.item, mi };
+  }
+  return best;
+}
+
+/**
+ * The route of the driver's trip in progress (driver_trips.planned_path), or null: no trip, ended,
+ * or no new points for DRIVER_MAP.alerts.tripStaleMin minutes (the app was closed: treated as over).
+ * Only drivers' trips are recorded, so agents and admins always get null here.
+ */
+export async function activeTripPath(db: Db, userId: number): Promise<LatLng[] | null> {
+  try {
+    const { rows } = await db.query<{ planned_path: unknown }>(
+      `select planned_path from driver_trips
+        where telegram_user_id = $1 and status = 'driving'
+          and coalesce(last_point_at, started_at) > now() - make_interval(mins => $2)
+        order by started_at desc limit 1`,
+      [userId, DRIVER_MAP.alerts.tripStaleMin],
+    );
+    const raw = rows[0]?.planned_path;
+    if (!Array.isArray(raw)) return null;
+    const path = raw.flatMap((p) => (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) ? [{ lat: Number(p[1]), lng: Number(p[0]) }] : []));
+    return path.length >= 2 ? path : null;
+  } catch {
+    return null; // before migration 0011: no trips
+  }
+}
+
+/** The alert message (HTML): the station, how far (along the route, or straight ahead), and the driver's CFT price. */
+export function alertText(s: DriverStation, mi: number, onRoute = false): string {
   const price = payPrice(s);
   const save = savingOf(s);
   const where = [titleCase(s.city ?? ''), s.state].filter(Boolean).join(', ');
   return [
-    `⛽ <b>CFT station ahead: ${esc(s.station)}</b>`,
-    `${esc(BRANDS[s.brand].label)}${where ? ' · ' + esc(where) : ''} · about ${Math.max(1, Math.round(mi))} mi`,
+    `⛽ <b>${onRoute ? 'Next CFT station on your route' : 'CFT station ahead'}: ${esc(s.station)}</b>`,
+    `${esc(BRANDS[s.brand].label)}${where ? ' · ' + esc(where) : ''} · about ${Math.max(1, Math.round(mi))} mi${onRoute ? ' along your route' : ''}`,
     price != null ? `Your price: <b>$${price.toFixed(2)}/gal</b>${save != null && save > 0 ? ` (save $${save.toFixed(2)})` : ''}` : 'No CFT price right now.',
   ].join('\n');
 }
@@ -70,16 +116,32 @@ async function stationsNow(db: Db): Promise<DriverStation[]> {
   return cache.list;
 }
 
-/** One live position from a driver: the alert to send, or null (nothing new ahead). */
-export async function liveLocationAlert(db: Db, userId: number, fix: LiveFix, load: (db: Db) => Promise<DriverStation[]> = stationsNow): Promise<string | null> {
+/**
+ * One live position from a driver: the alert to send, or null (nothing new ahead). With a trip in
+ * progress the next station along its route; otherwise (agents, admins, no trip, or far off the
+ * route) the nearest station within the cone of the direction of travel.
+ */
+export async function liveLocationAlert(
+  db: Db,
+  userId: number,
+  fix: LiveFix,
+  load: (db: Db) => Promise<DriverStation[]> = stationsNow,
+  tripPath: (db: Db, userId: number) => Promise<LatLng[] | null> = activeTripPath,
+): Promise<string | null> {
   const lastKey = `cft:live:last:${userId}`;
   const prev = await getJson<LatLng>(lastKey);
   const heading = travelHeading(fix, prev);
   // Keep the earlier point until the truck has moved enough to tell the direction from it.
   if (!prev || milesBetween(prev, fix) >= DRIVER_MAP.alerts.minMoveMi) await putJson(lastKey, { lat: fix.lat, lng: fix.lng }, 3600);
-  if (heading == null) return null;
-  const next = nextStationAhead(await load(db), fix, heading);
+  const stations = await load(db);
+  const path = await tripPath(db, userId);
+  let next: { station: DriverStation; mi: number } | null | undefined = path ? nextStationOnRoute(stations, path, fix) : undefined;
+  const onRoute = next !== undefined;
+  if (next === undefined) {
+    if (heading == null) return null;
+    next = nextStationAhead(stations, fix, heading);
+  }
   if (!next) return null;
   if (!(await firstTime(`cft:live:alerted:${userId}:${next.station.id}`, DRIVER_MAP.alerts.repeatHours * 3600))) return null;
-  return alertText(next.station, next.mi);
+  return alertText(next.station, next.mi, onRoute);
 }

@@ -100,15 +100,15 @@ export const env = {
       return null;
     }
   },
-  /** TomTom key (server only): truck routes with live traffic. Shared with United Fuel, capped in Redis (core/kv.ts). */
+  /** TomTom key (server only): truck routes with live traffic, capped in Redis (core/kv.ts). */
   get tomtomKey() {
     return (process.env.TOMTOM_API_KEY ?? '').trim();
   },
-  /** Google Cloud Text-to-Speech key (server only): the natural navigation voice. Shared with United Fuel, capped. */
+  /** Google Cloud Text-to-Speech key (server only): the natural navigation voice, capped in Redis. */
   get googleTtsKey() {
     return (process.env.GOOGLE_TTS_KEY ?? '').trim();
   },
-  /** Upstash Redis (REST): monthly caps, rate limits and the voice cache, shared with United Fuel. */
+  /** Upstash Redis (REST): our daily and monthly caps, rate limits and the voice cache. */
   get kvUrl() {
     return (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').trim();
   },

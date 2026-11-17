@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../shared/types';
-import { applyDetours, bestStop, BRANDS, detourAsks, payPrice, rangeOf, reachable, stationsAlongRoute, type LatLng, type Placed } from '../../../../../shared/driver-route';
+import { afterDriving, applyDetours, bestChecked, BRANDS, milesBetween, nextDetourRound, payPrice, rangeNow, reachable, stationsAlongRoute, type FuelRange, type LatLng, type Placed } from '../../../../../shared/driver-route';
 import { DRIVER_MAP } from '../../../../../shared/driver-config';
 import { US_STATES as STATE_NAMES } from '../../../../../shared/states';
 import { titleCase } from '../../../../../shared/discounts';
@@ -25,7 +25,7 @@ import './driver.css';
 // The drivers' route map (/route). A clear map with every CFT station; tap one, or type where you are
 // going, for a truck route (TomTom with live traffic, else OpenRouteService) with the stations on it,
 // the cheapest picked; then turn-by-turn navigation with street names, speed limits, the natural voice
-// and re-routing. Built like the United Fuel app's map: the map fills the screen, cards appear only
+// and re-routing. The map fills the screen, cards appear only
 // when there is something to show, and the driver arrow and camera move every frame outside React.
 // Data: GET /api/driver/stations, POST /api/driver/route, GET /api/driver/places, GET /api/driver/voice.
 
@@ -49,6 +49,8 @@ const OFF_ROUTE_MI = 0.12;
 const SIMULATE = /simulate/.test(location.search + location.hash);
 const inUS = (p: LatLng) => p.lat > 24 && p.lat < 50 && p.lng > -125.5 && p.lng < -66;
 const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const NO_DETOURS: ReadonlyMap<number, number | null> = new Map();
+const RANGE_KEY = 'cft.range.v2';
 
 export function DriverMap({ onExit }: { onExit: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -162,6 +164,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [myPos, setMyPos] = useState<LatLng | null>(null);
   const [myAcc, setMyAcc] = useState<number | null>(null);
   const [posErr, setPosErr] = useState('');
+  /** Miles driven while navigating, counted down from the fuel range (set further below). */
+  const onDriven = useRef<(mi: number) => void>(() => {});
   const accept = useCallback((f: Fix) => {
     const prev = fix.current;
     fix.current = f;
@@ -169,7 +173,10 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (!prev || Math.abs(prev.lat - f.lat) + Math.abs(prev.lng - f.lng) > 0.003) setMyPos({ lat: f.lat, lng: f.lng });
     setMyAcc(f.accuracy != null ? Math.round(f.accuracy / 5) * 5 : null);
     if (!tripRef.current) puck.current?.set(f, f.speed != null && f.speed > 1 ? f.heading : null);
-    else rec.current?.point(f);
+    else {
+      rec.current?.point(f);
+      if (prev) onDriven.current(milesBetween(prev, f));
+    }
   }, []);
   useEffect(() => {
     let poll = 0;
@@ -224,7 +231,23 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [truck, setTruck] = useState<TruckProfile>(() => ({ ...DEFAULT_TRUCK, ...stored<Partial<TruckProfile>>('cft.truck', {}) }));
   const [truckOpen, setTruckOpen] = useState(false);
   /** Miles until empty (optional): the pick prefers stations the truck can reach. */
-  const [rangeMi, setRangeMi] = useState<number | null>(() => rangeOf(stored<number | null>('cft.rangeMi', null)));
+  // It counts down with the miles driven while navigating, and is forgotten after
+  // DRIVER_MAP.range.forgetHours and when a trip ends or is cancelled.
+  const [range, setRange] = useState<FuelRange | null>(() => rangeNow(stored<FuelRange | null>(RANGE_KEY, null)));
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
+  const saveRange = useCallback((r: FuelRange | null) => { setRange(r); store(RANGE_KEY, r); }, []);
+  const rangeMi = rangeNow(range)?.mi ?? null;
+  const drivenAcc = useRef(0);
+  onDriven.current = (mi: number) => {
+    if (!(mi > 0) || mi > DRIVER_MAP.range.maxJumpMi) return; // a GPS jump is not driving
+    const r = rangeNow(rangeRef.current);
+    if (!r) return;
+    drivenAcc.current += mi;
+    if (drivenAcc.current < 0.5) return; // saved every half mile, not on every fix
+    saveRange(afterDriving(r, drivenAcc.current));
+    drivenAcc.current = 0;
+  };
   const [muted, setMuted] = useState(() => stored('cft.voiceOff', false));
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -361,23 +384,42 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     return stationsAlongRoute(base.path, data.stations, { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI });
   }, [base, data]);
   // Then the cheapest few get a real driving-time check: one across a divided highway or far from an
-  // exit costs real minutes and is moved to "nearby" (tools/driver-map/detours.ts).
-  const asks = useMemo(() => (base ? detourAsks(base.path, straight.onRoute) : []), [base, straight]);
-  const asksKey = asks.map((a) => a.id).join(',');
-  const [detours, setDetours] = useState<Map<number, number | null>>(() => new Map());
-  useEffect(() => {
-    setDetours(new Map());
-    if (!asks.length) return;
-    let live = true;
-    driverApi.detours(asks).then((r) => { if (live) setDetours(new Map(r.detours.map((d) => [d.id, d.detourMin]))); }, () => {});
-    return () => { live = false; };
-  }, [base, asksKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // exit costs real minutes and is moved to "nearby" (tools/driver-map/detours.ts). While the best
+  // pick is still unchecked, the next cheapest unchecked ones are checked too (up to
+  // DRIVER_MAP.detour.extraRounds more rounds), so the station recommended has always been checked.
+  // The measurements belong to one route: a new route starts from nothing.
+  const [det, setDet] = useState<{ route: DriverRoute | null; map: Map<number, number | null> }>(() => ({ route: null, map: new Map() }));
+  const detours = det.route === base ? det.map : NO_DETOURS;
+  const detourRun = useRef({ route: null as DriverRoute | null, rounds: 0, busy: false });
   const placed = useMemo(() => {
     const r = applyDetours(straight, detours);
     return { onRoute: r.onRoute, nearby: r.nearby.slice().sort((a, b) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99)).slice(0, NEARBY_MAX) };
   }, [straight, detours]);
-  // The pick: the cheapest the truck can reach before empty (when the driver gave a range).
-  const best = useMemo(() => bestStop(placed.onRoute, rangeMi), [placed, rangeMi]);
+  useEffect(() => {
+    if (!base) return;
+    if (detourRun.current.route !== base) detourRun.current = { route: base, rounds: 0, busy: false };
+    const run = detourRun.current;
+    if (run.busy || run.rounds > DRIVER_MAP.detour.extraRounds) return;
+    const asks = nextDetourRound(base.path, placed.onRoute, detours, rangeMi);
+    if (!asks.length) return;
+    run.busy = true;
+    run.rounds++;
+    const done = (got: Map<number, number | null>) => {
+      if (detourRun.current !== run) return; // another route by now
+      run.busy = false;
+      setDet((d) => {
+        const map = new Map(d.route === base ? d.map : undefined);
+        for (const a of asks) map.set(a.id, got.get(a.id) ?? null);
+        return { route: base, map };
+      });
+    };
+    driverApi.detours(asks).then(
+      (r) => done(new Map(r.detours.map((d) => [d.id, d.detourMin]))),
+      () => { run.rounds = Infinity; done(new Map()); }, // the check failed: keep the straight-line view
+    );
+  }, [base, placed, detours, rangeMi]);
+  // The pick: the cheapest checked station the truck can reach before empty (when the driver gave a range).
+  const best = useMemo(() => bestChecked(placed.onRoute, detours, rangeMi), [placed, detours, rangeMi]);
   const [nearbyOn, setNearbyOn] = useState(false);
   useEffect(() => setNearbyOn(false), [base]);
   const cheapIds = useMemo(() => new Set(placed.onRoute.slice().sort(byPay).slice(0, CHEAP_SHOWN).map((p) => p.item.id)), [placed]);
@@ -582,6 +624,9 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     rec.current = null;
     setTrip(null);
     setNav(null);
+    // The trip is over (arrived, ended or cancelled): the fuel range typed for it no longer holds.
+    saveRange(null);
+    drivenAcc.current = 0;
     hush();
     if (!m) return;
     drawDriven(m, null);
@@ -982,7 +1027,9 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       )}
       {truckOpen && <TruckSheet truck={truck} rangeMi={rangeMi} onClose={() => setTruckOpen(false)} onSave={(t, r) => {
         const truckChanged = t.heightIn !== truck.heightIn || t.weightLb !== truck.weightLb || t.hazmat !== truck.hazmat;
-        setTruck(t); store('cft.truck', t); setRangeMi(r); store('cft.rangeMi', r); setTruckOpen(false); haptic.success();
+        setTruck(t); store('cft.truck', t); setTruckOpen(false); haptic.success();
+        // A newly typed range starts its 12 hours now; the same number saved again keeps its time.
+        if (r !== rangeMi) { saveRange(r != null ? { mi: r, setAt: Date.now() } : null); drivenAcc.current = 0; }
         // Only the truck changes the way; the range only changes which station is picked.
         if (base && truckChanged) plan(from, to, t);
       }} />}

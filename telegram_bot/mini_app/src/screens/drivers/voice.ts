@@ -1,4 +1,4 @@
-// Spoken directions (ported from the United Fuel app, src/voice-cloud.ts + directions.ts): the natural
+// Spoken directions: the natural
 // Google voice (Chirp 3 HD "Fenrir", from /api/driver/voice) played through Web Audio. Phrases are
 // fetched ahead of time (fixed lead-ins plus a route's turns), so the voice speaks the moment it should.
 // Until the natural voice is available (no key, Google billing off, monthly allowance used up) the
