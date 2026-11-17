@@ -6,10 +6,10 @@ import { titleCase } from '../../../../../shared/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
 import { fmtDuration as hm } from '../../components/ui';
-import { haptic, telegramLocation, useBackButton } from '../../lib/telegram';
+import { haptic, openTelegramLocationSettings, telegramLocation, telegramLocationRefused, useBackButton } from '../../lib/telegram';
 import { ByState } from './ByState';
 import {
-  ALL_STATION_LAYERS, createMap, drawDriven, drawRoute, drawTurn, driverMarker, filterStations, fitPath, fitPoints, ll, onStationTap, revealRoute, setRouteStations, setStations,
+  ALL_STATION_LAYERS, createMap, drawDriven, drawRoute, drawTurn, driverMarker, filterStations, fitPath, fitPoints, ll, onStationTap, revealRoute, routeEnds, setRouteStations, setStations,
   showLayers, type MlMap,
 } from './map';
 import { drivenPath, locate, navOf, pointAt, speedLimitAt, stepsAt, unwrap, type Nav } from './nav';
@@ -98,6 +98,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const puck = useRef<ReturnType<typeof driverMarker> | null>(null);
+  const ends = useRef<ReturnType<typeof routeEnds> | null>(null);
   const [ready, setReady] = useState(false);
   const [mapErr, setMapErr] = useState('');
   useEffect(() => {
@@ -106,6 +107,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       if (dead) { m.remove(); return; }
       mapRef.current = m;
       puck.current = driverMarker(m);
+      ends.current = routeEnds(m);
       if (m.getLayer('st-icon')) setReady(true);
       else m.once('style.load', () => setReady(true));
       m.on('dragstart', () => { following.current = false; setFollowUi(false); });
@@ -181,18 +183,38 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     };
     if (!navigator.geolocation) viaTelegram();
     else id = navigator.geolocation.watchPosition((p) => accept(toFix(p)), viaTelegram, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
-    return () => { if (id != null) navigator.geolocation.clearWatch(id); clearInterval(poll); };
+    // Inside Telegram the page's own location can stay silent (no answer, no error): Telegram's too.
+    const late = window.setTimeout(() => { if (!fix.current) viaTelegram(); }, 4000);
+    return () => { if (id != null) navigator.geolocation.clearWatch(id); clearInterval(poll); clearTimeout(late); };
   }, [accept]);
-  /** A fresh, precise fix now (the "use my location" and locate buttons). */
+  /**
+   * A fresh, precise fix now (the "use my location" and locate buttons): the phone's location, and
+   * Telegram's as soon as the phone's fails or is slow (1.5 s); the first answer wins, 10 s at most.
+   */
   const locateNow = useCallback(() => new Promise<Fix | null>((resolve) => {
-    const viaTelegram = () => telegramLocation().then((f) => { if (f) accept(f); resolve(f ?? fix.current); });
-    if (!navigator.geolocation) { void viaTelegram(); return; }
-    navigator.geolocation.getCurrentPosition((p) => { const f = toFix(p); accept(f); resolve(f); }, () => void viaTelegram(), { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+    let done = false, waiting = 0, tgAsked = false;
+    const end = (f: Fix | null) => { if (done) return; done = true; clearTimeout(cap); clearTimeout(slow); if (f) accept(f); resolve(f ?? fix.current); };
+    const answer = (f: Fix | null) => { if (f) end(f); else if (--waiting <= 0 && (tgAsked || !navigator.geolocation)) end(null); };
+    const askTelegram = () => { if (tgAsked || done) return; tgAsked = true; waiting++; void telegramLocation().then(answer, () => answer(null)); };
+    const cap = window.setTimeout(() => end(null), 10_000);
+    const slow = window.setTimeout(askTelegram, 1500);
+    if (!navigator.geolocation) { askTelegram(); return; }
+    waiting++;
+    navigator.geolocation.getCurrentPosition((p) => answer(toFix(p)), () => { askTelegram(); answer(null); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10_000 });
   }), [accept]);
   const [locating, setLocating] = useState(false);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null);
   const noteTimer = useRef(0);
-  const flash = useCallback((t: string) => { setNote(t); clearTimeout(noteTimer.current); noteTimer.current = window.setTimeout(() => setNote(''), 3200); }, []);
+  const flash = useCallback((text: string, action?: { label: string; run: () => void }, ms = 3200) => {
+    setNote({ text, action });
+    clearTimeout(noteTimer.current);
+    if (ms) noteTimer.current = window.setTimeout(() => setNote(null), ms);
+  }, []);
+  /** No location: says why, with a button to Telegram's settings when Telegram was refused access. */
+  const noLocation = useCallback(() => {
+    if (telegramLocationRefused()) flash('Location is off for this app.', { label: 'Turn on', run: openTelegramLocationSettings }, 8000);
+    else flash('Could not find your location. Turn on location for Telegram in the phone settings, or type a place.', undefined, 6000);
+  }, [flash]);
   useEffect(() => { if (ready && fix.current && !tripRef.current) puck.current?.set(fix.current, null); }, [ready]);
 
   // ---- the truck and the voice switch
@@ -311,9 +333,10 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     const nf = { text: '', place: null };
     setFrom(nf);
     setLocating(true);
+    flash('Finding your location…', undefined, 0);
     const f = await locateNow();
     setLocating(false);
-    if (!f) { flash('Location is off. Allow it for Telegram in the phone settings, or type a place.'); return; }
+    if (!f) { noLocation(); return; }
     flash(f.accuracy != null ? `You are here (within ${dist(f.accuracy / 1609.34)})` : 'You are here');
     if (to.text.trim()) plan(nf, to, truck);
   };
@@ -521,6 +544,14 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     const shown = trip ? nav?.route ?? null : route;
     drawRoute(m, shown?.path ?? null, !trip && via && base ? base.path : null, shown?.traffic ?? []);
   }, [ready, base, via, trip, nav, route, mode]);
+  // The route's ends: a green start (only when it is not the driver's own location, which is the blue
+  // dot) and a red finish flag, both pulsing, so start, finish and "me" are told apart at a glance.
+  useEffect(() => {
+    if (!ready) return;
+    const shown = trip ? nav?.route ?? null : route;
+    const p = shown?.path;
+    ends.current?.set(p && !trip && from.text.trim() ? p[0] : null, p && p.length > 1 ? p[p.length - 1] : null);
+  }, [ready, route, trip, nav, from.text]);
   // A new route draws itself on.
   useEffect(() => { if (ready && base && !trip && mapRef.current) revealRoute(mapRef.current); }, [base]); // eslint-disable-line react-hooks/exhaustive-deps
   // By state on a wide screen: the map beside the list shows the stations picked.
@@ -598,13 +629,15 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (trip) { following.current = true; engine.current.autoZoom = true; setFollowUi(true); return; }
     if (!m) return;
     const go = (p: LatLng) => m.easeTo({ center: ll(p), zoom: Math.max(m.getZoom(), 12), padding: { top: sizes.current.top, bottom: sizes.current.bottom, left: 0, right: 0 }, duration: 500 });
+    // At once to the last known place, then to the fresh one.
     if (fix.current) go(fix.current);
+    else flash('Finding your location…', undefined, 0);
     setLocating(true);
     void locateNow().then((f) => {
       setLocating(false);
-      if (!f) { flash(posErr || 'Location is off. Allow it for Telegram in the phone settings.'); return; }
+      if (!f) { noLocation(); return; }
       go(f);
-      if (f.accuracy != null) flash(`You are here (within ${dist(f.accuracy / 1609.34)})`);
+      flash(f.accuracy != null ? `You are here (within ${dist(f.accuracy / 1609.34)})` : 'You are here');
     });
   };
 
@@ -765,7 +798,12 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
           <Svg d={LAYERS} size={15} />{nearbyOn ? 'Only the cheapest' : `Nearby stations · ${moreCount}`}
         </button>
       )}
-      {note && <div className="dm-toast" role="status">{note}</div>}
+      {note && (
+        <div className={'dm-toast' + (note.action ? ' act' : '')} role="status">
+          {note.text}
+          {note.action && <button type="button" onClick={() => { haptic.tap(); note.action!.run(); setNote(null); }}>{note.action.label}</button>}
+        </div>
+      )}
 
       {mode === 'route' && routing && !trip && (
         <div className="dm-building" role="status" aria-live="polite">

@@ -166,11 +166,24 @@
 .dm-prog .pg-end { position: absolute; right: -6px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #000; border: 3px solid #fff; box-sizing: border-box; }
 
 /* ---- The driver arrow (one marker, moved every frame) ---- */
-.dm-puck { width: 56px; height: 56px; position: relative; pointer-events: none; }
-.dm-puck-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(160, 220, 255, 0.2); }
-.dm-puck-arrow { position: absolute; inset: 8px; width: 40px; height: 40px; fill: var(--dm-accent); stroke: #fff; stroke-width: 2.5; stroke-linejoin: round; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)); }
+/* Three markers, three colours: the driver (blue, always on top), the route's start (green) and its
+   finish (red flag). Each pulses, so it stands out on the light-blue route line. */
+.dm-puck { width: 56px; height: 56px; position: relative; z-index: 3; pointer-events: none; }
+.dm-puck-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(47, 140, 255, 0.22); animation: dm-ping 1.8s ease-out infinite; }
+.dm-puck-arrow { position: absolute; inset: 8px; width: 40px; height: 40px; fill: #2f8cff; stroke: #fff; stroke-width: 2.5; stroke-linejoin: round; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)); }
 .dm-puck.no-heading .dm-puck-arrow { display: none; }
-.dm-puck.no-heading .dm-puck-halo { inset: 16px; background: var(--dm-accent); border: 3px solid #fff; box-shadow: 0 0 0 8px rgba(160, 220, 255, 0.25), 0 3px 8px rgba(0, 0, 0, 0.5); }
+.dm-puck.no-heading .dm-puck-halo { inset: 0; background: rgba(47, 140, 255, 0.35); }
+.dm-puck.no-heading::after { content: ''; position: absolute; inset: 17px; border-radius: 50%; background: #2f8cff; border: 3px solid #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55); }
+.dm-end { position: relative; z-index: 2; pointer-events: none; }
+.dm-end.start { width: 40px; height: 40px; }
+.dm-end.start .dm-end-ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(34, 197, 94, 0.4); animation: dm-ping 1.8s ease-out infinite; }
+.dm-end-dot { position: absolute; inset: 12px; border-radius: 50%; background: #22c55e; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55); }
+.dm-end.finish { width: 44px; height: 40px; } /* the pin tip sits at the bottom edge: the anchor */
+.dm-end.finish .dm-end-ring { position: absolute; left: 6px; right: 6px; bottom: -10px; height: 20px; border-radius: 50%; background: rgba(255, 59, 78, 0.45); animation: dm-ping 1.8s ease-out infinite; }
+.dm-end-pin { position: absolute; left: 6px; top: 0; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); transform-origin: 50% 50%; background: #ff3b4e; border: 3px solid #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55); display: grid; place-items: center; animation: dm-blink 1.2s ease-in-out infinite; }
+.dm-end-pin svg { width: 16px; height: 16px; transform: rotate(45deg); fill: #fff; stroke: #fff; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.dm-toast.act { display: flex; align-items: center; gap: 10px; pointer-events: auto; text-align: left; }
+.dm-toast button { flex: none; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: var(--dm-accent); color: #000; font-weight: 700; font-size: 13.5px; }
 
 /* ---- Truck settings sheet ---- */
 .dm-scrim { position: absolute; inset: 0; z-index: 40; border: 0; padding: 0; background: rgba(0, 0, 0, 0.5); animation: dm-fade 0.2s ease backwards; }
@@ -218,6 +231,8 @@
 @keyframes dm-spin { to { transform: rotate(360deg); } }
 @keyframes dm-typing { 50% { box-shadow: inset 0 0 0 1.5px rgba(160, 220, 255, 0.45); } }
 @keyframes dm-pulse { 50% { box-shadow: 0 0 0 6px rgba(160, 220, 255, 0.12), 0 6px 18px rgba(0, 0, 0, 0.4); } }
+@keyframes dm-ping { 0% { transform: scale(0.55); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+@keyframes dm-blink { 50% { filter: brightness(1.35); box-shadow: 0 0 0 5px rgba(255, 59, 78, 0.35), 0 3px 8px rgba(0, 0, 0, 0.55); } }
 @keyframes dm-road { to { background-position: 24px 0; } }
 @keyframes dm-drive { from { transform: translateX(0); } to { transform: translateX(calc(min(384px, 100vw - 84px) - 26px)); } }
 @keyframes dm-nudge {

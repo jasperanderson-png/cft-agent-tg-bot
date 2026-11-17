@@ -276,6 +276,32 @@ export function fitPath(map: MlMap, path: LatLng[], pad: { top: number; bottom: 
   map.fitBounds(b, { padding: { top: pad.top + 24, bottom: pad.bottom + 24, left: 30, right: 74 }, duration: 650, maxZoom: 14, bearing: 0, pitch: 0 });
 }
 
+/**
+ * The route's two ends as pulsing markers: a green start dot and a red finish flag (the driver is the
+ * blue dot or arrow). `set(null, …)` hides one.
+ */
+export function routeEnds(map: MlMap) {
+  const make = (cls: string, html: string, anchor: 'center' | 'bottom') => {
+    const el = document.createElement('div');
+    el.className = `dm-end ${cls}`;
+    el.innerHTML = html;
+    return { marker: new maplibregl.Marker({ element: el, anchor }), on: false };
+  };
+  const start = make('start', '<i class="dm-end-ring"></i><i class="dm-end-dot"></i>', 'center');
+  const finish = make(
+    'finish',
+    '<i class="dm-end-ring"></i><span class="dm-end-pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 4h11l-2.2 4L17 12H6"/></svg></span>',
+    'bottom',
+  );
+  const place = (m: typeof start, at: LatLng | null) => {
+    if (at) {
+      m.marker.setLngLat(ll(at));
+      if (!m.on) { m.marker.addTo(map); m.on = true; }
+    } else if (m.on) { m.marker.remove(); m.on = false; }
+  };
+  return { set(from: LatLng | null, to: LatLng | null) { place(start, from); place(finish, to); } };
+}
+
 /** The driver arrow: one HTML marker, moved and turned directly (no React) for smooth motion. */
 export function driverMarker(map: MlMap) {
   const el = document.createElement('div');

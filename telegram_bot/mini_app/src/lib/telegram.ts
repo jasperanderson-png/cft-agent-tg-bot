@@ -170,6 +170,15 @@ export function backToChat() {
 }
 
 export interface TgFix { lat: number; lng: number; accuracy: number | null; heading: number | null; speed: number | null }
+/** Telegram asked for location access and the person said no: only Telegram's settings can undo it. */
+export const telegramLocationRefused = () => {
+  const lm = tg && at('8.0') ? tg.LocationManager : undefined;
+  return !!lm?.isInited && lm.isAccessRequested && !lm.isAccessGranted;
+};
+/** Opens Telegram's location settings for this app (must run from a tap). */
+export const openTelegramLocationSettings = () => {
+  try { tg?.LocationManager?.openSettings(); } catch { /* older Telegram */ }
+};
 /** One location from Telegram's own location access (asks the person once), or null if unavailable. */
 export function telegramLocation(): Promise<TgFix | null> {
   const lm = tg && at('8.0') ? tg.LocationManager : undefined;
