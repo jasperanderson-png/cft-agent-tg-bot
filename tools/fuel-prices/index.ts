@@ -4,7 +4,7 @@ import type { DiscountsAdmin, FuelStations } from '../../shared/types.js';
 import { asAdmin, telegramAdmin } from '../../core/admins.js';
 import { agentProfile, isAgent } from '../../core/agents.js';
 import { getPool } from '../../db_storage/db.js';
-import { bodyObject, HttpError, type ApiRequest } from '../../core/http.js';
+import { bodyObject, HttpError, ok, requireCron, type ApiRequest } from '../../core/http.js';
 import type { Tool } from '../../core/tool.js';
 import { INIT_HEADER, requireInitData, type TelegramUser } from '../../core/telegram.js';
 import { touchTelegramUser } from '../../core/users.js';
@@ -101,6 +101,18 @@ export const fuelPrices: Tool = {
       }
       return adminView();
     }));
+
+    // Daily price pull (Vercel Cron): the same save as the admin's Refresh button, with nobody pressing it.
+    // pulled_by stays empty (the column allows it).
+    route('GET', 'cron/fuel', async (req) => {
+      requireCron(req);
+      try {
+        const saved = await saveDataset(await fetchAllStations(), null);
+        return ok({ datasetId: saved.id, partnerStations: saved.partnerStations });
+      } catch (e) {
+        return fuelHttp(e);
+      }
+    });
 
     // ---- Agents (and admins): the Mini App's Find discounts screens ------------------------------
     route('GET', 'discounts', asViewer(async ({ user, role }): Promise<AgentDiscounts> => {

@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/task-report",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/fuel",
+      "schedule": "0 11 * * *"
     }
   ]
 }
