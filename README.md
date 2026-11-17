@@ -1,11 +1,12 @@
-# CFT Agent Academy
+# CFT Agent
 
-A Telegram Mini App that trains and assesses **Sales Agent candidates** for CFT, with an admin console inside the same bot.
+One Telegram bot, [@cft_Agentbot](https://t.me/cft_Agentbot), with its Mini App, for everyone around CFT: admins, sales agents, truck drivers and agent candidates. Live at **https://cft-agent.vercel.app** (Vercel project `cft-agent`).
 
-- **Candidates** open [@cft_Agentbot](https://t.me/cft_Agentbot), enter their name, take the official 30-question test, and see their score, the correct answers and explanations only after they submit.
-- **Admins** sign in with one tap inside the bot. They can review every attempt, see question and topic analytics and recurring knowledge gaps, edit the question bank, manage users and admins, and download Excel reports. They also get pass/fail alerts and a Monday summary from the bot.
-
-- **Driver leads** (administrators only): a growing database of driver and owner-operator leads. The **GET RECENT LEADS** button sends only leads that were never sent before. See [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md).
+- **Candidates** take the official 30-question **Agent Academy** test and see their score, the correct answers and explanations only after they submit.
+- **Agents** (joined through an invite link) look up **CFT fuel discount prices** at partner stations and send them to drivers, and **invite drivers** to the route map: every agent can, and sees all drivers or only their own.
+- **Drivers** (joined through a driver link) get the **route map**: truck routes with live traffic, the CFT stations on the way with their CFT price, turn-by-turn navigation with voice. Their navigated **trips are recorded** (with a notice) and kept 12 months as proof.
+- **Admins** sign in with one tap. The **CFT Hub** has the Academy console (attempts, analytics, question bank, Excel reports), team & access, **Drivers and their trip history**, fuel discounts data and fuel prices. In the chat: **driver leads** ([docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md)), the full fuel price file, pass/fail alerts and a Monday summary.
+- **Work reports:** daily, weekly and monthly reports of finished work in a Telegram channel, in plain Russian.
 
 The app runs fullscreen on phones and respects the device safe areas (notch, home indicator) and the area covered by Telegram's own controls.
 
@@ -25,8 +26,12 @@ The app runs fullscreen on phones and respects the device safe areas (notch, hom
 10. [Tests](#tests)
 11. [Content sources](#content-sources)
 12. [Limitations and manual steps](#limitations-and-manual-steps)
-13. [Driver leads](#driver-leads)
-14. [Work reports](#work-reports)
+13. [CFT Hub (the admins' Mini App)](#cft-hub-the-admins-mini-app)
+14. [Fuel prices](#fuel-prices)
+15. [Driver route map](#driver-route-map)
+16. [Drivers and trip history](#drivers-and-trip-history)
+17. [Driver leads](#driver-leads)
+18. [Work reports](#work-reports)
 
 ---
 
@@ -46,6 +51,8 @@ Telegram → /api/telegram/webhook   bot commands (/start, /admin, /report, /sta
 Vercel Cron (Mon 04:00 UTC) → /api/cron/weekly   weekly summary + Excel to admins
 Vercel Cron (daily 14:30 UTC) → /api/cron/leads  driver-lead pull sources (FMCSA, when enabled)
 Vercel Cron (daily 18:00 UTC) → /api/cron/task-report  forgotten shifts, weekly (Sat) and monthly reports
+Vercel Cron (daily 11:00 UTC) → /api/cron/fuel   fresh fuel discount prices from the cabinet (what agents and drivers see)
+/route (Mini App page)  → /api/driver/*          the drivers' route map, trips; /route?trip=<id> a recorded trip (admins)
 /drivers/ (static page) → /api/leads/register    driver sign-ups with consent
 Lead vendors → /api/leads/ingest/<source>        leads pushed by providers and ad platforms
 ```
@@ -159,7 +166,8 @@ You don't need Supabase Auth or the Supabase JS client. The app only uses the Po
 
 1. Push this folder to a Git repository and import it in [Vercel](https://vercel.com). The framework is Vite; `vercel.json` already sets the build, the API rewrite, security headers and the weekly cron.
 2. Add the [environment variables](#environment-variables) under **Settings → Environment Variables** (Production).
-3. Deploy, and note the URL, e.g. `https://cft-agent-academy.vercel.app`. Set it as `APP_URL` and redeploy.
+3. Deploy, and note the URL (production: `https://cft-agent.vercel.app`, project `cft-agent`). Set it as `APP_URL` and redeploy. From the command line: `npx vercel --prod --yes` in this folder (once linked with `npx vercel link`).
+4. After a change of address, run the Telegram setup again (below): it points the webhook and everyone's menu buttons at the new `APP_URL`.
 
 ### Settings files on your machine
 
@@ -211,6 +219,10 @@ The app also requests fullscreen itself on iOS and Android (`requestFullscreen`,
 | `LEADS_FMCSA_ENABLED` | no | `true` imports newly registered owner-operator carriers from the public FMCSA registry every day. Off by default. |
 | `ORS_API_KEY` | for routes | OpenRouteService key (free plan, no card: openrouteservice.org → Dashboard → token). Server only: truck routes, place search, last-resort station lookup. Without it the map and *By state* work, but no routes. |
 | `DRIVER_GEOCODE_BATCH` | no | Stations looked up by street address per request (default 60; 0 turns it off). Chain matches are not counted. |
+| `FUEL_CABINET_EMAIL`, `FUEL_CABINET_PASSWORD` | for fuel prices | The United Fuel customer cabinet account the bot reads prices from (the fuel price file, the daily pull). |
+| `TOMTOM_API_KEY` | no | Truck routes with live traffic and speed limits (shared monthly cap). Without it, OpenRouteService routes. |
+| `GOOGLE_TTS_KEY` | no | The natural voice for directions (Google Cloud Text-to-Speech; its project needs billing on). Without it, the phone's voice or the built-in voice pack. |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | no | Upstash Redis: shared monthly caps, rate limits, cached voice clips, the station lookup lock. |
 
 More driver-leads settings are listed in [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md#settings).
 
@@ -305,6 +317,13 @@ Migrations are in `db_storage/migrations/`. The driver-leads tables from the thi
 | `audit_events` | Admin changes. |
 | `app_settings` | Pass mark, minimum sample, retakes, report time zone, Sheets link. |
 | `export_files` | Short-lived downloads. |
+| `agents`, `agent_invites` | Agents and their invite links (only a hash of each link's token is kept). |
+| `admin_invites` | One-time links that make someone an admin. |
+| `discount_datasets`, `discount_stations` | Each saved pull of fuel discount prices (daily, or the admin's Refresh). |
+| `station_geo` | Map points for partner stations, looked up once (chain locator, Census, search). |
+| `driver_invites`, `map_drivers` | Driver links (made by admins or agents) and the drivers who joined. `map_drivers.trip_notice_at`: when they were told trips are recorded. |
+| `driver_trips`, `driver_trip_points` | Trip history: one row per navigated trip (from / to, fuel stop and price, planned route, recorded miles) and the driven track in batches. Kept 12 months. |
+| `task_report_*` | Work log, shifts and sent reports (migration 0007). |
 
 ## Tests
 
@@ -332,6 +351,9 @@ Coverage:
 - Weekly cron (auth and once-per-week), bot commands, and handling of users who blocked the bot.
 - Driver leads: validation, duplicate merging, exactly-once delivery under simultaneous clicks, recovery after a refused or unanswered send, opt-outs and their undo, access control, exports, CSV import (separators, encodings) and the FMCSA sync.
 - The two bot sections: who sees the home screen, what each section's keyboard and command menu contain.
+- Drivers: driver links from admins and every agent, the agents' home buttons and menu, All drivers / My drivers, agents removing only their own drivers, the route map refused to non-drivers.
+- Trip history: only drivers' trips recorded, a resent batch counted once, no miles across a gap, the stop and arrival marked, admins only.
+- Layers: `core/tests/layers.test.ts` fails on an import that goes upward.
 
 ## Content sources
 
@@ -355,6 +377,10 @@ Admins' chat menu button opens the **CFT Hub** (`/#/hub`); candidates keep **Sta
 
 - **Agent Academy:** tests finished and passed this week; opens the admin console or the test.
 - **Driver Leads:** new leads waiting and added today; goes back to the chat to collect them.
+- **Team & access:** agents, their invite links, candidates and admins.
+- **Drivers:** everyone who joined through a driver link, who invited them, and their trip history (see [Drivers and trip history](#drivers-and-trip-history)).
+- **Fuel discounts data / Find discounts:** what agents see, the CFT margin, and the agents' own screen.
+- **Driver route map:** the drivers' map, for trying routes.
 - **Fuel prices:** station count and the cheapest discounted price; opens the **Fuel prices** screen (`/#/fuel`): search by station, city or address, filter by state, sort by cheapest discounted, cheapest retail or biggest saving, tap a station to open it in Google Maps, and **Excel to chat** to get `fuel_prices.xlsx` in Telegram. The list is read from the cabinet at most every 10 minutes; the Excel file is always read fresh.
 
 The Hub is `telegram_bot/mini_app/src/screens/admins/Hub.tsx`; the Fuel prices screen is `telegram_bot/mini_app/src/screens/admins/FuelPrices.tsx`. Anyone who is not an admin and opens the Hub's link gets the test.
@@ -363,7 +389,9 @@ The Hub is `telegram_bot/mini_app/src/screens/admins/Hub.tsx`; the Fuel prices s
 
 Admins have a **📥 Download All Fuel Prices** button on their home keyboard (also `/fuelprices`). It signs in to the United Fuel customer cabinet (https://cabinet.united-fuel.com, Stations → List), reads every station and sends `fuel_prices.xlsx`: a **Stations** sheet with Station, Retail price, Discounted price, Updated time, State, City and Address (filters on, header frozen, prices exactly as the cabinet shows them, the total under the table) and a **Summary** sheet.
 
-How it works: the cabinet is a web app over a JSON API, so the bot calls that API directly instead of driving a browser (which a Vercel function cannot run). It signs in with `FUEL_CABINET_EMAIL` and `FUEL_CABINET_PASSWORD`, reads `cabinet/station` page by page, keeps each station once, and sends the file only if the number of stations equals the total the cabinet reports. Otherwise it says what went wrong and sends nothing. One status message shows the progress. Code: `products/station-discounts/` (`cabinet.ts` reads the cabinet, `excel.ts` builds the file, `commands.ts` is the button).
+**Every day at 11:00 UTC** the prices agents and drivers see are pulled again by themselves (`/api/cron/fuel`, the same save as the admin's Refresh button on the Fuel discounts data screen).
+
+How it works: the cabinet is a web app over a JSON API, so the bot calls that API directly instead of driving a browser (which a Vercel function cannot run). It signs in with `FUEL_CABINET_EMAIL` and `FUEL_CABINET_PASSWORD`, reads `cabinet/station` page by page, keeps each station once, and sends the file only if the number of stations equals the total the cabinet reports. Otherwise it says what went wrong and sends nothing. One status message shows the progress. Code: `tools/fuel-prices/` (`cabinet.ts` reads the cabinet, `excel.ts` builds the file, `dataset.ts` saves the prices agents and drivers see, `index.ts` the routes and the daily pull).
 
 A station without a discounted price in the cabinet (about 230, mostly Casey's) has an empty cell, not 0. Times are in the report time zone (Settings).
 
@@ -383,20 +411,37 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Layout:** the map fills the screen; with nothing selected there is no bottom card (a clear map). Cards appear only for a tapped station, a planned route or a trip; the round buttons on the right always sit just above the card. While the driver moves the map, the top panel and the card step aside and come back when it stops. With a route planned, From / To shrink to one line (tap to change). Phones: search on top, card at the bottom. From 720 px wide (tablets, Telegram Desktop): both in a 380 px column on the left, the map beside them.
 - **By state** is the agents' own Find discounts screen (`Picker`, `Results`, `StationSheet` exported from `screens/agents/Discounts.tsx`), with the My route / By state switch on top and *Route here* on a station. Phones: full screen, like the agents'. From 900 px wide: a 420 px panel on the left, and the map beside it shows and frames the stations picked. Tapping a station on that map opens its card in the panel (the picks stay), and the open station is highlighted on the map.
 - **Building a route** takes the screen: a card with the steps (roads for the truck, live traffic, stations on the way) and *Cancel*, while the camera already shows both ends; the route then draws itself on. On the route the map shows only the **3 cheapest stations** (and the chosen one); *Nearby stations* (nudges three times, each softer) shows all of them and those near the route.
-- **My location:** From empty = the driver's location, with its accuracy (±ft). *Use my current location* (in From's suggestions, or the target button in From) and the locate button ask for a fresh, precise fix. Where the page's own location is blocked (some Telegram apps), Telegram's own location access is used (`telegramLocation()` in `lib/telegram.ts`).
+- **My location:** From empty = the driver's location, with its accuracy (±ft). *Use my current location* (in From's suggestions, or the target button in From) and the locate button ask for a fresh, precise fix: the button flies to the last known place at once, says "Finding your location…", and asks the phone and Telegram's own location together (`telegramLocation()` in `lib/telegram.ts`; Telegram after 1.5 s or the phone's refusal, 10 s at most; Telegram's is also asked when the phone stays silent for 4 s, which happens inside Telegram). When Telegram was refused access, the message has a **Turn on** button that opens Telegram's settings.
+- **Markers:** the driver is a pulsing **blue** dot (an arrow while driving; always on top), the route's start a pulsing **green** dot (only when it is not the driver's own location) and the finish a pulsing **red** flag, so they stand out on the light-blue route line.
 - **Suggestions:** typing in From / To shows towns with CFT stations and states at once (from the station list already on the phone), then OpenRouteService places join in; answers are remembered for the session.
 - **Truck routes:** **TomTom** truck routing with live traffic (height, weight, length, hazmat; traffic delay, slow stretches coloured on the route, speed limits, street names and exit numbers). When TomTom is not set up, its monthly allowance is used up or it fails, **OpenRouteService** (heavy vehicle, no traffic) answers instead. Place search: OpenRouteService.
 - **Navigation:** turn banner with the street being driven and the speed limit, the natural voice (Google Chirp 3 HD "Fenrir"; fixed lead-ins "In 1 mile, / In a quarter mile, / In 500 feet, / Now," fetched ahead), re-routing after ~2 s off the route, auto-zoom by distance to the next turn (until the driver pinches), the screen kept on. `/route?simulate` drives any trip in about three minutes. Until the natural voice works, the phone's own voice reads the same sentences (its best English voice, never a novelty one); after one "not available" answer the page stops asking for 30 minutes, so there is no wait before each phrase. A phone with no voice of its own (Telegram on Android) uses the **built-in voice pack**: 60 natural recorded phrases in `telegram_bot/mini_app/public/voice/` (4 distances × 13 manoeuvres, e.g. "In a quarter mile, take the exit on the right.", plus start / arrive / rerouting), made once with the open Piper voice *LJ Speech* (public domain) through sherpa-onnx; phrase list in `pack.json`. No street names, no billing, works offline once fetched; a route fetches only the phrases it needs. Order: natural cloud voice → phone voice → pack.
 - **Shared keys and caps:** `TOMTOM_API_KEY`, `GOOGLE_TTS_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` are the United Fuel app's (the user chose to share them). Both apps count against the SAME monthly caps in the same Redis (`core/kv.ts`: 19,000 routes, 900,000 voice characters, the free allowances) and share cached voice clips. Past a cap the app falls back (OpenRouteService, phone voice): nothing is ever charged. **Google Text-to-Speech needs billing turned on in its Google Cloud project** (free tier still applies); until then `/api/driver/voice` answers 503 and the phone voice is used.
 - **Station points:** each station is placed once and cached in `station_geo` with its source: the chain's own store locator via **All The Places** (same store number in the same state, or the only store of the brand in that city), then the **US Census** address service, then OpenRouteService search only when it lands in the same state with high confidence; otherwise no pin (still in *By state*), tried again after a week.
 - **Prices** are the agents' prices (cabinet discounted price + the margin), never the cabinet's own price.
-- **Who can open it:** admins, agents and drivers (driver links, see "Menu buttons" and `core/drivers.ts`). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
-- **Adding drivers:** every agent can, with no admin switch. Their home has **🚚 Invite a driver** and **👤 My drivers**, and their menu has /invitedriver and /drivers. `/drivers` lists all drivers with the agent's own marked "yours", and a button switches to "My drivers" and back. Agents remove only drivers who joined through their own links; admins remove anyone. When a driver joins, whoever made the link gets a message with a **My drivers** button. (The old `drivers` value in `agents.permissions` is no longer read.)
-- **Your location, start and finish:** the driver is a pulsing **blue** dot (an arrow while driving), the route's start a pulsing **green** dot (only when it is not the driver's own location) and the finish a pulsing **red** flag. The locate button flies to the last known place at once, says "Finding your location…", and asks the phone and Telegram's own location together (Telegram after 1.5 s or the phone's refusal; 10 s at most). When Telegram was refused access, the message has a **Turn on** button that opens Telegram's settings.
-- **Trip history (proof):** every trip a *driver* navigates is recorded (admins' and agents' drives are not): from **Navigate** to arrival or **End**, the from / to, the fuel stop with its CFT price at the time and when it was reached, the planned route, and the driven track (a point about every 15 s, sooner after a quarter mile; sent every minute, when the app is hidden, at the stop and at the end; a resent batch counts once). Only while the map is open: when the app is closed or the phone sleeps nothing is recorded, and those stretches show as **gaps** (no miles are counted across a gap of over 90 s). A trip still "driving" with nothing for 15 min shows as *Recording stopped*. Drivers see a one-time notice before their first trip (`map_drivers.trip_notice_at`). Trips are kept 12 months (older ones are deleted when a new trip starts) and stay when a driver is removed. Admins: **CFT Hub → Drivers** (`#/drivers`, also the 🗺 Trip history button under `/drivers` in the bot): drivers, their trips, a trip on the map (`/route?trip=<id>`: planned dashed, driven orange, gaps dotted red) and **File to chat** (a CSV with every point, for proof). Code: `tools/driver-map/trips.ts`, `screens/drivers/trip-recorder.ts`, `TripReplay.tsx`, `screens/admins/Drivers.tsx`; migration `0011_driver_trips.sql`.
+- **Who can open it:** admins, agents and drivers (see [Drivers and trip history](#drivers-and-trip-history)). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
 - **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `vercel.json`.
 - **Limits:** TomTom's truck data is good but not perfect: drivers still follow road signs. On Android Telegram, until Google billing is on, directions are spoken from the voice pack (no street names).
 - Code: `tools/driver-map/stations.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`; `core/kv.ts`; `shared/driver-route.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
+
+## Drivers and trip history
+
+**Who adds drivers.** Admins and **every agent** (no admin switch). A driver link works for anyone who opens it until it expires (1 hour to 30 days) or is turned off; whoever opens it and presses Start becomes a driver and gets the **Route map** menu button, nothing else.
+
+- **Agents in the bot:** their home has **🚚 Invite a driver** (a link in two taps) and **👤 My drivers**; their command menu has `/invitedriver` (add a name: `/invitedriver Night shift`) and `/drivers`; `/help` explains both. `/drivers` lists **all drivers** with the agent's own marked *yours*, and one button switches to **My drivers** and back, in place. Agents remove only drivers who joined through **their own** links (anyone else's: "ask your CFT admin"; the database refuses it too).
+- **Admins in the bot:** `/invitedriver`, and `/drivers` with every driver, who invited them, a remove button for each, and **🗺 Trip history** (opens the Drivers screen).
+- **When a driver joins**, whoever made the link gets a message with a **My drivers** button. Agents' menus were updated for everyone at once (`menuKey` "agents.2", see [Menu buttons](#menu-buttons-why-agents-saw-start-test)). The old per-agent `drivers` permission is no longer read.
+
+**Trip history (proof).** Every trip a **driver** navigates on the route map is recorded; admins' and agents' drives are not.
+
+- **What:** from **Navigate** to arrival or **End**: from / to, the fuel stop with its CFT price at that moment and when it was reached, the planned route (simplified) and its miles and time, the truck, and the **driven track**: a point about every 15 s (sooner after a quarter mile) with time, position, speed and GPS accuracy.
+- **How it is sent:** batches every minute, when the app is hidden or closed (a call the browser finishes after the page is gone), at the fuel stop and at the end. A failed batch is sent again with the same number, so a retry is never counted twice.
+- **What it cannot see:** a Telegram Mini App only knows the location while the map is open on screen. When the app is closed or the phone sleeps nothing is recorded; those stretches are shown as **gaps** and no miles are counted across a gap of over 90 s. Recorded miles are therefore *at most* the real miles. A trip still "driving" with nothing heard for 15 min shows as *Recording stopped (app closed)*.
+- **Telling drivers:** before their first navigation a driver sees, once, that CFT keeps a record of the trips they navigate, what is recorded, and that it is kept 12 months (`map_drivers.trip_notice_at`).
+- **Keeping:** 12 months (older trips are deleted when a new one starts). Trips stay when a driver is removed.
+- **Admins:** **CFT Hub → Drivers** (`#/drivers`): drivers (and removed ones whose trips are kept) with trips, miles and last trip; a driver's trips (date, from → to, status, fuel stop and price, planned vs recorded miles, time); **Map** opens the trip at `/route?trip=<id>` (planned route dashed, driven track orange, gaps dotted red, green start, red finish, the fuel stop); **File to chat** sends a CSV (trip details, gaps, every point in UTC) to the admin's chat with the bot.
+- **Before migration 0011** the map keeps working and nothing is recorded.
+- Code: `tools/driver-map/trips.ts` (server), `screens/drivers/trip-recorder.ts` (the phone), `screens/drivers/TripReplay.tsx` (a trip on the map), `screens/admins/Drivers.tsx` (the admins' screen), `core/drivers.ts` and `telegram_bot/handlers/driver-invites.ts` (links and lists); migrations `0010_drivers.sql`, `0011_driver_trips.sql`.
 
 ## Driver leads
 
