@@ -53,10 +53,11 @@ export const startParam = tg?.initDataUnsafe.start_param ?? '';
  * The address of the drivers' map page (/route), with the Telegram session in it the way Telegram
  * itself passes it, so the new page is signed in even if the WebView forgot it on the way.
  */
-export function routePageUrl(): string {
-  if (!tg) return '/route';
+export function routePageUrl(tripId?: string): string {
+  const q = tripId ? `?trip=${encodeURIComponent(tripId)}` : location.search.includes('simulate') ? '?simulate' : '';
+  if (!tg) return `/route${q}`;
   const p = new URLSearchParams({ tgWebAppData: tg.initData, tgWebAppVersion: tg.version, tgWebAppPlatform: tg.platform });
-  return `/route${location.search.includes('simulate') ? '?simulate' : ''}#${p.toString()}`;
+  return `/route${q}#${p.toString()}`;
 }
 const MOBILE = ['ios', 'android', 'android_x'];
 const at = (v: string) => !!tg?.isVersionAtLeast(v);

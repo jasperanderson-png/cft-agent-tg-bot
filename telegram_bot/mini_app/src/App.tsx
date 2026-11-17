@@ -4,6 +4,7 @@ import { CandidateApp } from './screens/candidates/academy/CandidateApp';
 import { Team } from './screens/admins/Team';
 import { Discounts } from './screens/agents/Discounts';
 import { DiscountsData } from './screens/admins/DiscountsData';
+import { Drivers } from './screens/admins/Drivers';
 import { FuelPrices } from './screens/admins/FuelPrices';
 import { Hub } from './screens/admins/Hub';
 import { useAdminSession } from './lib/session';
@@ -17,19 +18,23 @@ import { reportMapError } from './lib/report';
  *   #/team       Team & access: agents, invite links, admins (admins)
  *   #/data       Fuel discounts data: what agents see, the margin (admins)
  *   #/fuel       Fuel prices: every station, real prices (admins)
+ *   #/drivers    Drivers and their trip history (admins); a trip's map opens on /route?trip=<id>
  *   /route       The drivers' route map: truck routes, partner stations, navigation (agents and admins for now). Its own address,
  *                because the map needs a looser security policy (vercel.json); #/driver and the
  *                start param "driver" are sent there.
  *   #/admin      Agent Academy admin console
  *   anything else: the Agent Academy test (what candidates open)
  */
-type Screen = 'hub' | 'fuel' | 'admin' | 'test' | 'discounts' | 'team' | 'data';
-const SCREENS: Screen[] = ['admin', 'hub', 'fuel', 'discounts', 'team', 'data'];
+type Screen = 'hub' | 'fuel' | 'admin' | 'test' | 'discounts' | 'team' | 'data' | 'drivers';
+const SCREENS: Screen[] = ['admin', 'hub', 'fuel', 'discounts', 'team', 'data', 'drivers'];
 const screenFor = (hash: string, param = ''): Screen =>
   SCREENS.find((s) => hash.startsWith('#/' + s) || param === s) ?? 'test';
 
 // The map and its library load only on /route, so the rest of the app stays light.
 const DriverMap = lazy(() => import('./screens/drivers/DriverMap').then((m) => ({ default: m.DriverMap })));
+// A recorded trip on the map, for admins: /route?trip=<id> (the map may only load on /route).
+const TripReplay = lazy(() => import('./screens/drivers/TripReplay').then((m) => ({ default: m.TripReplay })));
+const tripId = new URLSearchParams(location.search).get('trip');
 
 /** The drivers' map has its own page; links to #/driver (or startapp=driver) are sent there. */
 const ROUTE_PAGE = '/route';
@@ -40,7 +45,10 @@ if (!onRoutePage && (location.hash.startsWith('#/driver') || startParam === 'dri
 const leaveMap = () => (history.length > 1 ? history.back() : tg ? tg.close() : location.assign('/#/discounts'));
 
 export function App() {
-  if (onRoutePage) return <div className="app"><MapCrashGuard><Suspense fallback={<div className="center-msg">Loading the map…</div>}><DriverMap onExit={leaveMap} /></Suspense></MapCrashGuard></div>;
+  if (onRoutePage) {
+    const page = tripId ? <TripReplay id={tripId} onExit={() => (history.length > 1 ? history.back() : location.assign('/#/drivers'))} /> : <DriverMap onExit={leaveMap} />;
+    return <div className="app"><MapCrashGuard><Suspense fallback={<div className="center-msg">Loading the map…</div>}>{page}</Suspense></MapCrashGuard></div>;
+  }
   return <MainApp />;
 }
 
@@ -97,6 +105,7 @@ function MainApp() {
   if (screen === 'discounts') return <div className="app"><Discounts onBack={fromHub ? toHub : undefined} /></div>;
   if (screen === 'team') return <div className="app"><AdminGate><Team onBack={toHub} /></AdminGate></div>;
   if (screen === 'data') return <div className="app"><AdminGate><DiscountsData onBack={toHub} /></AdminGate></div>;
+  if (screen === 'drivers') return <div className="app"><AdminGate><Drivers onBack={toHub} /></AdminGate></div>;
   if (screen === 'hub') return <div className="app"><HubGate scrollTop={scrollTop} /></div>;
   const page = screen === 'fuel' ? <AdminGate><FuelPrices onBack={toHub} /></AdminGate> : <CandidateApp scrollTop={scrollTop} />;
   return (

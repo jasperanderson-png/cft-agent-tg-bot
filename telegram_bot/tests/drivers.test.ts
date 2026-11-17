@@ -166,6 +166,47 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     expect((await api('GET', 'driver/stations', DRIVER2)).status).toBe(403);
   });
 
+  it('records a driver\'s navigated trip once per batch, never counts a gap as driving, and shows it to admins only', async () => {
+    const call = (method: string, path: string, user: number, body: unknown) =>
+      router({ method, path, query: new URLSearchParams(), headers: { 'x-telegram-init-data': signInitData({ id: user, first_name: 'D' }, BOT) }, body, ip: '10.0.0.3' } as ApiRequest);
+    // The driver is told trips are recorded; agents' and admins' drives are not recorded.
+    expect(((await api('GET', 'driver/stations', DRIVER)).body as any).trips).toEqual({ record: true, noticeSeen: false });
+    expect(((await api('GET', 'driver/stations', AGENT)).body as any).trips).toBeNull();
+    const start = {
+      from: { label: 'Dallas, TX', lat: 32.78, lng: -96.8 }, to: { label: 'Austin, TX', lat: 30.27, lng: -97.74 },
+      stop: { id: 9, name: "Love's 123", brand: 'l', price: 3.459, lat: 31.5, lng: -97.1 },
+      plannedMi: 195.4, plannedS: 10_800, source: 'tomtom', path: [[-96.8, 32.78], [-97.74, 30.27]], truck: { heightIn: 162, weightLb: 80000, hazmat: false }, noticeSeen: true,
+    };
+    expect((await call('POST', 'driver/trips', AGENT, start)).body).toEqual({ id: null });
+    const { id } = (await call('POST', 'driver/trips', DRIVER, start)).body as { id: string };
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(((await api('GET', 'driver/stations', DRIVER)).body as any).trips.noticeSeen).toBe(true);
+
+    const t0 = Date.now();
+    const batch = { seq: 0, points: [[t0, 32.78, -96.8, 20, 5], [t0 + 15_000, 32.79, -96.8, 20, 5]] };
+    expect((await call('POST', `driver/trips/${id}/points`, DRIVER, batch)).body).toEqual({ saved: 2 });
+    expect((await call('POST', `driver/trips/${id}/points`, DRIVER, batch)).body).toEqual({ saved: 0 }); // a retry counts once
+    // Ten minutes later, far away: a gap, not driving.
+    await call('POST', `driver/trips/${id}/points`, DRIVER, { seq: 1, points: [[t0 + 600_000, 32.0, -97.0, 25, 5]], status: 'stop' });
+    // Someone else cannot add to it.
+    expect((await call('POST', `driver/trips/${id}/points`, DRIVER2 + 1000, { seq: 2, points: [] })).status).toBe(403);
+    await call('POST', `driver/trips/${id}/points`, DRIVER, { seq: 2, points: [], status: 'arrived' });
+
+    const login = await router({ method: 'POST', path: 'admin/telegram-login', query: new URLSearchParams(), headers: {}, body: { initData: signInitData({ id: OWNER, first_name: 'O' }, BOT) }, ip: '10.0.0.4' } as ApiRequest);
+    const token = (login.body as { token: string }).token;
+    const admin = (path: string) => router({ method: 'GET', path, query: new URLSearchParams(), headers: { authorization: `Bearer ${token}` }, body: null, ip: '10.0.0.4' } as ApiRequest);
+    const drivers = (await admin('admin/drivers')).body as { drivers: { telegramUserId: number; trips: number }[] };
+    expect(drivers.drivers.find((d) => d.telegramUserId === DRIVER)?.trips).toBe(1);
+    const trip = (await admin(`admin/trips/${id}`)).body as any;
+    expect(trip.status).toBe('arrived');
+    expect(trip.points).toBe(3);
+    expect(trip.drivenMi).toBeCloseTo(0.7, 1); // the 0.69 mi between the first two points, not the gap
+    expect(trip.gaps).toHaveLength(1);
+    expect(trip.stop).toMatchObject({ name: "Love's 123", price: 3.459 });
+    expect(trip.stop.reachedAt).not.toBeNull();
+    expect((await router({ method: 'GET', path: `admin/trips/${id}`, query: new URLSearchParams(), headers: {}, body: null, ip: '10.0.0.4' } as ApiRequest)).status).toBe(401);
+  });
+
   it('sets a menu Telegram missed on the next message, once, and retries a timed-out menu call', async () => {
     // As if the button change at joining had timed out: nothing recorded yet.
     await getPool().query('update telegram_users set menu_role = null where id = $1', [AGENT]);

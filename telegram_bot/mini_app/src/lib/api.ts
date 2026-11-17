@@ -1,4 +1,4 @@
-import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile } from '../../../../shared/types';
+import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../shared/types';
 import type { AgentDiscounts, PartnerBrand } from '../../../../shared/discounts';
 import { initData } from './telegram';
 
@@ -106,6 +106,14 @@ export const teamApi = {
   refreshDiscounts: () => authed<DiscountsAdmin>('POST', 'admin/discounts/refresh', {}),
 };
 
+/** Drivers and their trip history. Admins only. */
+export const driversApi = {
+  list: () => authed<{ drivers: DriverWithTrips[] }>('GET', 'admin/drivers'),
+  trips: (telegramUserId: number) => authed<{ trips: TripSummary[] }>('GET', `admin/drivers/${telegramUserId}/trips`),
+  trip: (id: string) => authed<TripDetail>('GET', `admin/trips/${id}`),
+  sendTrip: (id: string) => authed<{ sent: true }>('POST', `admin/trips/${id}/send`, {}),
+};
+
 /** Find discounts, for agents (and admins). Signed in by Telegram's initData on every call. */
 const viewer = <T>(method: string, path: string, body?: unknown) => request<T>(method, path, body, { 'x-telegram-init-data': initData });
 type Picks = { states: string[]; brands: PartnerBrand[] };
@@ -118,6 +126,17 @@ export const driverApi = {
   route: (b: { from: unknown; to: unknown; via?: { lat: number; lng: number }; truck: TruckProfile }) => viewer<DriverRoute>('POST', 'driver/route', b),
   places: (q: string, near: { lat: number; lng: number } | null) =>
     viewer<{ places: DriverPlace[] }>('GET', `driver/places?q=${encodeURIComponent(q)}${near ? `&lat=${near.lat.toFixed(4)}&lng=${near.lng.toFixed(4)}` : ''}`),
+  /** Trip history: a driver starts navigating (others get id null: nothing is recorded). */
+  tripStart: (b: TripStartBody) => viewer<{ id: string | null }>('POST', 'driver/trips', b),
+  /**
+   * A batch of the driven track. `keepalive`: the page is being hidden or closed, so the browser
+   * finishes the call even after the page is gone.
+   */
+  tripPoints: async (id: string, b: TripPointsBody, keepalive = false): Promise<void> => {
+    if (!keepalive) { await viewer<{ saved: number }>('POST', `driver/trips/${id}/points`, b); return; }
+    const res = await fetch(`/api/driver/trips/${id}/points`, { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', 'x-telegram-init-data': initData }, body: JSON.stringify(b) });
+    if (!res.ok) throw new ApiError(res.status, `Trip points not saved (${res.status}).`);
+  },
 };
 
 export const discountsApi = {

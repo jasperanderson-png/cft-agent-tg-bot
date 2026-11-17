@@ -1,4 +1,4 @@
-import { telegramAdmin } from '../../core/admins.js';
+import { asAdmin, telegramAdmin } from '../../core/admins.js';
 import { isAgent } from '../../core/agents.js';
 import { isDriver } from '../../core/drivers.js';
 import { getPool } from '../../db_storage/db.js';
@@ -9,6 +9,7 @@ import { touchTelegramUser } from '../../core/users.js';
 import { driverStations, locateStations } from './stations.js';
 import { planRoute, searchPlaces } from './routing.js';
 import { voiceClip } from './voice.js';
+import { addTripPoints, adminDrivers, adminTrip, adminTrips, sendTripFile, startTrip, tripNoticeSeen } from './trips.js';
 
 // The drivers' fuel map (Mini App /route): CFT partner stations on a map, the cheapest ones along a
 // truck route, turn-by-turn directions and the voice. For drivers (handlers/drivers/), agents and admins.
@@ -23,12 +24,32 @@ async function mapViewer(req: ApiRequest): Promise<{ user: TelegramUser; role: '
   if (await isDriver(db, user.id)) return { user, role: 'driver' };
   throw new HttpError(403, 'The route map is for CFT drivers. Ask CFT for a driver link.', 'not_driver');
 }
-const asMapViewer = (h: (v: { user: TelegramUser; role: 'agent' | 'admin' | 'driver' }, req: ApiRequest) => Promise<unknown>) => async (req: ApiRequest) => ({ status: 200, body: await h(await mapViewer(req), req) });
+type MapViewer = { user: TelegramUser; role: 'agent' | 'admin' | 'driver' };
+const asMapViewer = (h: (v: MapViewer, req: ApiRequest, params: string[]) => Promise<unknown>) => async (req: ApiRequest, params: string[]) => ({ status: 200, body: await h(await mapViewer(req), req, params) });
+const driverName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || null;
 
 export const driverMap: Tool = {
   id: 'driver-map',
   routes(route) {
-    route('GET', 'driver/stations', asMapViewer(() => driverStations(getPool())));
+    // Drivers learn here that their trips are recorded (admins' and agents' drives are not).
+    route('GET', 'driver/stations', asMapViewer(async (v) => ({
+      ...(await driverStations(getPool())),
+      // Before migration 0011 the trip tables are missing: the map works, nothing is recorded.
+      trips: v.role === 'driver'
+        ? await tripNoticeSeen(getPool(), v.user.id).then((noticeSeen) => ({ record: true as const, noticeSeen }), () => null)
+        : null,
+    })));
+    // Trip history (trips.ts): the start, then the driven track in batches. Drivers only; others get no id.
+    route('POST', 'driver/trips', asMapViewer(async (v, req) => (v.role === 'driver' ? startTrip(getPool(), { id: v.user.id, name: driverName(v.user) }, bodyObject(req)) : { id: null })));
+    route('POST', 'driver/trips/:id/points', asMapViewer(async (v, req, [id]) => {
+      if (v.role !== 'driver') throw new HttpError(404, 'Trip not found.');
+      return addTripPoints(v.user.id, id, bodyObject(req));
+    }));
+    // For admins: drivers, their trips, one trip, and a trip as a file in their chat.
+    route('GET', 'admin/drivers', asAdmin(() => adminDrivers(getPool())));
+    route('GET', 'admin/drivers/:tg/trips', asAdmin((_a, _r, [tg]) => adminTrips(getPool(), Number(tg))));
+    route('GET', 'admin/trips/:id', asAdmin((_a, _r, [id]) => adminTrip(getPool(), id)));
+    route('POST', 'admin/trips/:id/send', asAdmin((a, _r, [id]) => sendTripFile(getPool(), a.telegramUserId, id)));
     route('POST', 'driver/locate', asMapViewer(() => locateStations(getPool())));
     route('POST', 'driver/route', asMapViewer((_v, req) => planRoute(bodyObject(req), fetch, req.ip)));
     // The natural voice: a plain GET so phones and the CDN cache each phrase (no sign-in: an <audio>

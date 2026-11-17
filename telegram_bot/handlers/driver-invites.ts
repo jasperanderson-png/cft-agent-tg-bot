@@ -1,6 +1,7 @@
 import { escHtml as esc } from '../../shared/html.js';
 import { fmtDMY, fmtDMYHM } from '../../shared/time.js';
 import { INVITE_HOURS } from '../../core/agents.js';
+import { env } from '../../core/env.js';
 import { telegramAdmin } from '../../core/admins.js';
 import { createDriverInvite, listDrivers, removeDriver, revokeDriverInvite, type Actor, type DriverRow } from '../../core/drivers.js';
 import type { Db } from '../../db_storage/db.js';
@@ -70,7 +71,7 @@ async function driversView(db: Db, by: Actor, mine = false) {
   const buttons = [
     agent
       ? [{ text: '➕ Invite driver', callback_data: `${CB}new` }, mine ? { text: '👥 All drivers', callback_data: `${CB}view:all` } : { text: '👤 My drivers', callback_data: `${CB}view:mine` }]
-      : [{ text: '➕ Invite driver', callback_data: `${CB}new` }],
+      : [{ text: '➕ Invite driver', callback_data: `${CB}new` }, ...(env.appUrl ? [{ text: '🗺 Trip history', web_app: { url: `${env.appUrl}/#/drivers` } }] : [])],
     ...removable.slice(0, 20).map((d) => [{ text: `Remove ${(d.name ?? String(d.telegramUserId)).slice(0, 30)}`, callback_data: `${CB}rm:${d.telegramUserId}` }]),
   ];
   return { text: lines.join('\n'), reply_markup: { inline_keyboard: buttons } };

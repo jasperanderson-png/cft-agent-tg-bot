@@ -261,6 +261,77 @@ export interface DriverStations {
   pendingGeocode: number;
   /** Whether truck routes can be planned (ORS_API_KEY is set on the server). */
   routing: boolean;
+  /** Set for drivers: their navigated trips are recorded; `noticeSeen` once they were told so. */
+  trips?: { record: true; noticeSeen: boolean } | null;
+}
+
+// ---- Driver trips (tools/driver-map/trips.ts; migration 0011) ---------------------------------------
+
+/** A point the phone recorded on a trip: [time in ms, lat, lng, speed m/s or null, accuracy m or null]. */
+export type TripPoint = [number, number, number, number | null, number | null];
+
+/** What the map sends when a driver taps Navigate. */
+export interface TripStartBody {
+  from: { label: string; lat: number; lng: number };
+  to: { label: string; lat: number; lng: number };
+  stop: { id: number; name: string; brand: string; price: number | null; lat: number; lng: number } | null;
+  plannedMi: number;
+  plannedS: number;
+  source: string | null;
+  /** The planned route, simplified: [lng, lat] pairs. */
+  path: [number, number][];
+  truck: TruckProfile;
+  noticeSeen: boolean;
+}
+
+/** A batch of the driven track. `seq` makes a batch sent twice count once; `status` marks the stop or the end. */
+export interface TripPointsBody {
+  seq: number;
+  points: TripPoint[];
+  status?: 'stop' | 'arrived' | 'ended';
+}
+
+export interface TripSummary {
+  id: string;
+  driverId: number;
+  driverName: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  /** driving: still going; stale: still "driving" but nothing heard for 15 min (the app was closed). */
+  status: 'driving' | 'stale' | 'arrived' | 'ended';
+  fromLabel: string | null;
+  toLabel: string | null;
+  stop: { name: string; brand: string | null; price: number | null; reachedAt: string | null } | null;
+  plannedMi: number | null;
+  plannedS: number | null;
+  drivenMi: number;
+  points: number;
+  lastPointAt: string | null;
+}
+
+export interface TripDetail extends TripSummary {
+  from: { lat: number; lng: number } | null;
+  to: { lat: number; lng: number } | null;
+  stopAt: { lat: number; lng: number } | null;
+  plannedPath: [number, number][];
+  track: TripPoint[];
+  /** Stretches with no points for over 90 s (the app closed, the phone asleep, no signal). */
+  gaps: { from: string; to: string; min: number }[];
+  /** Minutes the app was really recording (gaps left out). */
+  recordedMin: number;
+}
+
+export interface DriverWithTrips {
+  telegramUserId: number;
+  name: string | null;
+  username: string | null;
+  joinedAt: string | null;
+  invitedBy: string | null;
+  /** No longer a driver (removed); their trips are kept as proof. */
+  removed: boolean;
+  trips: number;
+  lastTripAt: string | null;
+  drivenMi: number;
 }
 
 /** The truck the route is planned for (OpenRouteService "heavy vehicle"). */

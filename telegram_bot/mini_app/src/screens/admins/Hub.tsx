@@ -85,6 +85,7 @@ export function Hub({ name }: { name: string }) {
             onClick={go('#/data')}
           />
           <NavLink icon="fuel" title="Find discounts" sub="The agents’ screen, with their prices" onClick={go('#/discounts')} />
+          <NavLink icon="truck" title="Drivers" sub="Who joined, their trips: routes, fuel stops, proof" onClick={go('#/drivers')} />
           <NavLink icon="pin" title="Driver route map" sub="Route, partner stations on the way, navigation" onClick={() => { haptic.tap(); location.assign(routePageUrl()); }} />
           <NavLink icon="grad" title="CFT Academy console" sub="Attempts, analytics, question bank, reports" onClick={go('#/admin')} />
           <NavLink

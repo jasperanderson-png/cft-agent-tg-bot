@@ -18,6 +18,7 @@ import {
   dist, firstPart, fullAddress, money, pct, placeOf, store, stored, truckText, turnIcon,
 } from './pieces';
 import { hush, LEAD_INS, leadIn, packForSteps, packTurn, prefetchPack, prefetchVoice, sentence, speak, unlockVoice, voiceKind } from './voice';
+import { startRecording, type TripRecorder } from './trip-recorder';
 import './driver.css';
 
 // The drivers' route map (/route). A clear map with every CFT station; tap one, or type where you are
@@ -77,6 +78,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
 
   // ---- refs the map callbacks read (they are set up once)
   const tripRef = useRef<Trip | null>(null);
+  /** Trip history (drivers only): the recorder of the trip being driven. */
+  const rec = useRef<TripRecorder | null>(null);
   const baseRef = useRef<DriverRoute | null>(null);
   const following = useRef(true);
   const [followUi, setFollowUi] = useState(true);
@@ -167,6 +170,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (!prev || Math.abs(prev.lat - f.lat) + Math.abs(prev.lng - f.lng) > 0.003) setMyPos({ lat: f.lat, lng: f.lng });
     setMyAcc(f.accuracy != null ? Math.round(f.accuracy / 5) * 5 : null);
     if (!tripRef.current) puck.current?.set(f, f.speed != null && f.speed > 1 ? f.heading : null);
+    else rec.current?.point(f);
   }, []);
   useEffect(() => {
     let poll = 0;
@@ -445,10 +449,12 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (!trip || !nav) return;
     if (trip.phase === 'go1' && stopAlong != null && stopAlong - along < ARRIVE_MI && stopStation) {
       haptic.success();
+      rec.current?.stopReached();
       setTrip({ ...trip, phase: 'stop' });
       say([`You have arrived at ${stopStation.station}.`, `Your CFT price is ${money(payPrice(stopStation))} a gallon.`], ['arrived_stop']);
     } else if (trip.phase === 'go2' && nav.route.totalMi - along < ARRIVE_MI) {
       haptic.success();
+      rec.current?.end('arrived');
       setTrip({ ...trip, phase: 'done' });
       say([`You have arrived at ${dest}.`], ['arrived']);
     }
@@ -501,8 +507,14 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     return () => { lock?.release?.().catch(() => {}); };
   }, [trip?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const startTrip = () => {
+  // Leaving the map ends the trip's record (closing the app is caught by the recorder itself).
+  useEffect(() => () => { rec.current?.end('ended'); rec.current = null; }, []);
+  // Trip history: drivers are told once, before their first navigation, that trips are recorded.
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const recording = !!data?.trips?.record && !SIMULATE;
+  const startTrip = (noticeOk = false) => {
     if (!route) return;
+    if (recording && !noticeOk && !data?.trips?.noticeSeen && !stored('cft.tripNotice', false)) { haptic.tap(); setNoticeOpen(true); return; }
     haptic.tap();
     unlockVoice();
     said.current.clear();
@@ -512,11 +524,26 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     startNav(route, true);
     setTrip({ phase: stopId != null ? 'go1' : 'go2', stopId });
     const s = stopId != null ? byId.get(stopId) : null;
+    rec.current?.end('ended');
+    if (recording) {
+      const step = Math.max(1, Math.ceil(route.path.length / 1400));
+      rec.current = startRecording({
+        from: { label: route.from.label || from.text.trim() || 'My location', lat: route.from.lat, lng: route.from.lng },
+        to: { label: route.to.label || to.text.trim() || 'Destination', lat: route.to.lat, lng: route.to.lng },
+        stop: s && s.lat != null && s.lng != null ? { id: s.id, name: s.station, brand: s.brand, price: payPrice(s), lat: s.lat, lng: s.lng } : null,
+        plannedMi: route.totalMi, plannedS: route.durationS, source: route.source ?? null,
+        path: route.path.filter((_p, i) => i % step === 0 || i === route.path.length - 1).map((p) => [p.lng, p.lat] as [number, number]),
+        truck, noticeSeen: true,
+      });
+      if (fix.current) rec.current.point(fix.current);
+    } else rec.current = null;
     say([s ? `Starting the route to ${s.station}.` : 'Starting the route.', sentence(route.steps[0]?.text ?? 'Start driving')], [s ? 'starting_stop' : 'starting']);
     if (!muted && voiceKind() === 'none') flash('This phone cannot play spoken directions. Follow the arrows on the screen.');
   };
   const endTrip = () => {
     const m = mapRef.current;
+    rec.current?.end(tripRef.current?.phase === 'done' ? 'arrived' : 'ended');
+    rec.current = null;
     setTrip(null);
     setNav(null);
     hush();
@@ -643,7 +670,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
 
   // ---- Telegram's back button (By state has its own)
   useBackButton(mode === 'states' ? null : () => {
-    if (truckOpen) setTruckOpen(false);
+    if (noticeOpen) setNoticeOpen(false);
+    else if (truckOpen) setTruckOpen(false);
     else if (trip) endTrip();
     else if (tapped != null) setTapped(null);
     else if (base) clearRoute();
@@ -846,7 +874,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
               ) : (
                 <>
                   <p className="dm-note">No CFT stations along this route.</p>
-                  <button type="button" className="dm-primary" onClick={startTrip}><Svg d={NAV} size={20} />Navigate</button>
+                  <button type="button" className="dm-primary" onClick={() => startTrip()}><Svg d={NAV} size={20} />Navigate</button>
                 </>
               )}
             </>
@@ -900,6 +928,22 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
         </section>
       )}
 
+      {noticeOpen && (
+        <>
+          <button className="dm-scrim" aria-label="Close" onClick={() => setNoticeOpen(false)} />
+          <section className="dm-sheet dm-trucksheet" role="dialog" aria-labelledby="dm-notice-title">
+            <div className="dm-swap">
+              <div>
+                <span className="dm-eyebrow" id="dm-notice-title">YOUR TRIPS ARE RECORDED</span>
+                <p style={{ margin: '8px 0 0', fontSize: 14.5, color: '#c8d0d6', lineHeight: 1.45 }}>
+                  CFT keeps a record of the trips you navigate here: where you start and go, your fuel stop and its price, and where the truck drives while this map is open. Nothing is recorded when the map is closed. Records are kept for 12 months.
+                </p>
+              </div>
+              <button type="button" className="dm-primary" onClick={() => { store('cft.tripNotice', true); setNoticeOpen(false); startTrip(true); }}><Svg d={NAV} size={20} />OK, start the route</button>
+            </div>
+          </section>
+        </>
+      )}
       {truckOpen && <TruckSheet truck={truck} onClose={() => setTruckOpen(false)} onSave={(t) => { setTruck(t); store('cft.truck', t); setTruckOpen(false); haptic.success(); if (base) plan(from, to, t); }} />}
 
       {mode === 'states' && (

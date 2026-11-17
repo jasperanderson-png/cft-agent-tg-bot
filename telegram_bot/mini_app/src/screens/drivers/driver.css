@@ -245,3 +245,20 @@
   100% { box-shadow: 0 0 0 0 rgba(160, 220, 255, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .dm *, .dm *::before, .dm *::after { animation: none !important; transition: none !important; } }
+
+/* ---- A recorded trip (TripReplay, admins) ---- */
+.dm .dm-sheet .dm-done-title { font-size: 21px; }
+.dm-trip-lines { display: grid; gap: 6px; margin: 10px 0 0; font-size: 14px; color: #c8d0d6; line-height: 1.35; }
+.dm-trip-lines span { display: flex; align-items: flex-start; gap: 8px; }
+.dm-trip-lines .dot { flex: none; width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; border: 2px solid #fff; }
+.dm-trip-lines .dot.start { background: #22c55e; }
+.dm-trip-lines .dot.finish { background: #ff3b4e; }
+.dm-trip-lines .dot.stop { background: #ff9f7a; border-radius: 3px; }
+.dm-trip-figs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.dm-trip-figs span { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); font-size: 11.5px; color: #8aa3ae; }
+.dm-trip-figs b { font-size: 16px; color: #fff; white-space: nowrap; }
+.dm-trip-legend { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12.5px; color: #8aa3ae; flex-wrap: wrap; }
+.dm-trip-legend .ln { width: 22px; height: 0; margin-left: 6px; border-top: 4px solid; }
+.dm-trip-legend .ln.planned { border-top: 3px dashed #a0dcff; }
+.dm-trip-legend .ln.driven { border-color: #ff9f1a; }
+.dm-trip-legend .ln.gap { border-top: 3px dotted #ff3b4e; }
