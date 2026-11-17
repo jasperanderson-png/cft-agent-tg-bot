@@ -35,6 +35,11 @@ interface TgWebApp {
     openSettings(): void;
   };
   HapticFeedback?: { impactOccurred(s: string): void; notificationOccurred(t: 'error' | 'success' | 'warning'): void; selectionChanged(): void };
+  /** Bot API 6.9: small per-user storage kept by Telegram, the same on all of the person's devices. */
+  CloudStorage?: {
+    getItem(key: string, cb: (err: string | null, value?: string) => void): void;
+    setItem(key: string, value: string, cb?: (err: string | null, ok?: boolean) => void): void;
+  };
 }
 
 declare global {
@@ -192,4 +197,35 @@ export function telegramLocation(): Promise<TgFix | null> {
     if (lm.isInited) get();
     else lm.init(get);
   });
+}
+
+/**
+ * A small per-person setting. Inside Telegram it is kept in Telegram's CloudStorage (follows the person
+ * to all their devices); in a normal browser, or on clients older than 6.9, in localStorage.
+ */
+export function loadSetting(key: string): Promise<string | null> {
+  const local = () => {
+    try { return localStorage.getItem(key); } catch { return null; }
+  };
+  const cs = tg && at('6.9') ? tg.CloudStorage : undefined;
+  if (!cs) return Promise.resolve(local());
+  return new Promise((resolve) => {
+    // Some clients never call back; don't leave the screen waiting on them.
+    const timer = setTimeout(() => resolve(local()), 1500);
+    const done = (v: string | null) => {
+      clearTimeout(timer);
+      resolve(v);
+    };
+    try {
+      cs.getItem(key, (err, value) => done(err ? local() : value || local()));
+    } catch {
+      done(local());
+    }
+  });
+}
+
+export function saveSetting(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* private mode */ }
+  const cs = tg && at('6.9') ? tg.CloudStorage : undefined;
+  try { cs?.setItem(key, value); } catch { /* older Telegram */ }
 }

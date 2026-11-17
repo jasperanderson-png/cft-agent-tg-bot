@@ -31,6 +31,10 @@
 }
 
 * { box-sizing: border-box; }
+/* No visible scrollbars (Telegram Desktop and browsers draw them otherwise), except in the desktop
+   admin panel, where mouse users need them. */
+*:not(.admin-main) { scrollbar-width: none; }
+*:not(.admin-main)::-webkit-scrollbar { display: none; width: 0; height: 0; }
 html, body, #root { margin: 0; padding: 0; height: 100%; background: #000; }
 body {
   overflow: hidden;
@@ -606,3 +610,42 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .t-money input { width: 92px; height: 40px; padding: 0 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(255,255,255,.04); color: #fff; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
 .t-money input:focus { border-color: var(--blue); }
 .d-screen { max-width: 640px; margin: 0 auto; padding-left: var(--safe-left); padding-right: var(--safe-right); }
+
+/* ---- Admin home: tiles the admin picks + "More" + Customize (screens/admins/Hub.tsx) ---- */
+.a-alert { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 14px; background: rgba(255,209,102,.1); border: 1px solid rgba(255,209,102,.3); }
+.a-alert > .icon { flex: none; color: #ffd166; }
+.a-alert > span { flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; color: #ccc; }
+.a-alert > span b { color: #fff; }
+.a-alert-go { flex: none; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: #ffd166; color: #000; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.a-alert-x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 9px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.a-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.a-tile { min-height: 136px; border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); padding: 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; color: #fff; font: inherit; text-align: left; cursor: pointer; min-width: 0; transition: transform .15s; }
+.a-tile:active { transform: scale(.97); }
+.a-tile.skel { cursor: default; background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.07), rgba(255,255,255,.03)); background-size: 200% 100%; animation: a-shim 1.2s linear infinite; }
+@keyframes a-shim { to { background-position: -200% 0; } }
+.a-tile-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(160,220,255,.12); color: var(--blue); }
+.a-tile-fig { margin-top: auto; display: flex; align-items: baseline; gap: 5px; color: var(--blue); }
+.a-tile-fig b { font-family: var(--cond); font-weight: 700; font-size: 34px; line-height: .95; color: #fff; font-variant-numeric: tabular-nums; }
+.a-tile-fig span { font-size: 13px; color: var(--muted); }
+.a-tile-title { font-size: 15px; font-weight: 600; }
+.a-tile-sub { max-width: 100%; font-size: 12px; line-height: 1.3; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.a-tiles-empty { height: 120px; border-radius: 16px; border: 1.5px dashed rgba(255,255,255,.2); background: none; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
+.a-customize { align-self: center; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: #ccc; font: inherit; font-size: 13.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+.a-custom { padding-top: calc(var(--safe-top) + 24px); }
+.a-custom-h { margin: 0; font-family: var(--cond); font-weight: 700; font-size: 32px; line-height: .95; }
+.a-custom-p { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: #ccc; }
+.a-custom-list { padding: 0; overflow: hidden; }
+.a-custom-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 4px; transition: opacity .2s; }
+.a-custom-row + .a-custom-row { border-top: 1px solid rgba(255,255,255,.08); }
+.a-custom-row.off { opacity: .8; }
+.a-custom-row.full { opacity: .45; }
+.a-custom-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 6px 8px; border: 0; background: none; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.a-custom-box { flex: none; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; border: 1.5px solid #555; color: #000; }
+.a-custom-row:not(.off) .a-custom-box { border: 0; background: var(--blue); }
+.a-custom-icon { flex: none; color: var(--blue); display: grid; }
+.a-custom-move { flex: none; width: 36px; height: 36px; border: 0; border-radius: 10px; background: rgba(255,255,255,.06); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.a-custom-move:disabled { opacity: .3; cursor: default; }
+.a-custom-foot { display: flex; gap: 8px; margin-top: 4px; }
+.a-custom-reset { flex: none; height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: none; color: #ccc; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.a-custom-done { flex: 1; height: 48px; border: 0; border-radius: 12px; background: var(--blue); color: #000; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.a-custom-note { margin: 0 4px; font-size: 13px; color: var(--muted); }
