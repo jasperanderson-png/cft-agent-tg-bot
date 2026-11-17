@@ -1,5 +1,5 @@
-// Drivers and the "may invite drivers" permission: admins make driver links, an admin lets an agent
-// make them too, drivers get the route map and nothing else, an admin can remove a driver. Also the
+// Drivers: admins and every agent make driver links, drivers get the route map and nothing else,
+// agents see all drivers (or their own) and remove their own, an admin removes anyone. Also the
 // menu-button repair: each person's menu is set again when Telegram missed it. Telegram is stubbed.
 // Needs TEST_DATABASE_URL.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,6 +27,7 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
   const DRIVER = 7402;
   const DRIVER2 = 7403;
   const CANDIDATE = 7404;
+  const DRIVER3 = 7405;
   let id = 80_000;
   let failNext: string | null = null;
   const hook = (update: Record<string, unknown>) => router({ method: 'POST', path: 'telegram/webhook', query: new URLSearchParams(), headers: { 'x-telegram-bot-api-secret-token': 'hook-secret-1234567890' }, body: update, ip: '10.0.0.1' } as ApiRequest);
@@ -93,11 +94,11 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     expect((await api('GET', 'driver/stations', DRIVER)).status).toBe(200);
     expect((await api('GET', 'discounts', DRIVER)).status).toBe(403);
     expect((await api('GET', 'driver/stations', CANDIDATE)).status).toBe(403);
-    // Admin buttons are refused.
+    // Staff buttons are refused.
     sent.length = 0;
     await tap(DRIVER, 'team:new');
     await tap(DRIVER, 'drv:new');
-    expect(answers()).toEqual(['For CFT administrators only.', 'For CFT administrators only.']);
+    expect(answers()).toEqual(['For CFT administrators only.', 'For CFT admins and agents only.']);
     // Opening the link again just shows the home; staff don't use up driver links.
     sent.length = 0;
     await say(DRIVER, `/start driver_${token}`);
@@ -107,43 +108,49 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     expect(await isDriver(AGENT)).toBe(false);
   });
 
-  it('lets agents invite drivers only after an admin allows it', async () => {
-    await say(AGENT, '/invitedriver');
-    expect(of(AGENT)[0].text).toBe('Ask your CFT admin to let you invite drivers.');
-    sent.length = 0;
-    await tap(AGENT, 'drv:inv:24:x');
-    expect(answers()).toEqual(['Ask your CFT admin to let you invite drivers.']);
-
-    // The admin switches it on in the agent list; the agent hears about it and gets the command.
-    sent.length = 0;
-    await tap(OWNER, 'tm:agents');
-    const toggle = buttons(of(OWNER)[0]).find((b) => b.callback_data === `team:drv:${AGENT}`)!;
-    expect(toggle.text).toMatch(/^🚚 \+ /); // not allowed yet
-    sent.length = 0;
-    await tap(OWNER, `team:drv:${AGENT}`);
-    expect(answers()).toEqual(['Can invite drivers now']);
-    expect(of(AGENT)[0].text).toContain('You can now invite drivers');
-    expect(of(AGENT, 'setMyCommands')[0].body.commands.map((c: { command: string }) => c.command)).toContain('invitedriver');
-    expect(of(OWNER, 'editMessageText')[0].text).toContain('🚚 invites drivers');
-
-    sent.length = 0;
+  it('lets every agent invite drivers from their home screen, and see all drivers or only their own', async () => {
+    // No admin switch needed: the home has the driver buttons, the menu the driver commands.
     await say(AGENT, '/start');
-    expect(buttons(of(AGENT)[0]).map((b) => b.text)).toContain('🚚 Invite a driver');
+    expect(buttons(of(AGENT)[0]).map((b) => b.text)).toEqual(expect.arrayContaining(['🚚 Invite a driver', '👤 My drivers']));
+    expect(of(AGENT, 'setMyCommands')[0].body.commands.map((c: { command: string }) => c.command)).toEqual(['start', 'invitedriver', 'drivers', 'help']);
+    sent.length = 0;
+    await say(AGENT, '/invitedriver Fleet');
+    expect(of(AGENT)[0].text).toContain('Invite a driver');
     sent.length = 0;
     const token = await driverLink(AGENT, 'Fleet');
     await say(DRIVER2, `/start driver_${token}`);
     expect(await isDriver(DRIVER2)).toBe(true);
-    expect(of(AGENT)[0].text).toContain('joined as a driver (link “Fleet”)');
-    // Agents don't get the admins' driver list.
-    sent.length = 0;
-    await tap(AGENT, 'drv:list');
-    expect(answers()).toEqual(['For CFT administrators only.']);
+    const joined = of(AGENT)[0];
+    expect(joined.text).toContain('joined as a driver (link “Fleet”)');
+    expect(buttons(joined)[0].callback_data).toBe('drv:list:mine');
 
-    // Taken back: no more links.
-    await tap(OWNER, `team:drv:${AGENT}`);
+    // All drivers: the admin's driver too, theirs marked; a remove button only for their own.
     sent.length = 0;
-    await say(AGENT, '/invitedriver');
-    expect(of(AGENT)[0].text).toBe('Ask your CFT admin to let you invite drivers.');
+    await say(AGENT, '/drivers');
+    const all = of(AGENT)[0];
+    expect(all.text).toContain('🚚 <b>Drivers</b> · 2');
+    expect(all.text).toMatch(/U7403 @u7403 · joined .* · <b>yours<\/b>/);
+    expect(buttons(all).filter((b) => b.callback_data?.startsWith('drv:rm:')).map((b) => b.callback_data)).toEqual([`drv:rm:${DRIVER2}`]);
+    // My drivers, switched in place.
+    sent.length = 0;
+    await tap(AGENT, 'drv:view:mine');
+    const mine = of(AGENT, 'editMessageText')[0];
+    expect(mine.text).toContain('<b>My drivers</b> · 1');
+    expect(buttons(mine).map((b) => b.text)).toContain('👥 All drivers');
+
+    // Someone else's driver stays: no confirmation, and the database refuses too.
+    sent.length = 0;
+    await tap(AGENT, `drv:rm:${DRIVER}`);
+    expect(of(AGENT)[0].text).toContain("joined through someone else's link");
+    await tap(AGENT, `drv:rmy:${DRIVER}`);
+    expect(await isDriver(DRIVER)).toBe(true);
+    // Their own driver goes.
+    await say(DRIVER3, `/start driver_${token}`);
+    sent.length = 0;
+    await tap(AGENT, `drv:rm:${DRIVER3}`);
+    expect(of(AGENT)[0].text).toContain('Remove <b>U7405</b> as a driver?');
+    await tap(AGENT, `drv:rmy:${DRIVER3}`);
+    expect(await isDriver(DRIVER3)).toBe(false);
   });
 
   it('lists drivers for admins and removes one: the map goes at once', async () => {

@@ -21,8 +21,6 @@ export interface AgentRow {
   invitedBy: string | null;
   inviteLabel: string | null;
   lastSeenAt: string | null;
-  /** May make driver links (an admin allowed it). */
-  canInviteDrivers: boolean;
 }
 
 export interface InviteRow {
@@ -124,8 +122,7 @@ export async function redeemInvite(user: TelegramUser, token: string, isAdmin: b
 export async function listAgents(db: Db): Promise<{ agents: AgentRow[]; invites: InviteRow[] }> {
   const { rows } = await db.query(
     `select a.telegram_user_id, coalesce(nullif(trim(concat_ws(' ', tu.first_name, tu.last_name)), ''), a.name) as name,
-            coalesce(tu.username, a.username) as username, a.joined_at, ad.name as invited_by, i.label, tu.last_seen_at,
-            'drivers' = any(a.permissions) as can_drivers
+            coalesce(tu.username, a.username) as username, a.joined_at, ad.name as invited_by, i.label, tu.last_seen_at
        from agents a
        left join telegram_users tu on tu.id = a.telegram_user_id
        left join admins ad on ad.id = a.invited_by
@@ -141,7 +138,7 @@ export async function listAgents(db: Db): Promise<{ agents: AgentRow[]; invites:
   return {
     agents: rows.map((r) => ({
       telegramUserId: Number(r.telegram_user_id), name: r.name, username: r.username, joinedAt: r.joined_at.toISOString(),
-      invitedBy: r.invited_by, inviteLabel: r.label, lastSeenAt: r.last_seen_at?.toISOString() ?? null, canInviteDrivers: !!r.can_drivers,
+      invitedBy: r.invited_by, inviteLabel: r.label, lastSeenAt: r.last_seen_at?.toISOString() ?? null,
     })),
     invites: inv.map((r) => ({ id: r.id, label: r.label, createdAt: r.created_at.toISOString(), expiresAt: r.expires_at.toISOString(), createdBy: r.created_by, uses: r.uses })),
   };

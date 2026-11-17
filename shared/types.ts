@@ -214,7 +214,7 @@ export interface DiscountsAdmin {
 }
 
 export interface AgentsList {
-  agents: { telegramUserId: number; name: string | null; username: string | null; joinedAt: string; invitedBy: string | null; inviteLabel: string | null; lastSeenAt: string | null; canInviteDrivers?: boolean }[];
+  agents: { telegramUserId: number; name: string | null; username: string | null; joinedAt: string; invitedBy: string | null; inviteLabel: string | null; lastSeenAt: string | null }[];
   invites: { id: string; label: string | null; createdAt: string; expiresAt: string; createdBy: string | null; uses: number }[];
 }
 

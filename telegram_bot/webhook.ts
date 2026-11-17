@@ -9,7 +9,7 @@ import { candidates } from './handlers/candidates/index.js';
 import { drivers } from './handlers/drivers/index.js';
 import { channelMembership, groupMessage } from './handlers/channel.js';
 import { inviteToken, joinWithInvite } from './handlers/invite.js';
-import { roleOf, viewerOf, type Role, type RoleHandlers, type Viewer } from './handlers/viewer.js';
+import { menuKey, roleOf, viewerOf, type Role, type RoleHandlers, type Viewer } from './handlers/viewer.js';
 import type { Db } from '../db_storage/db.js';
 
 // The bot's front door. It checks that an update really comes from Telegram, works out WHO sent it
@@ -28,7 +28,7 @@ const ROLES: Record<Role, RoleHandlers> = { admins, agents, drivers, candidates 
  */
 async function ensureMenu(db: Db, chatId: number, who: Viewer): Promise<void> {
   const role = roleOf(who);
-  const key = role === 'agents' && who.canInviteDrivers ? 'agents+drivers' : role;
+  const key = menuKey(role);
   try {
     const { rows } = await db.query('select menu_role from telegram_users where id = $1', [chatId]);
     if (rows[0]?.menu_role === key) return;

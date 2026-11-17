@@ -2,8 +2,6 @@ import { escHtml as esc } from '../../../../shared/html.js';
 import { fmtDMY, fmtDMYHM } from '../../../../shared/time.js';
 import { createInvite, INVITE_HOURS, listAgents, removeAgent, revokeInvite } from '../../../../core/agents.js';
 import { telegramAdmin } from '../../../../core/admins.js';
-import { setDriverPermission } from '../../../../core/drivers.js';
-import { setAgentMenu } from '../../agents/fuel-search.js';
 import type { Db } from '../../../../db_storage/db.js';
 import { HttpError, UUID_RE } from '../../../../core/http.js';
 import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../core/telegram.js';
@@ -47,16 +45,13 @@ export async function agentsText(db: Db) {
   const { agents, invites } = await listAgents(db);
   const lines = [`👥 <b>Agents</b> · ${agents.length}`];
   if (!agents.length) lines.push('', 'No agents yet. Tap ➕ Invite agent to make a link.');
-  agents.slice(0, 40).forEach((a, i) => lines.push(`${i + 1}. ${esc(a.name ?? 'Telegram user')}${a.username ? ' @' + esc(a.username) : ''} · joined ${fmtDMY(a.joinedAt, tz)}${a.canInviteDrivers ? ' · 🚚 invites drivers' : ''}`));
-  if (agents.length) lines.push('', '<i>🚚 lets an agent send driver links too. Tap again to take it back.</i>');
+  agents.slice(0, 40).forEach((a, i) => lines.push(`${i + 1}. ${esc(a.name ?? 'Telegram user')}${a.username ? ' @' + esc(a.username) : ''} · joined ${fmtDMY(a.joinedAt, tz)}`));
+  if (agents.length) lines.push('', '<i>Every agent can also invite drivers to the route map (/drivers shows who invited whom).</i>');
   if (agents.length > 40) lines.push(`…and ${agents.length - 40} more (see the Team screen in the CFT Hub).`);
   if (invites.length) lines.push('', `🔗 ${invites.length} active link${invites.length === 1 ? '' : 's'}: ${invites.slice(0, 5).map((v) => `${esc(v.label ?? 'no name')} (${v.uses} joined, until ${fmtDMYHM(v.expiresAt, tz)})`).join(', ')}`);
   const buttons = [[{ text: '➕ Invite agent', callback_data: `${CB}new` }, { text: '🛡 Admins', callback_data: 'adm:list' }], ...agents.slice(0, 20).map((a) => {
-    const n = (a.name ?? String(a.telegramUserId)).slice(0, 24);
-    return [
-      { text: `${a.canInviteDrivers ? '🚚 ✓' : '🚚 +'} ${n}`, callback_data: `${CB}drv:${a.telegramUserId}` },
-      { text: `Remove ${n}`, callback_data: `${CB}rm:${a.telegramUserId}` },
-    ];
+    const n = (a.name ?? String(a.telegramUserId)).slice(0, 30);
+    return [{ text: `Remove ${n}`, callback_data: `${CB}rm:${a.telegramUserId}` }];
   })];
   return { text: lines.join('\n'), reply_markup: { inline_keyboard: buttons } };
 }
@@ -105,24 +100,6 @@ export async function teamCallback(db: Db, cb: PrivateCallback, updateId: number
         ].join('\n'),
         { reply_markup: { inline_keyboard: [[{ text: '📤 Share link', url: share }], [{ text: 'Turn this link off', callback_data: `${CB}off:${inv.id}` }]] } },
       );
-    } else if (kind === 'drv') {
-      // Let an agent send driver links, or take it back; they hear about it and get the command.
-      const me = await telegramAdmin(db, cb.from);
-      if (!me) throw new HttpError(403, 'For CFT administrators only.');
-      const agentId = Number(arg);
-      const { agents } = await listAgents(db);
-      const a = agents.find((x) => x.telegramUserId === agentId);
-      if (!a) throw new HttpError(404, 'This person is no longer an agent.');
-      const on = !a.canInviteDrivers;
-      await setDriverPermission(db, me.id, agentId, on);
-      await answer(on ? 'Can invite drivers now' : 'No longer invites drivers');
-      await setAgentMenu(agentId, on).catch(() => {});
-      await db.query("update telegram_users set menu_role = null where id = $1", [agentId]);
-      await send(agentId, on
-        ? '🚚 <b>You can now invite drivers.</b> Send /invitedriver to make a link: drivers who open it get the CFT route map.'
-        : '🚚 You can no longer invite drivers. Drivers who already joined keep the route map.').catch(() => {});
-      const t = await agentsText(db);
-      await edit(cb, t.text, { reply_markup: t.reply_markup });
     } else if (kind === 'off' && UUID_RE.test(arg)) {
       const me = await telegramAdmin(db, cb.from);
       await revokeInvite({ id: me!.id }, arg);

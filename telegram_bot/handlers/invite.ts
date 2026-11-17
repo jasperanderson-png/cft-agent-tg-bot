@@ -3,6 +3,7 @@ import { ADMIN_INVITE_PREFIX, redeemAdminInvite } from '../../core/admin-invites
 import { INVITE_PREFIX, redeemInvite } from '../../core/agents.js';
 import { DRIVER_INVITE_PREFIX, redeemDriverInvite } from '../../core/drivers.js';
 import { showDriverHome } from './drivers/index.js';
+import { DRIVER_CALLBACK } from './driver-invites.js';
 import { botApi, type PrivateMessage } from '../../core/telegram.js';
 import { showAdminHome } from './admins/index.js';
 import { showAgentHome } from './agents/fuel-search.js';
@@ -40,7 +41,7 @@ export async function joinWithInvite(msg: PrivateMessage, invite: Invite, who: V
   const r = await redeemInvite(msg.from, invite.token, who.admin);
   if (!r.ok) {
     if (r.reason === 'admin') await botApi('sendMessage', { chat_id, text: 'You are already a CFT admin, so this invite link was not used. Send it to the agent it is meant for.' });
-    else if (r.reason === 'already') await showAgentHome(chat_id, msg.from.first_name, who.canInviteDrivers);
+    else if (r.reason === 'already') await showAgentHome(chat_id, msg.from.first_name);
     else await botApi('sendMessage', { chat_id, text: INVITE_USED });
     return;
   }
@@ -69,6 +70,7 @@ async function joinAsDriver(msg: PrivateMessage, token: string, who: Viewer): Pr
       chat_id: r.inviterChat,
       parse_mode: 'HTML',
       text: `✅ ${nameOf(msg)} joined as a driver${r.label ? ` (link “${esc(r.label)}”)` : ''}. They now have the CFT route map.`,
+      reply_markup: { inline_keyboard: [[{ text: '👤 My drivers', callback_data: `${DRIVER_CALLBACK}list:mine` }]] },
     }).catch(() => {});
   }
 }

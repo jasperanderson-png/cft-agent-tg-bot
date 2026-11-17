@@ -73,7 +73,7 @@ telegram_bot/                THE BOT: talks to Telegram, decides who may do what
     candidates/              Candidates: the test only
     drivers/                 Drivers: the route map button
     invite.ts                Agent invite links, which anyone may open
-    driver-invites.ts        Driver links (/invitedriver, /drivers), made by admins and allowed agents
+    driver-invites.ts        Driver links (/invitedriver, /drivers), made by admins and every agent
     channel.ts               The reports chat: the bot added to a group or channel
     not-allowed.ts           Polite refusals for buttons and commands someone's role doesn't have
   mini_app/                  The Mini App (React + Vite)
@@ -108,7 +108,9 @@ deploy/                      Running on our own VM instead of Vercel (guide: doc
 The rule that keeps it expandable: imports only go **down**:
 `telegram_bot` → `tools` / `task_report` → `core` / `db_storage` / `shared`.
 A tool may read another tool's data in one direction only (today: `driver-map` reads `fuel-prices`).
-`scripts/` sits on top and may import anything.
+`core` and `db_storage` count as one level; the Mini App uses only `shared`. `api/` and `scripts/`
+sit on top and may use anything. Tests are exempt (they drive the whole bot through the router).
+`core/tests/layers.test.ts` checks all of this, so `npm test` fails on an upward import.
 
 Where new work goes:
 - **A new tool:** `tools/<name>/` with an `index.ts` (see `core/tool.ts`), added to `telegram_bot/server/tools.ts`.
@@ -369,7 +371,7 @@ A station without a discounted price in the cabinet (about 230, mostly Casey's) 
 
 Each role has its own Telegram menu button: admins **CFT Hub**, agents **Discounts**, drivers **Route map**, everyone else the default **Start test**. Telegram sometimes misses the change (a timeout), and a person kept the old button. Now:
 - calls that are safe to repeat (setting menus, editing, answering taps) are tried once more after a timeout (`core/telegram.ts`); new messages never are, so nobody gets one twice;
-- `telegram_users.menu_role` records what each person was last given; when it differs from their role, the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/webhook.ts`);
+- `telegram_users.menu_role` records what each person was last given; when it differs from their role's key (`menuKey` in `telegram_bot/handlers/viewer.ts`), the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/webhook.ts`). Changing a role's key gives everyone with that role the new menu (agents are on `agents.2`: the driver commands);
 - `scripts/telegram-setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
 
 ## Driver route map
@@ -389,6 +391,8 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Station points:** each station is placed once and cached in `station_geo` with its source: the chain's own store locator via **All The Places** (same store number in the same state, or the only store of the brand in that city), then the **US Census** address service, then OpenRouteService search only when it lands in the same state with high confidence; otherwise no pin (still in *By state*), tried again after a week.
 - **Prices** are the agents' prices (cabinet discounted price + the margin), never the cabinet's own price.
 - **Who can open it:** admins, agents and drivers (driver links, see "Menu buttons" and `core/drivers.ts`). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
+- **Adding drivers:** every agent can, with no admin switch. Their home has **🚚 Invite a driver** and **👤 My drivers**, and their menu has /invitedriver and /drivers. `/drivers` lists all drivers with the agent's own marked "yours", and a button switches to "My drivers" and back. Agents remove only drivers who joined through their own links; admins remove anyone. When a driver joins, whoever made the link gets a message with a **My drivers** button. (The old `drivers` value in `agents.permissions` is no longer read.)
+- **Your location, start and finish:** the driver is a pulsing **blue** dot (an arrow while driving), the route's start a pulsing **green** dot (only when it is not the driver's own location) and the finish a pulsing **red** flag. The locate button flies to the last known place at once, says "Finding your location…", and asks the phone and Telegram's own location together (Telegram after 1.5 s or the phone's refusal; 10 s at most). When Telegram was refused access, the message has a **Turn on** button that opens Telegram's settings.
 - **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `vercel.json`.
 - **Limits:** TomTom's truck data is good but not perfect: drivers still follow road signs. On Android Telegram, until Google billing is on, directions are spoken from the voice pack (no street names).
 - Code: `tools/driver-map/stations.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`; `core/kv.ts`; `shared/driver-route.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.

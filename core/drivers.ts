@@ -1,17 +1,15 @@
 // Drivers: truck drivers who joined through a driver invite link. Their one permission is the route
-// map (/route). Admins make driver links, and so can agents an admin allowed to (the 'drivers'
-// permission in agents.permissions). A link works for anyone until it expires or is turned off.
+// map (/route). Admins and every agent make driver links; a link works for anyone until it expires or
+// is turned off. Agents see all drivers and remove only those who joined through their own links.
 // Who is what: admin (core/admins.ts) > agent (core/agents.ts) > driver > candidate (everyone else).
 import { newToken, sha256 } from './crypto.js';
 import { tx, type Db } from '../db_storage/db.js';
 import { HttpError } from './http.js';
 import { audit } from './admins.js';
-import { botUsername, INVITE_HOURS } from './agents.js';
+import { botUsername, INVITE_HOURS, isAgent } from './agents.js';
 import { botApi, type TelegramUser } from './telegram.js';
 
 export const DRIVER_INVITE_PREFIX = 'driver_';
-/** The agents' permission to make driver links. */
-export const DRIVER_PERMISSION = 'drivers';
 
 /** Who makes or changes something: an admin (their id) or an agent (their Telegram id). */
 export type Actor = { adminId: string; agentId?: undefined } | { agentId: number; adminId?: undefined };
@@ -23,6 +21,8 @@ export interface DriverRow {
   joinedAt: string;
   /** The admin or agent who made the link they joined with. */
   invitedBy: string | null;
+  /** The agent who made that link (null when an admin made it). */
+  invitedByAgent: number | null;
 }
 
 const tgName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 80) || null;
@@ -33,26 +33,8 @@ export async function isDriver(db: Db, telegramUserId: number): Promise<boolean>
   return !!rows[0];
 }
 
-/** Whether an agent may make driver links. */
-export async function canInviteDrivers(db: Db, agentId: number): Promise<boolean> {
-  const { rows } = await db.query('select 1 from agents where telegram_user_id = $1 and $2 = any(permissions)', [agentId, DRIVER_PERMISSION]);
-  return !!rows[0];
-}
-
-/** An admin lets an agent make driver links, or takes it back. Returns the agent's name, or null when not an agent. */
-export async function setDriverPermission(db: Db, adminId: string, agentId: number, on: boolean): Promise<{ name: string | null } | null> {
-  const { rows } = await db.query(
-    `update agents set permissions = case when $2 then array(select distinct unnest(permissions || array[$3::text])) else array_remove(permissions, $3::text) end
-      where telegram_user_id = $1 returning name`,
-    [agentId, on, DRIVER_PERMISSION],
-  );
-  if (!rows[0]) return null;
-  await audit(db, adminId, on ? 'agent.allow_drivers' : 'agent.disallow_drivers', 'agent', String(agentId), {});
-  return { name: rows[0].name };
-}
-
 async function assertMayInvite(db: Db, by: Actor) {
-  if (by.agentId != null && !(await canInviteDrivers(db, by.agentId))) throw new HttpError(403, 'Ask your CFT admin to let you invite drivers.');
+  if (by.agentId != null && !(await isAgent(db, by.agentId))) throw new HttpError(403, 'For CFT agents only.');
 }
 
 /** A driver link anyone can join with for `hours`. */
@@ -108,10 +90,11 @@ export async function redeemDriverInvite(user: TelegramUser, token: string, isSt
   });
 }
 
-export async function listDrivers(db: Db): Promise<{ drivers: DriverRow[]; links: number }> {
+/** Every driver, and how many driver links are still open (only `agentId`'s own when given). */
+export async function listDrivers(db: Db, agentId?: number): Promise<{ drivers: DriverRow[]; links: number }> {
   const { rows } = await db.query(
     `select d.telegram_user_id, coalesce(nullif(trim(concat_ws(' ', tu.first_name, tu.last_name)), ''), d.name) as name,
-            coalesce(tu.username, d.username) as username, d.joined_at, coalesce(ad.name, ag.name) as invited_by
+            coalesce(tu.username, d.username) as username, d.joined_at, coalesce(ad.name, ag.name) as invited_by, i.created_by_agent
        from map_drivers d
        left join telegram_users tu on tu.id = d.telegram_user_id
        left join driver_invites i on i.id = d.invite_id
@@ -119,18 +102,31 @@ export async function listDrivers(db: Db): Promise<{ drivers: DriverRow[]; links
        left join agents ag on ag.telegram_user_id = i.created_by_agent
       order by d.joined_at desc`,
   );
-  const { rows: l } = await db.query('select count(*)::int as n from driver_invites where revoked_at is null and expires_at > now()');
+  const { rows: l } = await db.query(
+    'select count(*)::int as n from driver_invites where revoked_at is null and expires_at > now() and ($1::bigint is null or created_by_agent = $1)',
+    [agentId ?? null],
+  );
   return {
-    drivers: rows.map((r) => ({ telegramUserId: Number(r.telegram_user_id), name: r.name, username: r.username, joinedAt: r.joined_at.toISOString(), invitedBy: r.invited_by })),
+    drivers: rows.map((r) => ({
+      telegramUserId: Number(r.telegram_user_id), name: r.name, username: r.username, joinedAt: r.joined_at.toISOString(), invitedBy: r.invited_by,
+      invitedByAgent: r.created_by_agent != null ? Number(r.created_by_agent) : null,
+    })),
     links: l[0].n,
   };
 }
 
-/** Removes a driver: they lose the route map at once and get the default menu back. */
-export async function removeDriver(db: Db, adminId: string, telegramUserId: number): Promise<boolean> {
-  const { rowCount } = await db.query('delete from map_drivers where telegram_user_id = $1', [telegramUserId]);
+/**
+ * Removes a driver: they lose the route map at once and get the default menu back. Admins remove
+ * anyone; an agent only a driver who joined through one of their own links.
+ */
+export async function removeDriver(db: Db, by: Actor, telegramUserId: number): Promise<boolean> {
+  const { rowCount } = await db.query(
+    `delete from map_drivers where telegram_user_id = $1
+        and ($2::bigint is null or invite_id in (select id from driver_invites where created_by_agent = $2))`,
+    [telegramUserId, by.agentId ?? null],
+  );
   if (!rowCount) return false;
-  await audit(db, adminId, 'driver.remove', 'driver', String(telegramUserId), {});
+  await audit(db, by.adminId ?? null, 'driver.remove', 'driver', String(telegramUserId), { agent: by.agentId ?? null });
   await botApi('setChatMenuButton', { chat_id: telegramUserId, menu_button: { type: 'default' } }).catch(() => {});
   await botApi('deleteMyCommands', { scope: { type: 'chat', chat_id: telegramUserId } }).catch(() => {});
   return true;

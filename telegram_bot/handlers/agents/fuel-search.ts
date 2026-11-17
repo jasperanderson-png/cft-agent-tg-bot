@@ -7,17 +7,20 @@ import { botApi, type PrivateCallback, type PrivateMessage } from '../../../core
 import { firstSight } from '../../../core/updates.js';
 import { answerSearch, DISCOUNT_CALLBACK, maskBrands, SEARCH_HELP, sendAgentExcel, sendSelection } from '../../../tools/fuel-prices/agent-prices.js';
 import type { Viewer } from '../viewer.js';
-import { DRIVER_CALLBACK, INVITE_DRIVER_COMMAND } from '../driver-invites.js';
+import { AGENT_DRIVER_BUTTONS, DRIVERS_COMMAND, INVITE_DRIVER_COMMAND } from '../driver-invites.js';
 
 // Fuel discounts in the chat for agents (admins use the same search to see what agents see): the
 // agent's home screen, typed searches and the buttons under the answers.
 
+/** An agent's command menu: fuel discounts and their drivers. */
 export const AGENT_COMMANDS = [
   { command: 'start', description: 'Find fuel discounts' },
-  { command: 'help', description: 'How to search' },
+  INVITE_DRIVER_COMMAND,
+  DRIVERS_COMMAND,
+  { command: 'help', description: 'How to search and invite drivers' },
 ];
-/** An agent's commands: with /invitedriver when an admin allowed them to invite drivers. */
-export const agentCommands = (canInviteDrivers = false) => (canInviteDrivers ? [...AGENT_COMMANDS, INVITE_DRIVER_COMMAND] : AGENT_COMMANDS);
+/** The agents' /help: searching, then drivers. */
+export const AGENT_HELP = `${SEARCH_HELP}\n\n🚚 <b>Drivers</b>\n/invitedriver — a link that gives a driver the CFT route map (add a name: /invitedriver Night shift). Send it to the driver; when they press Start you get a message.\n/drivers — all drivers, or only yours; remove a driver who joined through your link.`;
 
 export const discountsMenuButton = (appUrl: string) => ({ type: 'web_app', text: 'Discounts', web_app: { url: `${appUrl}/#/discounts` } });
 
@@ -26,19 +29,23 @@ const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}
 const openApp = () => (env.appUrl ? [[{ text: '⛽ Open Discounts', web_app: { url: `${env.appUrl}/#/discounts` } }]] : []);
 
 export const agentWelcome = (name: string | undefined) =>
-  [`⛽ <b>CFT fuel discounts</b>`, '', `Welcome${name ? ', ' + esc(name) : ''}! You can now look up CFT discount prices at partner stations and send them to drivers.`, '', SEARCH_HELP].join('\n');
+  [
+    `⛽ <b>CFT fuel discounts</b>`, '',
+    `Welcome${name ? ', ' + esc(name) : ''}! You can now look up CFT discount prices at partner stations and send them to drivers.`, '',
+    SEARCH_HELP, '',
+    '🚚 <b>Your drivers:</b> tap <b>Invite a driver</b> for a link that gives a driver the CFT route map (truck routes, CFT prices on the way, navigation). <b>My drivers</b> shows who joined.',
+  ].join('\n');
 
-/** The agent's home: what the bot does, the Discounts menu button and the short command menu. */
-export async function showAgentHome(chat_id: number, firstName?: string, canInviteDrivers = false): Promise<void> {
-  const rows = [...openApp(), ...(canInviteDrivers ? [[{ text: '🚚 Invite a driver', callback_data: `${DRIVER_CALLBACK}new` }]] : [])];
-  await send(chat_id, agentWelcome(firstName), { reply_markup: rows.length ? { inline_keyboard: rows } : { remove_keyboard: true } });
-  await setAgentMenu(chat_id, canInviteDrivers).catch((e) => console.warn('agent menu not set', chat_id, (e as Error).message));
+/** The agent's home: what the bot does, the Discounts menu button, the driver buttons and the command menu. */
+export async function showAgentHome(chat_id: number, firstName?: string): Promise<void> {
+  await send(chat_id, agentWelcome(firstName), { reply_markup: { inline_keyboard: [...openApp(), AGENT_DRIVER_BUTTONS] } });
+  await setAgentMenu(chat_id).catch((e) => console.warn('agent menu not set', chat_id, (e as Error).message));
 }
 
 /** The Discounts menu button and the agent's command menu. Throws when Telegram refuses. */
-export async function setAgentMenu(chat_id: number, canInviteDrivers = false): Promise<void> {
+export async function setAgentMenu(chat_id: number): Promise<void> {
   if (env.appUrl) await botApi('setChatMenuButton', { chat_id, menu_button: discountsMenuButton(env.appUrl) });
-  await botApi('setMyCommands', { commands: agentCommands(canInviteDrivers), scope: { type: 'chat', chat_id } });
+  await botApi('setMyCommands', { commands: AGENT_COMMANDS, scope: { type: 'chat', chat_id } });
 }
 
 const SECTION_TEXTS = new Set<string>(Object.values(SECTION));

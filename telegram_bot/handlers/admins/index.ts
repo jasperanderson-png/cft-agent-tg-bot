@@ -25,7 +25,7 @@ const SECTIONS = [
   { line: `${SECTION.leads} — new driver leads, downloads and statistics. /leads`, commands: [LEADS_COMMAND] },
   { line: `${SECTION.fuel} — every station's fuel prices from the United Fuel cabinet, as an Excel file. Each download also updates the prices agents see. /fuelprices`, commands: [FUEL_COMMAND] },
   { line: `${SECTION.invite} — send a link to a new agent (sees fuel discounts), a driver (route map) or a new admin. /invite · /invitedriver · /addadmin`, commands: [INVITE_COMMAND, INVITE_DRIVER_COMMAND, ADD_ADMIN_COMMAND] },
-  { line: `${SECTION.team} — your agents, drivers and admins: who has access, which agents may invite drivers, remove someone. /agents · /drivers · /admins`, commands: [AGENTS_COMMAND, DRIVERS_COMMAND, ADMINS_COMMAND] },
+  { line: `${SECTION.team} — your agents, drivers and admins: who has access, who invited which driver, remove someone. /agents · /drivers · /admins`, commands: [AGENTS_COMMAND, DRIVERS_COMMAND, ADMINS_COMMAND] },
 ];
 /** Only for the people in TASK_REPORT_USER_IDS. */
 const SHIFT_SECTION = { line: `${SECTION.shift} — start and end your shift; the bot posts your work reports to the reports chat. /shift`, commands: SHIFT_COMMANDS };

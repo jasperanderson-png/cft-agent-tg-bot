@@ -1,6 +1,6 @@
 import { telegramAdmin } from '../../core/admins.js';
 import { isAgent } from '../../core/agents.js';
-import { canInviteDrivers, isDriver } from '../../core/drivers.js';
+import { isDriver } from '../../core/drivers.js';
 import type { Db } from '../../db_storage/db.js';
 import { env } from '../../core/env.js';
 import type { PrivateCallback, PrivateMessage, TelegramUser } from '../../core/telegram.js';
@@ -13,8 +13,6 @@ export interface Viewer {
   owner: boolean;
   /** An agent (joined through an invite link; core/agents.ts). Admins are never also counted as agents. */
   agent: boolean;
-  /** An agent an admin allowed to make driver links. */
-  canInviteDrivers?: boolean;
   /** A driver (joined through a driver link; core/drivers.ts): the route map only. Never also an admin or agent. */
   driver?: boolean;
   /** Telegram's id for the update, used to run file-sending actions once. */
@@ -27,10 +25,16 @@ export async function viewerOf(db: Db, from: TelegramUser, updateId: number | un
   const admin = !!(await telegramAdmin(db, from));
   const agent = !admin && (await isAgent(db, from.id));
   const driver = !admin && !agent && (await isDriver(db, from.id));
-  return { admin, owner: env.ownerTelegramIds.includes(from.id), agent, driver, canInviteDrivers: agent && (await canInviteDrivers(db, from.id)), updateId };
+  return { admin, owner: env.ownerTelegramIds.includes(from.id), agent, driver, updateId };
 }
 
 export const roleOf = (who: Viewer): Role => (who.admin ? 'admins' : who.agent ? 'agents' : who.driver ? 'drivers' : 'candidates');
+
+/**
+ * What is recorded in telegram_users.menu_role once a role's menu is set. Change a role's value when
+ * its menu changes: everyone with that role gets the new menu on their next message.
+ */
+export const menuKey = (role: Role): string => (role === 'agents' ? 'agents.2' : role); // .2: driver commands for every agent
 
 /** One role's part of the bot: telegram_bot/handlers/<role>/index.ts. */
 export interface RoleHandlers {

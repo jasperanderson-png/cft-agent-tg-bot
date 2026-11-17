@@ -2,6 +2,7 @@
 // Usage: npm run telegram:setup   (needs TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, APP_URL)
 import { adminMenu, setAdminMenu } from '../telegram_bot/handlers/admins/index.js';
 import { setAgentMenu } from '../telegram_bot/handlers/agents/fuel-search.js';
+import { menuKey, type Role } from '../telegram_bot/handlers/viewer.js';
 import { setDriverMenu } from '../telegram_bot/handlers/drivers/index.js';
 import { closePool, getPool } from '../db_storage/db.js';
 import { CANDIDATE_COMMANDS } from '../telegram_bot/handlers/candidates/index.js';
@@ -52,8 +53,7 @@ async function refreshPeopleMenus() {
   const db = getPool();
   const { rows } = await db.query(
     `select telegram_user_id as id, 'admins' as role from admins where telegram_user_id is not null
-     union all select a.telegram_user_id, case when 'drivers' = any(a.permissions) then 'agents+drivers' else 'agents' end
-       from agents a where not exists (select 1 from admins ad where ad.telegram_user_id = a.telegram_user_id)
+     union all select a.telegram_user_id, 'agents' from agents a where not exists (select 1 from admins ad where ad.telegram_user_id = a.telegram_user_id)
      union all select d.telegram_user_id, 'drivers' from map_drivers d
        where not exists (select 1 from admins ad where ad.telegram_user_id = d.telegram_user_id)
          and not exists (select 1 from agents a where a.telegram_user_id = d.telegram_user_id)`,
@@ -65,8 +65,8 @@ async function refreshPeopleMenus() {
     try {
       if (r.role === 'admins') await setAdminMenu(id);
       else if (r.role === 'drivers') await setDriverMenu(id);
-      else await setAgentMenu(id, r.role === 'agents+drivers');
-      await db.query('update telegram_users set menu_role = $2 where id = $1', [id, r.role]);
+      else await setAgentMenu(id);
+      await db.query('update telegram_users set menu_role = $2 where id = $1', [id, menuKey(r.role as Role)]);
       ok++;
     } catch (e) {
       failed.push(`${r.role} ${id}: ${(e as Error).message}`);
