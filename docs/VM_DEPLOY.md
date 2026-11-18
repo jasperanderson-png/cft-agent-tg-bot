@@ -42,8 +42,9 @@ Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the 
   systemctl start cft-agent
   ```
 - Turn on **DigitalOcean Backups** for the Droplet too: the nightly copies live on the same server.
-- Moved from Supabase on 18/11/2026 (`/root/dbmove/final.dump` is the copy taken then). Supabase's
-  address is kept in `.env` as `SUPABASE_DATABASE_URL`, which nothing reads.
+- Moved from Supabase on 18/11/2026; the copy taken then is kept in
+  `/var/backups/cft-db/supabase-final-20261118.dump` (not cleaned up). The old Supabase database was
+  emptied the same day.
 
 ## The cache (Redis)
 
