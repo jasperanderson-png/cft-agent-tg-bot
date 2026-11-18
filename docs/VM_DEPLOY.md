@@ -10,6 +10,7 @@ run here, and so does the database. Vercel is no longer used (the project was de
 | Website | `https://209-97-132-149.sslip.io` (sslip.io is a free name pointing at the IP; a real domain can replace it) |
 | Code on the server | `/home/cft/app` (branch `main`), run by the `cft` user; settings in `/home/cft/app/.env` |
 | Database | PostgreSQL 17 on the server itself (`cft_agent`, only reachable from the server) |
+| Cache | Redis 7 on the server itself (only reachable from the server, with a password) |
 | Files | `deploy/` (setup, update, web server, service), `.github/workflows/deploy-vm.yml` (the GitHub button) |
 
 How it fits together: **Caddy** (web server) holds the HTTPS certificate, serves the Mini App from
@@ -44,6 +45,19 @@ Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the 
 - Moved from Supabase on 18/11/2026 (`/root/dbmove/final.dump` is the copy taken then). Supabase's
   address is kept in `.env` as `SUPABASE_DATABASE_URL`, which nothing reads.
 
+## The cache (Redis)
+
+- Redis 7 (`redis-server`), on `127.0.0.1` only, with a password; our settings are in
+  `/etc/redis/cft.conf` (included from `/etc/redis/redis.conf`). It keeps its data on disk, so a restart
+  keeps the counts.
+- What it holds: the daily and monthly counts that keep TomTom routes, the Google voice and
+  OpenRouteService inside their free allowances, rate limits, the voice clip cache and "say it once"
+  markers (`core/kv.ts`, keys `cft:*`). The bot's address for it: `REDIS_URL` in `.env` (also in
+  `/home/cft/.local-redis-url`). If Redis is down the bot keeps working, counting in memory.
+- Look inside: `REDISCLI_AUTH=$(sed -E 's#redis://:([^@]+)@.*#\1#' /home/cft/.local-redis-url) redis-cli --scan --pattern 'cft:*'`
+- Moved from Upstash on 18/11/2026. The `KV_REST_API_*` values in `.env` are no longer used while
+  `REDIS_URL` is set.
+
 ## Setting up a new server
 
 1. Your PC's key (`C:\Users\user\.ssh\id_ed25519.pub`) in the provider's "SSH key" box when creating
@@ -57,7 +71,8 @@ Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the 
    Settings → Deploy keys (read-only), then run the script again.
 3. Fill in `/home/cft/app/.env` (copy the current server's, except `APP_URL`, which the script sets),
    then as `cft`: `cd ~/app && deploy/update.sh main`.
-4. Database: install PostgreSQL 17 and restore the latest nightly copy (see above).
+4. Database: install PostgreSQL 17 and restore the latest nightly copy (see above). Cache:
+   `apt install redis-server`, copy `/etc/redis/cft.conf` (new password) and set `REDIS_URL`.
 5. Move people: turn on the timers
    (`systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer cft-cron-stations.timer`),
    point Telegram at it (as `cft`: `cd ~/app && npm run telegram:setup`), change the Mini App URL in
