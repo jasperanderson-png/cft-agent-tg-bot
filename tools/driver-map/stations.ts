@@ -32,11 +32,12 @@ async function load(db: Db) {
 }
 
 let locating: Promise<number> | null = null;
+const LOCK = 'cft:geocode:lock';
 
 /**
  * Looks up map points for stations that have none yet (POST /api/driver/locate). The map page calls it
  * in the background when the list says some are pending, so opening the map never waits for lookups;
- * one pass at a time per server, and at most one every few minutes across servers (shared Redis).
+ * one pass at a time per server and across servers (a shared Redis lock).
  */
 export async function locateStations(db: Db, locate = locateMissing): Promise<{ placed: number; pending: number }> {
   const { keyed, keys, ready, coords } = await load(db);
@@ -45,9 +46,15 @@ export async function locateStations(db: Db, locate = locateMissing): Promise<{ 
   const missing = keyed.filter((k) => k.key && !coords.has(k.key) && !seen.has(k.key) && seen.add(k.key));
   if (!missing.length) return { placed: 0, pending: 0 };
   if (!locating) {
-    const free = !kvReady() || (await kv('SET', 'cft:geocode:lock', '1', 'NX', 'EX', 180).catch(() => 'OK')) === 'OK';
+    // The lock only keeps two servers from looking up at once; it is released when the pass ends (the
+    // 3-minute expiry is a safety net if a server dies mid-pass).
+    const shared = kvReady();
+    const free = !shared || (await kv('SET', LOCK, '1', 'NX', 'EX', 180).catch(() => 'OK')) === 'OK';
     if (!free) return { placed: 0, pending: missing.length };
-    locating = locate(db, missing.map((k) => ({ key: k.key!, station: k.s }))).finally(() => { locating = null; });
+    locating = locate(db, missing.map((k) => ({ key: k.key!, station: k.s }))).finally(() => {
+      locating = null;
+      if (shared) kv('DEL', LOCK).catch(() => {});
+    });
   }
   const placed = await locating;
   const after = await cachedCoords(db, keys);

@@ -245,9 +245,12 @@ export function revealRoute(map: MlMap) {
   }, clear);
 }
 /** The route's stations: `sel` the chosen one, `tag` those that show their price, `near` those off the route. */
-export function setRouteStations(map: MlMap, stations: (MapStation & { sel: boolean; tag: boolean; near: boolean })[]) {
+export function setRouteStations(map: MlMap, stations: (MapStation & { sel: boolean; tag: boolean; near: boolean; rank?: number })[]) {
   setData(map, 'rstations', fc(stations.filter((s) => s.lat != null).map((s) => ({
-    type: 'Feature', properties: { id: s.id, brand: s.brand, price: money(s.price), sel: s.sel, tag: s.tag, near: s.near }, geometry: { type: 'Point', coordinates: [s.lng!, s.lat!] },
+    type: 'Feature',
+    // The tag reads "1 · $4.53" for the best three.
+    properties: { id: s.id, brand: s.brand, price: s.rank != null ? `${s.rank + 1} · ${money(s.price)}` : money(s.price), sel: s.sel, tag: s.tag, near: s.near },
+    geometry: { type: 'Point', coordinates: [s.lng!, s.lat!] },
   }))));
 }
 export function showLayers(map: MlMap, ids: string[], on: boolean) {

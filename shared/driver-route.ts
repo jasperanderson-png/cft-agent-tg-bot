@@ -12,6 +12,8 @@ export const BRANDS: Record<DriverBrand, { label: string; short: string; letter:
   t: { label: 'TA / Petro', short: 'TA', letter: 'T', color: '#7fe0a4' },
   s: { label: 'Speedway', short: 'Speedway', letter: 'S', color: '#c9b0ff' },
 };
+/** The brands in the order drivers see them (the route card's filter). */
+export const BRAND_ORDER: DriverBrand[] = ['p', 'l', 't', 's'];
 
 
 export interface LatLng {
@@ -158,7 +160,8 @@ export function stationsAlongRoute<T extends { lat?: number | null; lng?: number
 export const payPrice = (s: { retail: number | null; discounted: number | null }) => s.discounted ?? s.retail;
 
 /** The money saved per gallon (retail minus discounted), or null when the station has no discount. */
-export const savingOf = (s: { retail: number | null; discounted: number | null }) => (s.retail != null && s.discounted != null ? s.retail - s.discounted : null);
+export const savingOf = (s: { retail: number | null; discounted: number | null }) =>
+  s.retail != null && s.discounted != null ? Math.round((s.retail - s.discounted) * 1000) / 1000 : null;
 
 /** The cheapest station by pay price (ties go to the one reached first). */
 export function cheapest<T extends { retail: number | null; discounted: number | null }>(list: Placed<T>[]): Placed<T> | null {
@@ -309,4 +312,36 @@ export function priceAge(updatedAt: string | null | undefined, now = Date.now(),
   const min = Math.max(0, Math.floor((now - t) / 60_000));
   const text = min < 2 ? 'just now' : min < 60 ? `${min} min ago` : min < 48 * 60 ? `${Math.floor(min / 60)} h ago` : `${Math.floor(min / 1440)} days ago`;
   return { text, stale: min >= staleHours * 60 };
+}
+
+/** How the driver ranks stations on a route (the ★ choice on the map's card). */
+export type RankBy = 'rec' | 'cheap' | 'disc';
+export const RANK_LABEL: Record<RankBy, string> = { rec: 'Recommended', cheap: 'Cheapest', disc: 'Biggest discount' };
+
+/** What a truck mile costs (fuel, wear, the driver's time): about the US industry average. */
+const COST_PER_MI = 2;
+const FILL_GAL = 150;
+/** Cheapest / Biggest discount only look this far off the route (a longer detour is not "best"). */
+const PRICE_DETOUR_MI = 5;
+
+/**
+ * The best stations for a route, best first: of the chosen brands (none = all), ranked by
+ * - `rec` Recommended: the price paid plus the detour there and back (about $2 a truck mile) spread
+ *   over a 150-gallon fill, so a station 10 miles off must be about 27 cents cheaper to win;
+ * - `cheap` the lowest price paid; `disc` the biggest CFT saving per gallon (both within 5 mi of the route).
+ * Ties go to the station reached first.
+ */
+export function rankStations<T extends { brand: DriverBrand; retail: number | null; discounted: number | null }>(
+  list: Placed<T>[], by: RankBy, brands: DriverBrand[] = [], n = 3,
+): Placed<T>[] {
+  const score = (p: Placed<T>) => {
+    const v = payPrice(p.item)!;
+    if (by === 'rec') return v + (2 * p.offMi * COST_PER_MI) / FILL_GAL;
+    if (by === 'cheap') return v;
+    return -(savingOf(p.item) ?? -1);
+  };
+  return list
+    .filter((p) => payPrice(p.item) != null && (!brands.length || brands.includes(p.item.brand)) && (by === 'rec' || p.offMi <= PRICE_DETOUR_MI))
+    .sort((a, b) => score(a) - score(b) || a.alongMi - b.alongMi)
+    .slice(0, n);
 }
