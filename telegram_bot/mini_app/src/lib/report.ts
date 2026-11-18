@@ -1,6 +1,6 @@
 import { tg } from './telegram';
 
-// Errors on the drivers' map page go to the server log (Vercel), the only place a phone's error can be read.
+// Errors on the drivers' map page go to the server log (journalctl -u cft-agent), the only place a phone's error can be read.
 
 /** Sends what went wrong on the map page to the server log (the only way to see a phone's error). */
 const sent = new Set<string>();

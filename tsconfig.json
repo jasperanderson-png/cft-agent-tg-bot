@@ -1,4 +1,4 @@
-// The server side: runs on Node (Vercel function, scripts, tests). No browser APIs.
+// The server side: runs on Node (the server, scripts, tests). No browser APIs.
 // The Mini App (telegram_bot/mini_app/src) has its own config in telegram_bot/mini_app/tsconfig.json.
 // `npm run typecheck` checks both.
 {
@@ -7,6 +7,6 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["api", "core", "db_storage", "scripts", "shared", "task_report", "telegram_bot", "tools", "vitest.config.ts"],
+  "include": ["core", "db_storage", "scripts", "shared", "task_report", "telegram_bot", "tools", "vitest.config.ts"],
   "exclude": ["telegram_bot/mini_app/src", "tools/driver-leads/signup-page"]
 }

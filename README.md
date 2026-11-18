@@ -1,6 +1,6 @@
 # CFT Agent
 
-One Telegram bot, [@cft_Agentbot](https://t.me/cft_Agentbot), with its Mini App, for everyone around CFT: admins, sales agents, truck drivers and agent candidates. Live at **https://cft-agent.vercel.app** (Vercel project `cft-agent`).
+One Telegram bot, [@cft_Agentbot](https://t.me/cft_Agentbot), with its Mini App, for everyone around CFT: admins, sales agents, truck drivers and agent candidates. Live at **https://209-97-132-149.sslip.io**, on our own server (DigitalOcean, [docs/VM_DEPLOY.md](docs/VM_DEPLOY.md)).
 
 - **Candidates** take the official 30-question **Agent Academy** test and see their score, the correct answers and explanations only after they submit.
 - **Agents** (joined through an invite link) look up **CFT fuel discount prices** at partner stations and send them to drivers, and **invite drivers** to the route map: every agent can, and sees all drivers or only their own.
@@ -17,7 +17,7 @@ The app runs fullscreen on phones and respects the device safe areas (notch, hom
 1. [How it works](#how-it-works)
 2. [Project layout](#project-layout)
 3. [Run it locally](#run-it-locally)
-4. [Deploy: Supabase + Vercel + Telegram](#deploy)
+4. [Deploy: our server + Telegram](#deploy)
 5. [Environment variables](#environment-variables)
 6. [Admins, users and notifications](#admins-users-and-notifications)
 7. [Reports](#reports)
@@ -39,25 +39,26 @@ The app runs fullscreen on phones and respects the device safe areas (notch, hom
 
 ```
 Telegram (phone / desktop)
-  └─ Mini App (React + Vite, static on Vercel)
+  └─ Mini App (React + Vite, static files served by Caddy on our server)
         │  initData signed by Telegram, sent with every candidate/admin login
         ▼
-  /api/*  → one Vercel Function (api/main.ts → telegram_bot/server/router.ts)
+  /api/*  → the bot service (telegram_bot/server/start.ts → router.ts)
         │  verifies Telegram signatures, grades attempts, enforces admin access
         ▼
-  Supabase PostgreSQL (RLS on, no public access; server connects as owner)
+  PostgreSQL 17 + Redis on the same server (only reachable from the server)
 
 Telegram → /api/telegram/webhook   bot commands (/start, /admin, /report, /stats …)
-Vercel Cron (Mon 04:00 UTC) → /api/cron/weekly   weekly summary + Excel to admins
-Vercel Cron (daily 14:30 UTC) → /api/cron/leads  driver-lead pull sources (FMCSA, when enabled)
-Vercel Cron (daily 18:00 UTC) → /api/cron/task-report  forgotten shifts, weekly (Sat) and monthly reports
-Vercel Cron (daily 11:00 UTC) → /api/cron/fuel   fresh fuel discount prices from the cabinet (what agents and drivers see)
+Timer (Mon 04:00 UTC) → /api/cron/weekly        weekly summary + Excel to admins
+Timer (daily 14:30 UTC) → /api/cron/leads       driver-lead pull sources (FMCSA, when enabled)
+Timer (daily 18:00 UTC) → /api/cron/task-report  forgotten shifts, weekly (Sat) and monthly reports
+Timer (daily 11:00 UTC) → /api/cron/fuel        fresh fuel discount prices from the cabinet (what agents and drivers see)
+Timer (daily 11:30 UTC) → /api/cron/stations    map points for new stations
 /route (Mini App page)  → /api/driver/*          the drivers' route map, trips; /route?trip=<id> a recorded trip (admins)
 /drivers/ (static page) → /api/leads/register    driver sign-ups with consent
 Lead vendors → /api/leads/ingest/<source>        leads pushed by providers and ad platforms
 ```
 
-- The browser never talks to the database. Supabase's public REST roles (`anon`, `authenticated`) have **no** grants and every table has Row Level Security enabled with no policies.
+- The browser never talks to the database: only the bot, on the same server, can reach it. Every table also has Row Level Security enabled with no policies.
 - Candidates are identified by their **Telegram account**, verified on the server from the Mini App's signed `initData`. That gives you one attempt per person, and a candidate who closes the app resumes where they left off.
 - Grading happens on the server and records the question revision each candidate saw, so later edits never rewrite past results.
 
@@ -106,17 +107,16 @@ core/                        Plumbing everyone uses: env, http, telegram (Bot AP
 shared/                      Code server and browser both use: types, grading, analytics, CSV, dates
 scripts/                     Things you run by hand: telegram-setup.ts (npm run telegram:setup),
                              create-admin.ts (npm run admin:create), worklog.ts (npm run worklog)
-api/main.ts                  Vercel Function entry (Vercel requires it here); hands over to telegram_bot/server/
-deploy/                      Running on our own VM instead of Vercel (guide: docs/VM_DEPLOY.md):
-                             setup-server.sh, update.sh, Caddyfile, the bot service, scheduled jobs
+deploy/                      Our server (guide: docs/VM_DEPLOY.md): setup-server.sh, update.sh,
+                             Caddyfile (website, HTTPS, security headers), the bot service, scheduled jobs
 .github/workflows/           deploy-vm.yml: the "Deploy to VM" button on GitHub
 ```
 
 The rule that keeps it expandable: imports only go **down**:
 `telegram_bot` → `tools` / `task_report` → `core` / `db_storage` / `shared`.
 A tool may read another tool's data in one direction only (today: `driver-map` reads `fuel-prices`).
-`core` and `db_storage` count as one level; the Mini App uses only `shared`. `api/` and `scripts/`
-sit on top and may use anything. Tests are exempt (they drive the whole bot through the router).
+`core` and `db_storage` count as one level; the Mini App uses only `shared`. `scripts/`
+sits on top and may use anything. Tests are exempt (they drive the whole bot through the router).
 `core/tests/layers.test.ts` checks all of this, so `npm test` fails on an upward import.
 
 Where new work goes:
@@ -149,49 +149,32 @@ To test inside Telegram before deploying, expose port 5173 over HTTPS (for examp
 
 ## Deploy
 
-### 1. Supabase (database)
+The bot runs on our own server (DigitalOcean): the website, the bot, the database (PostgreSQL 17), the
+cache (Redis) and the scheduled jobs. Setting it up, deploying, backups and restoring:
+**[docs/VM_DEPLOY.md](docs/VM_DEPLOY.md)**.
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Go to **Project Settings → Database → Connection string**, pick **Transaction pooler** (port 6543) and copy the URI. Use it as `DATABASE_URL` **without** `?sslmode=…`, because TLS is configured in code.
-3. From your machine, with `DATABASE_URL` in `.env.local` pointing at Supabase, run:
-   ```bash
-   npm run db:migrate
-   npm run db:seed
-   ```
-4. Optional: download Supabase's CA certificate (Database settings → SSL) and set it as `DATABASE_CA_CERT` so the server also verifies the certificate.
+Deploying a change: push to `main`, then GitHub → Actions → **Deploy to VM** (or on the server, as `cft`:
+`cd ~/app && deploy/update.sh main`). Database changes are applied by hand on the server, as `cft`:
+`cd ~/app && npm run db:migrate`.
 
-You don't need Supabase Auth or the Supabase JS client. The app only uses the Postgres database.
-
-### 2. Vercel (app + API + cron)
-
-1. Push this folder to a Git repository and import it in [Vercel](https://vercel.com). The framework is Vite; `vercel.json` already sets the build, the API rewrite, security headers and the weekly cron.
-2. Add the [environment variables](#environment-variables) under **Settings → Environment Variables** (Production).
-3. Deploy, and note the URL (production: `https://cft-agent.vercel.app`, project `cft-agent`). Set it as `APP_URL` and redeploy. From the command line: `npx vercel --prod --yes` in this folder (once linked with `npx vercel link`).
-4. After a change of address, run the Telegram setup again (below): it points the webhook and everyone's menu buttons at the new `APP_URL`.
-
-### Settings files on your machine
+### Settings files
 
 | File | What it is for |
 |---|---|
-| `.env.example` | The list of every setting, with explanations. Copy it to start the other two. |
-| `.env.local` | Local development and tests (`npm run dev`, `npm test`, and the `db:*` commands by default). |
-| `.env.production.local` | Production values, for the two jobs run from your machine against the live system: the Telegram setup and database migrations. The live app itself reads its settings from Vercel. |
+| `.env.example` | The list of every setting, with explanations. Copy it to start the others. |
+| `/home/cft/app/.env` (on the server) | The live bot's settings. |
+| `.env.local` | Local development and tests (`npm run dev`, `npm test`, and the `db:*` commands). |
+| `.env.production.local` | A copy of the live settings on your machine, for `npm run worklog` (it posts to `APP_URL`). It has no `DATABASE_URL` on purpose: the database is only reachable from the server. |
 
-The two with real values are never uploaded to Vercel (`.vercelignore`) or committed (`.gitignore`).
+Files with real values are never committed (`.gitignore`).
 
-To migrate the production database:
+### Telegram bot
 
-```bash
-node --env-file=.env.production.local --import tsx db_storage/migrate.ts
-```
-
-### 3. Telegram bot
-
-1. Run the bot setup from your machine with the production values:
+1. Run the bot setup on the server, as `cft`:
    ```bash
-   node --env-file=.env.production.local --import tsx scripts/telegram-setup.ts
+   cd ~/app && npm run telegram:setup
    ```
-   It sets the webhook (with a secret), the commands, the menu button ("Start test") and the bot descriptions.
+   It sets the webhook (with a secret), the commands, the menu button ("Start test") and the bot descriptions, and points them at `APP_URL`.
 2. In **@BotFather**, open `/mybots` → **@cft_Agentbot** → **Bot Settings** → **Configure Mini App** → **Enable Mini App**. Set the URL to your `APP_URL` and, where offered, choose the **fullscreen** launch mode. This makes it the bot's Main Mini App, which also gives you a shareable fullscreen link:
    `https://t.me/cft_Agentbot?startapp&mode=fullscreen`
 3. Each admin must open the bot and press **Start** once. Telegram doesn't let a bot message someone who hasn't started it.
@@ -202,17 +185,17 @@ The app also requests fullscreen itself on iOS and Android (`requestFullscreen`,
 
 | Variable | Required | What it is |
 |---|---|---|
-| `DATABASE_URL` | yes | Supabase transaction-pooler URI (no `sslmode`). |
+| `DATABASE_URL` | yes | PostgreSQL URI. On the server: `postgresql://cft:…@127.0.0.1:5432/cft_agent` (no TLS needed on the same machine). |
 | `TELEGRAM_BOT_TOKEN` | yes | From @BotFather. Server-only. |
 | `TELEGRAM_BOT_USERNAME` | yes | `cft_Agentbot` |
 | `TELEGRAM_WEBHOOK_SECRET` | yes | Random 32+ chars (`openssl rand -hex 24`). Telegram sends it with every webhook call. |
 | `APP_URL` | yes | Your deployment's https URL, no trailing slash. |
 | `ADMIN_TELEGRAM_IDS` | yes | Owner Telegram IDs, comma-separated: `9447180,1270439555`. |
-| `CRON_SECRET` | yes | Random 32+ chars. Vercel Cron sends it to `/api/cron/weekly`. |
+| `CRON_SECRET` | yes | Random 32+ chars. The scheduled jobs (`deploy/cron.sh`) send it to `/api/cron/*`. |
 | `TASK_REPORT_USER_IDS` | for work reports | Telegram IDs (comma-separated) of the people who have ⏱ Shift and work reports. Nobody else, not even other admins, sees them. |
 | `TASK_REPORT_TOKEN` | for work reports | Random 32+ chars. The key `npm run worklog` (Claude Code) uses to add work-log entries. |
 | `ALLOW_WEB_CANDIDATES` | no | `true` lets candidates take the test in a normal browser. Keep `false` in production. |
-| `DATABASE_CA_CERT` | no | Supabase CA (PEM) to verify the DB certificate. |
+| `DATABASE_CA_CERT` | no | For a database on another machine: its CA (PEM), to verify the certificate. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | no | Service-account key to enable the Google Sheets sync button. |
 | `TELEGRAM_INITDATA_MAX_AGE_SEC` | no | How old a Telegram session may be (default 86400). |
 | `LEADS_COMPANY_NAME` | no | Company named in the driver registration page's consent wording (default `CFT`). |
@@ -222,7 +205,8 @@ The app also requests fullscreen itself on iOS and Android (`requestFullscreen`,
 | `FUEL_CABINET_EMAIL`, `FUEL_CABINET_PASSWORD` | for fuel prices | The United Fuel customer cabinet account the bot reads prices from (the fuel price file, the daily pull). |
 | `TOMTOM_API_KEY` | no | Truck routes with live traffic and speed limits (shared monthly cap). Without it, OpenRouteService routes. |
 | `GOOGLE_TTS_KEY` | no | The natural voice for directions (Google Cloud Text-to-Speech; its project needs billing on). Without it, the phone's voice or the built-in voice pack. |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | no | Upstash Redis: shared monthly caps, rate limits, cached voice clips, the station lookup lock. |
+| `REDIS_URL` | no | Our Redis on the server (`redis://:…@127.0.0.1:6379`): monthly caps, rate limits, cached voice clips, the station lookup lock. Without it, counted in memory (reset on restart). |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | no | Upstash Redis (REST) instead, when `REDIS_URL` is not set. |
 
 More driver-leads settings are listed in [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md#settings).
 
@@ -286,7 +270,7 @@ What is protected and how:
 - **Grading.** The server grades and ignores any score sent by the client. Submitting locks the attempt row, so a duplicate or concurrent submit returns the stored result instead of grading twice.
 - **Candidate identity.** The Telegram `initData` HMAC is verified on the server with the bot token, with an age limit. Each attempt also has a 256-bit bearer token, stored only as a SHA-256 hash. The token rotates whenever the attempt is resumed, and a candidate can only read their own attempt.
 - **Admin access.** Every `/api/admin/*` route checks a server-side session: random token, hash stored, 12-hour expiry, revocable on sign-out. Passwords use scrypt. Sign-in is rate-limited per email and IP, unknown emails take the same time as known ones, and only owners can remove admins. Hiding UI elements is never the protection.
-- **Database.** RLS is enabled on every table with no policies. Grants to Supabase's `anon` and `authenticated` roles are revoked, and only the server, holding the database password, can read or write.
+- **Database.** RLS is enabled on every table with no policies. The database only listens inside the server, and only the bot, holding its password, can read or write.
 - **Webhook and cron.** Both require secrets, compared in constant time.
 - **Inputs.** Every input is validated on the server. Names, question edits and settings share their validation rules with the browser.
 - **Exports.** CSV cells are escaped against spreadsheet formulas. Excel cells are written as plain text, never as formulas. Download links are unguessable and expire after 10 minutes.
@@ -296,7 +280,7 @@ What is protected and how:
 
 - Web (non-Telegram) candidates are limited to one attempt per browser, not per person. Keep `ALLOW_WEB_CANDIDATES=false`.
 - Admin login rate limiting is stored in the database. There is no CAPTCHA.
-- No automated backups beyond what your Supabase plan provides.
+- Backups: a database copy every night on the server (14 days) and DigitalOcean Backups of the whole server ([docs/VM_DEPLOY.md](docs/VM_DEPLOY.md#the-database)).
 
 ## Database
 
@@ -364,8 +348,8 @@ Coverage:
 
 ## Limitations and manual steps
 
-1. Create the Supabase project, then run `db:migrate` and `db:seed` against it.
-2. Create the Vercel project, set the environment variables, deploy, and set `APP_URL`.
+1. Set up the server ([docs/VM_DEPLOY.md](docs/VM_DEPLOY.md)), then run `db:migrate` and `db:seed` there.
+2. Fill in the server's `.env` and set `APP_URL`.
 3. Run `npm run telegram:setup`, then enable the Main Mini App (fullscreen) in @BotFather.
 4. Owners and admins press **Start** in the bot once, so it can message them.
 5. Google Sheets sync is optional and needs a Google Cloud service account (`GOOGLE_SERVICE_ACCOUNT_JSON`). It was unit-tested but not run against Google.
@@ -391,7 +375,7 @@ Admins have a **📥 Download All Fuel Prices** button on their home keyboard (a
 
 **Every day at 11:00 UTC** the prices agents and drivers see are pulled again by themselves (`/api/cron/fuel`, the same save as the admin's Refresh button on the Fuel discounts data screen).
 
-How it works: the cabinet is a web app over a JSON API, so the bot calls that API directly instead of driving a browser (which a Vercel function cannot run). It signs in with `FUEL_CABINET_EMAIL` and `FUEL_CABINET_PASSWORD`, reads `cabinet/station` page by page, keeps each station once, and sends the file only if the number of stations equals the total the cabinet reports. Otherwise it says what went wrong and sends nothing. One status message shows the progress. Code: `tools/fuel-prices/` (`cabinet.ts` reads the cabinet, `excel.ts` builds the file, `dataset.ts` saves the prices agents and drivers see, `index.ts` the routes and the daily pull).
+How it works: the cabinet is a web app over a JSON API, so the bot calls that API directly instead of driving a browser (which would need a whole browser on the server). It signs in with `FUEL_CABINET_EMAIL` and `FUEL_CABINET_PASSWORD`, reads `cabinet/station` page by page, keeps each station once, and sends the file only if the number of stations equals the total the cabinet reports. Otherwise it says what went wrong and sends nothing. One status message shows the progress. Code: `tools/fuel-prices/` (`cabinet.ts` reads the cabinet, `excel.ts` builds the file, `dataset.ts` saves the prices agents and drivers see, `index.ts` the routes and the daily pull).
 
 A station without a discounted price in the cabinet (about 230, mostly Casey's) has an empty cell, not 0. Times are in the report time zone (Settings).
 
@@ -416,7 +400,7 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Suggestions:** typing in From / To shows towns with CFT stations and states at once (from the station list already on the phone), then OpenRouteService places join in; answers are remembered for the session.
 - **Truck routes:** **TomTom** truck routing with live traffic (height, weight, length, hazmat; traffic delay, slow stretches coloured on the route, speed limits, street names and exit numbers). When TomTom is not set up, its allowance is used up or it fails, **OpenRouteService** (heavy vehicle, no traffic) answers instead. Place search: OpenRouteService.
 - **Navigation:** turn banner with the street being driven and the speed limit, the natural voice (Google Chirp 3 HD "Fenrir"; fixed lead-ins "In 1 mile, / In a quarter mile, / In 500 feet, / Now," fetched ahead), re-routing after ~2 s off the route, auto-zoom by distance to the next turn (until the driver pinches), the screen kept on. `/route?simulate` drives any trip in about three minutes. Until the natural voice works, the phone's own voice reads the same sentences (its best English voice, never a novelty one); after one "not available" answer the page stops asking for 30 minutes, so there is no wait before each phrase. A phone with no voice of its own (Telegram on Android) uses the **built-in voice pack**: 60 natural recorded phrases in `telegram_bot/mini_app/public/voice/` (4 distances × 13 manoeuvres, e.g. "In a quarter mile, take the exit on the right.", plus start / arrive / rerouting), made once with the open Piper voice *LJ Speech* (public domain) through sherpa-onnx; phrase list in `pack.json`. No street names, no billing, works offline once fetched; a route fetches only the phrases it needs. Order: natural cloud voice → phone voice → pack.
-- **Paid services and their caps:** `TOMTOM_API_KEY`, `GOOGLE_TTS_KEY` and our Upstash Redis (`KV_REST_API_URL`, `KV_REST_API_TOKEN`). Each paid service has a daily and a monthly cap of our own, kept a little under its free plan, in `shared/driver-config.ts` → `budgets` (TomTom routes 2,400 a day / 72,000 a month, under its 2,500 free requests a day; Google voice 60,000 characters a day / 900,000 a month, under Chirp 3 HD's 1 million free a month), counted across all users in Redis (`core/kv.ts`). All our Redis keys start with `cft:` (`cft:budget:*`, `cft:rate:*`, `cft:voice:*`). Past a cap the app falls back (OpenRouteService, phone voice): nothing is ever charged. **Google Text-to-Speech needs billing turned on in its Google Cloud project** (free tier still applies); until then `/api/driver/voice` answers 503 and the phone voice is used.
+- **Paid services and their caps:** `TOMTOM_API_KEY`, `GOOGLE_TTS_KEY` and our Redis on the server (`REDIS_URL`). Each paid service has a daily and a monthly cap of our own, kept a little under its free plan, in `shared/driver-config.ts` → `budgets` (TomTom routes 2,400 a day / 72,000 a month, under its 2,500 free requests a day; Google voice 60,000 characters a day / 900,000 a month, under Chirp 3 HD's 1 million free a month), counted across all users in Redis (`core/kv.ts`). All our Redis keys start with `cft:` (`cft:budget:*`, `cft:rate:*`, `cft:voice:*`). Past a cap the app falls back (OpenRouteService, phone voice): nothing is ever charged. **Google Text-to-Speech needs billing turned on in its Google Cloud project** (free tier still applies); until then `/api/driver/voice` answers 503 and the phone voice is used.
 - **Station points:** each station is placed once and cached in `station_geo` with its source: the chain's own store locator via **All The Places** (same store number in the same state, or the only store of the brand in that city), then the **US Census** address service, then OpenRouteService search only when it lands in the same state with high confidence; otherwise no pin (still in *By state*), tried again after a week.
 - **Prices** are the agents' prices (cabinet discounted price + the margin), never the cabinet's own price. Each card shows how old its price is ("5 h ago"); past 24 hours it is marked **Old price** in amber.
 - **Stations on the route, by real detour:** the corridor (1.5 mi of the route line) is only the first filter; stations are found on the route line simplified to 20 m, and their miles along the route are then measured on the full line. The 5 cheapest corridor stations (reachable ones first when a range is set) get a real truck driving-time check (`POST /api/driver/detours`: one OpenRouteService matrix call, from 15 mi before each station to 15 mi after it); a station that costs more than 10 extra minutes (across a divided highway, far from an exit) moves to *Nearby stations*. While the best pick is still unchecked, up to 2 more rounds check the next cheapest, and the station recommended is always a checked one. The Mini App sends only station ids and the two route points; the server looks up where each station is. Matrix calls are capped at 480 a day and 14,000 a month (OpenRouteService free plan: 500 a day). The card says "+4 min off your route". Without OpenRouteService, or past the caps, the straight-line view stays.
@@ -426,7 +410,7 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Request limits** are per Telegram user (not per IP), for routes (20/min), place search (60/min) and detour checks (10/min), whichever map service answers; without Redis the count is kept per server. Override with `DRIVER_RATE_ROUTE`, `DRIVER_RATE_PLACES`, `DRIVER_RATE_DETOURS`.
 - **All thresholds** above (corridor, detour, stale price, alerts, limits, the daily job) are in one file: `shared/driver-config.ts`.
 - **Who can open it:** admins, agents and drivers (see [Drivers and trip history](#drivers-and-trip-history)). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
-- **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `vercel.json`.
+- **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `deploy/Caddyfile`.
 - **Limits:** TomTom's truck data is good but not perfect: drivers still follow road signs. On Android Telegram, until Google billing is on, directions are spoken from the voice pack (no street names).
 - Code: `tools/driver-map/stations.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`, `detours.ts`, `alerts.ts`; `core/kv.ts`; `shared/driver-route.ts`, `shared/driver-config.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs one scheduled job on the VM: deploy/cron.sh <name> calls /api/cron/<name> with CRON_SECRET,
-# the same call Vercel Cron makes. Started by systemd (deploy/cft-cron@.service).
+# the call a scheduled job makes. Started by systemd (deploy/cft-cron@.service).
 set -eu
 cd "$(dirname "$0")/.."
 secret=$(sed -n 's/^CRON_SECRET=//p' .env | tail -n 1 | sed "s/^[\"']//; s/[\"']\$//")

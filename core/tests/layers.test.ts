@@ -43,7 +43,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 function wrongImports(): string[] {
-  const parts = ['api', 'scripts', 'telegram_bot', 'tools', 'task_report', 'core', 'db_storage', 'shared'];
+  const parts = ['scripts', 'telegram_bot', 'tools', 'task_report', 'core', 'db_storage', 'shared'];
   const bad: string[] = [];
   for (const file of parts.flatMap((p) => sourceFiles(join(ROOT, p)))) {
     const from = partOf(file);

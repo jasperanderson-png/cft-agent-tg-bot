@@ -72,7 +72,7 @@ There is no cap on how many leads one click returns. Large results are split int
                                                                   delivery_history (one row per driver, ever)
 ```
 
-Everything runs in the existing Vercel function and Supabase database. No new services or paid tiers.
+Everything runs in the existing bot and database on our server. No new services or paid tiers.
 
 | File | Purpose |
 |---|---|
@@ -254,22 +254,22 @@ To pass on an opt-out: `{"phone": "…", "optout": true}`.
 
 `CRON_SECRET`, `APP_URL` and `ADMIN_TELEGRAM_IDS` are reused from the existing setup.
 
-**Schedule.** `vercel.json` runs `/api/cron/leads` once a day at 14:30 UTC (19:30 Tashkent), after FMCSA's daily refresh. The Vercel Hobby plan allows one run a day per job, which matches how often FMCSA updates. The registration page, webhooks and CSV imports don't wait for any schedule. `/leadsync` runs the pull sources on demand.
+**Schedule.** The server runs `/api/cron/leads` once a day at 14:30 UTC (19:30 Tashkent), after FMCSA's daily refresh (`cft-cron-leads.timer`, times in `deploy/setup-server.sh`). Once a day matches how often FMCSA updates. The registration page, webhooks and CSV imports don't wait for any schedule. `/leadsync` runs the pull sources on demand.
 
 ## Deploying
 
 ```bash
 npm run typecheck && npm test && npm run build
 
-# 1. Add the new tables to the production database
-#    (with the production DATABASE_URL in your environment)
+# On the server, as cft (docs/VM_DEPLOY.md):
+# 1. Get the code: push to main, then
+cd ~/app && deploy/update.sh main
+
+# 2. Add the new tables to the database
 npm run db:migrate
 
-# 2. Optional: in Vercel → Settings → Environment Variables, set LEADS_COMPANY_NAME,
-#    and LEADS_FMCSA_ENABLED=true if you decide to use the FMCSA source
-
-# 3. Deploy
-vercel --prod
+# 3. Optional: in ~/app/.env set LEADS_COMPANY_NAME, and LEADS_FMCSA_ENABLED=true if you
+#    decide to use the FMCSA source, then: sudo systemctl restart cft-agent
 
 # 4. Add /leads to the owners' command menu (optional; the buttons work without it)
 npm run telegram:setup
@@ -277,7 +277,7 @@ npm run telegram:setup
 
 Then send `/start` to the bot. Owners get the home screen with the two sections.
 
-Run the migration before deploying the code. The new code expects the new tables; the old code ignores them.
+Run the migration right after deploying the code. The new code expects the new tables; the old code ignores them.
 
 ## Calling and texting rules
 
@@ -293,6 +293,6 @@ The practical line: for FMCSA records, email and manually dialled calls after a 
 
 ## How this differs from the original brief
 
-- **Stack.** The brief suggested Python, aiogram, FastAPI, APScheduler and Docker. This bot already runs as a TypeScript webhook on Vercel with Supabase PostgreSQL, and Telegram allows only one receiver per bot token, so the feature was built into the existing code. PostgreSQL is used as asked. Docker isn't involved: Vercel builds and runs the function.
-- **Schedule.** Vercel Cron replaces APScheduler.
+- **Stack.** The brief suggested Python, aiogram, FastAPI, APScheduler and Docker. This bot already runs as a TypeScript webhook with PostgreSQL, and Telegram allows only one receiver per bot token, so the feature was built into the existing code. PostgreSQL is used as asked. Docker isn't involved: the bot runs as a service on our server (docs/VM_DEPLOY.md).
+- **Schedule.** The server's scheduled jobs (systemd timers) replace APScheduler.
 - **Providers.** Indeed, ZipRecruiter, Tenstreet and CDLjobs are not integrated, because their data is restricted to hiring or their terms could not be confirmed. The vendor webhook accepts any of them the day you have a contract and consent wording that allow your use.

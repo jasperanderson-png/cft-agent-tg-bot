@@ -7,7 +7,7 @@ import { closeForgotten } from './shifts.js';
 import { getPost, listStaff, openShift, shiftsBetween } from './store.js';
 import { durationEn, hm } from './words.js';
 
-// The evening job (Vercel Cron, 18:00 UTC = 23:00 in Tashkent; Hobby runs it within that hour):
+// The evening job (18:00 UTC = 23:00 in Tashkent):
 //   1. a shift open for more than 16 hours was forgotten: it is closed and its day reported;
 //      a shift still open is a reminder in the person's private chat;
 //   2. a day with a finished shift but no report (sending failed earlier) is reported now;

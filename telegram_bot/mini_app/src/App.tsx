@@ -20,7 +20,7 @@ import { reportMapError } from './lib/report';
  *   #/fuel       Fuel prices: every station, real prices (admins)
  *   #/drivers    Drivers and their trip history (admins); a trip's map opens on /route?trip=<id>
  *   /route       The drivers' route map: truck routes, partner stations, navigation (agents and admins for now). Its own address,
- *                because the map needs a looser security policy (vercel.json); #/driver and the
+ *                because the map needs a looser security policy (deploy/Caddyfile); #/driver and the
  *                start param "driver" are sent there.
  *   #/admin      Agent Academy admin console
  *   anything else: the Agent Academy test (what candidates open)

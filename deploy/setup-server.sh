@@ -17,7 +17,7 @@ APP_DIR=/home/$APP_USER/app
 IP=$(hostname -I | awk '{print $1}')   # the public address comes first (Hetzner, DigitalOcean)
 DOMAIN="${1:-${IP//./-}.sslip.io}"
 
-# Same schedules as "crons" in vercel.json (UTC).
+# When the scheduled jobs run (UTC).
 declare -A JOBS=(
   [weekly]="Mon *-*-* 04:00:00 UTC"
   [leads]="*-*-* 14:30:00 UTC"
@@ -135,7 +135,7 @@ cat <<EOF
 == Done. The site will be https://$DOMAIN
 Next (docs/VM_DEPLOY.md):
 EOF
-[ "${ENV_NEW:-}" = 1 ] && echo "  1. Fill in $APP_DIR/.env (the same values as on Vercel)."
+[ "${ENV_NEW:-}" = 1 ] && echo "  1. Fill in $APP_DIR/.env (copy them from the current server)."
 cat <<EOF
   2. As cft: cd ~/app && deploy/update.sh $BRANCH   (installs, builds, starts the bot)
   3. Check: curl -s https://$DOMAIN/api/health

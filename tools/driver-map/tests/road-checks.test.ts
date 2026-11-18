@@ -304,7 +304,7 @@ describe('config · thresholds live in one config', () => {
   it('has sane values', () => {
     expect(DRIVER_MAP.corridorMi).toBeLessThan(DRIVER_MAP.nearbyMi);
     expect(DRIVER_MAP.detour.candidates).toBeGreaterThan(0);
-    expect(DRIVER_MAP.relocateBudgetS).toBeLessThan(60); // Vercel stops a request at 60 s
+    expect(DRIVER_MAP.relocateBudgetS).toBeLessThan(60); // a request may take 60 s at most
   });
 });
 

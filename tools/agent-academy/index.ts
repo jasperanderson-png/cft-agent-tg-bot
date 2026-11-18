@@ -60,7 +60,7 @@ export const academy: Tool = {
       return { week: { started: s.started, completed: s.completed, passed: s.passed } };
     }));
 
-    // Monday summary (Vercel Cron)
+    // Monday summary (scheduled job)
     route('GET', 'cron/weekly', async (req) => {
       requireCron(req);
       return ok(await notify.sendWeeklyReport(false));

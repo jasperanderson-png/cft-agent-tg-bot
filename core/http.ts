@@ -64,7 +64,7 @@ export function secretMatches(given: string | undefined, want: string): boolean 
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Scheduled jobs (Vercel Cron) send "Authorization: Bearer <CRON_SECRET>". */
+/** Scheduled jobs (deploy/cron.sh) send "Authorization: Bearer <CRON_SECRET>". */
 export function requireCron(req: ApiRequest) {
   const h = req.headers['authorization'] ?? '';
   if (!env.cronSecret || !secretMatches(h.replace(/^Bearer\s+/i, ''), env.cronSecret)) throw new HttpError(401, 'Unauthorized.');

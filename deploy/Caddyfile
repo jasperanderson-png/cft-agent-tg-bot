@@ -1,5 +1,5 @@
 # The website on the VM (copied to /etc/caddy/Caddyfile by deploy/setup-server.sh).
-# Caddy gets and renews the HTTPS certificate by itself. Same rules as vercel.json: the Mini App from
+# Caddy gets and renews the HTTPS certificate by itself. The rules: the Mini App from
 # dist/, /route opens the Mini App, /api/* goes to the bot (telegram_bot/server/start.ts).
 # __DOMAIN__ and __APP_DIR__ are filled in by setup-server.sh.
 

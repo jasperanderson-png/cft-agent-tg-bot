@@ -3,7 +3,7 @@ import { HttpError } from '../../core/http.js';
 import { digest, kv, kvReady, rateLimit, spend } from '../../core/kv.js';
 
 // The natural navigation voice: Google Cloud Text-to-Speech, Chirp 3 HD. A phrase is synthesised
-// once: the MP3 is kept in our Redis and, being a plain GET URL, by the phone and Vercel's CDN.
+// once: the MP3 is kept in our Redis and, being a plain GET URL, by the phone.
 // Characters count against our daily and monthly allowance (core/kv.ts, shared/driver-config.ts).
 
 /** The voices offered (US English); Fenrir, a male voice, is the default the user chose. */

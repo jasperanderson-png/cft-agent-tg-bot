@@ -25,7 +25,7 @@ export const driverLeads: Tool = {
       const s = await leadStats(db, await reportTimeZone(db));
       return { waiting: s.undelivered, today: s.today, total: s.total };
     }));
-    // Daily FMCSA sync (Vercel Cron)
+    // Daily FMCSA sync (scheduled job)
     route('GET', 'cron/leads', async (req) => {
       requireCron(req);
       return ok({ sources: await runPullSources(getPool(), 'schedule') });

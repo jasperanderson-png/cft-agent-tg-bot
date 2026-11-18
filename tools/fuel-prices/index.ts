@@ -102,7 +102,7 @@ export const fuelPrices: Tool = {
       return adminView();
     }));
 
-    // Daily price pull (Vercel Cron): the same save as the admin's Refresh button, with nobody pressing it.
+    // Daily price pull (scheduled job): the same save as the admin's Refresh button, with nobody pressing it.
     // pulled_by stays empty (the column allows it).
     route('GET', 'cron/fuel', async (req) => {
       requireCron(req);

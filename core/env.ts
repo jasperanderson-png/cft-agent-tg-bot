@@ -1,6 +1,6 @@
 /** Server-only configuration. Nothing here is ever sent to the browser except via PublicConfig. */
 export const env = {
-  /** DATABASE_URL, or the pooled URL the Vercel ↔ Supabase integration provides. */
+  /** DATABASE_URL (POSTGRES_URL also works). */
   get databaseUrl() {
     return process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
   },
@@ -42,7 +42,7 @@ export const env = {
   get taskReportToken() {
     return process.env.TASK_REPORT_TOKEN ?? '';
   },
-  /** Vercel Cron sends "Authorization: Bearer <CRON_SECRET>". */
+  /** The scheduled jobs send "Authorization: Bearer <CRON_SECRET>". */
   get cronSecret() {
     return process.env.CRON_SECRET ?? '';
   },

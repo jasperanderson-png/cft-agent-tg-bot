@@ -8,7 +8,7 @@ const formObject = (raw: string) => Object.fromEntries(new URLSearchParams(raw))
 
 async function readBody(req: IncomingMessage & { body?: unknown }): Promise<unknown> {
   const form = isForm(req);
-  // Vercel's Node runtime may have parsed the body already.
+  // A host that parsed the body already (some serverless runtimes) hands it over as req.body.
   if (req.body !== undefined) return typeof req.body === 'string' ? (form ? formObject(req.body) : JSON.parse(req.body || 'null')) : req.body;
   const chunks: Buffer[] = [];
   let size = 0;
@@ -30,10 +30,10 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-/** Adapts Node's http request/response (Vercel functions, local dev server) to the router. */
+/** Adapts Node's http request/response (the server, the local dev server) to the router. */
 export async function nodeHandler(req: IncomingMessage & { body?: unknown }, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://local');
-  // vercel.json rewrites /api/<path> to /api/main?__path=<path>
+  // /api/<path>, or /api/main?__path=<path> from a host that rewrites every call to one function
   const path = (url.searchParams.get('__path') ?? url.pathname.replace(/^\/api\/?/, '')).replace(/^\/+|\/+$/g, '');
   url.searchParams.delete('__path');
 

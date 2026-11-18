@@ -16,7 +16,7 @@ run here, and so does the database. Vercel is no longer used (the project was de
 How it fits together: **Caddy** (web server) holds the HTTPS certificate, serves the Mini App from
 `dist/` and hands `/api/*` to the bot. The bot (`npm start`, `telegram_bot/server/start.ts`) runs as a
 background service (`cft-agent`) that restarts by itself. The scheduled jobs are systemd timers
-(`cft-cron-*.timer`, the same times as `crons` in `vercel.json`). Logins: SSH keys only, no passwords.
+(`cft-cron-*.timer`, the times are in `deploy/setup-server.sh`). Logins: SSH keys only, no passwords.
 
 ## Deploying
 

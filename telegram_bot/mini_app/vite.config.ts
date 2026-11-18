@@ -1,6 +1,6 @@
 // Build of the browser side: the Telegram Mini App (index.html + src/, with the screens of every role
 // in src/screens/) and the Driver Leads sign-up page.
-// Output goes to dist/ at the project root, which Vercel serves as the website (see vercel.json).
+// Output goes to dist/ at the project root, which Caddy serves as the website (deploy/Caddyfile).
 import { cpSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
 import react from '@vitejs/plugin-react';

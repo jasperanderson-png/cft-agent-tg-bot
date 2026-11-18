@@ -67,7 +67,7 @@ export const driverMap: Tool = {
       const asks = readAsks(req.body);
       return { detours: await detourMinutes(asks, await stationPoints(getPool(), asks.map((a) => a.id)), fetch) };
     }));
-    // Daily (Vercel Cron, after the price pull): map points for new stations, old ones checked again.
+    // Daily (scheduled job, after the price pull): map points for new stations, old ones checked again.
     route('GET', 'cron/stations', async (req) => {
       requireCron(req);
       return ok(await refreshStationLocations(getPool()));

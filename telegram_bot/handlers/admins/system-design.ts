@@ -28,13 +28,12 @@ const ROLES = [
 ];
 const BASE = [
   { name: 'core/', what: 'Settings, the Telegram connection, who is admin or agent, brand fonts and logo' },
-  { name: 'db_storage/', what: 'The Postgres database (Supabase): connection, migrations, Academy questions' },
+  { name: 'db_storage/', what: 'The Postgres database: connection, migrations, Academy questions' },
   { name: 'shared/', what: 'Dates, grading, CSV and types, used by the server and the Mini App' },
 ];
 const OUTSIDE = [
   { name: 'Telegram', what: 'The bot, the Mini App, the reports chat' },
-  { name: 'Vercel', what: 'Hosting and 3 daily jobs (leads, Monday summary, reports)' },
-  { name: 'Supabase', what: 'The Postgres database' },
+  { name: 'Our server', what: 'DigitalOcean: the bot, the database, Redis, 5 scheduled jobs' },
   { name: 'United Fuel', what: 'The fuel price cabinet' },
   { name: 'FMCSA', what: 'The US carrier registry (new leads)' },
 ];

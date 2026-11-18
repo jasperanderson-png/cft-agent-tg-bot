@@ -1,9 +1,0 @@
-.env
-.env.*
-!.env.example
-node_modules
-dist
-.vercel
-.agents
-skills-lock.json
-.envrc

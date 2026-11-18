@@ -1,6 +1,5 @@
 // Production server on the VM (npm start): the bot's API on 127.0.0.1:8787. Caddy (deploy/Caddyfile)
 // sits in front: HTTPS, the built Mini App from dist/, and /api/* handed to this process.
-// On Vercel, api/main.ts does the same job; both use the same router.
 import { createServer } from 'node:http';
 import { nodeHandler } from './node-adapter.js';
 
@@ -14,7 +13,7 @@ const server = createServer((req, res) => {
     res.end();
   });
 });
-// Vercel stopped a request after 60 s (vercel.json maxDuration); keep the same limit here.
+// A request may take at most 60 s (the scheduled jobs are written for that limit).
 server.requestTimeout = 60_000;
 server.listen(PORT, HOST, () => console.log(`CFT Agent API → http://${HOST}:${PORT}/api`));
 

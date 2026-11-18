@@ -1,4 +1,4 @@
-// Local development: the bot's API on :8787 (same router as the Vercel function) plus the Mini App
+// Local development: the bot's API on :8787 (same router as the server) plus the Mini App
 // on :5173 (Vite, which forwards /api to the API).
 import { createServer } from 'node:http';
 import { join } from 'node:path';

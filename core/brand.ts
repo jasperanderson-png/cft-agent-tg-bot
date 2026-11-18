@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 // The CFT brand files server-drawn pictures use (fuel price tables, work report cards): fonts and the
 // logo, in core/brand/. Barlow is the Mini App's font (Latin only); Fira Sans has Russian letters.
-// Deployed, they ride along with the function through vercel.json "includeFiles".
+// On the server they are read from the checked-out code (core/brand/).
 
 let dir: string | null = null;
 /** core/brand/ next to this file when run from source, from the project root when deployed. */

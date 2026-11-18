@@ -12,7 +12,7 @@ import './driver.css';
 // One recorded trip on the map, for admins (/route?trip=<id>; opened from the Drivers screen). The
 // planned route is dashed, the driven track solid orange, and the stretches with nothing recorded
 // (the app closed, the phone asleep, no signal) are dotted red: shown as gaps, never filled in.
-// It lives on /route because only that page may load the map (vercel.json).
+// It lives on /route because only that page may load the map (deploy/Caddyfile).
 
 const GAP_MS = 90_000;
 export const STATUS_TEXT: Record<TripDetail['status'], string> = {
