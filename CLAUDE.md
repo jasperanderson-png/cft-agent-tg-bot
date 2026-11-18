@@ -1,12 +1,12 @@
 # CFT Agent — notes for Claude Code
 
-One Telegram bot (@cft_Agentbot) with its Mini App, one database, one Vercel deployment. The layout
+One Telegram bot (@cft_Agentbot) with its Mini App, one database, one server (DigitalOcean VM, docs/VM_DEPLOY.md). The layout
 and its rules are in README.md ("Project layout"): `telegram_bot/` decides who may do what,
 `tools/` and `task_report/` do the work, `db_storage/` is the database; imports only go downward.
 
 - The bot's own texts (buttons, commands, replies) are in English. Work reports in the channel are in Russian.
 - Dates are dd/mm/yyyy; the report time zone is Asia/Tashkent.
-- Ask before every deploy (`npx vercel --prod --yes` from this folder) and before production migrations.
+- Ask before every deploy (push to `main`, then `deploy/update.sh main` on the VM as `cft`, or GitHub → Actions → Deploy to VM) and before production migrations.
 
 ## Logging finished work (task report)
 
