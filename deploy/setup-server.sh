@@ -14,7 +14,7 @@ BRANCH="${BRANCH:-main}"   # the branch to run; deploy/update.sh <branch> switch
 NODE_MAJOR="${NODE_MAJOR:-24}"
 APP_USER=cft
 APP_DIR=/home/$APP_USER/app
-IP=$(hostname -I | awk '{print $1}')   # Hetzner puts the public address on the server itself
+IP=$(hostname -I | awk '{print $1}')   # the public address comes first (Hetzner, DigitalOcean)
 DOMAIN="${1:-${IP//./-}.sslip.io}"
 
 # Same schedules as "crons" in vercel.json (UTC).

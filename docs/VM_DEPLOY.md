@@ -1,4 +1,4 @@
-# Running the bot on the VM (Hetzner)
+# Running the bot on the VM (DigitalOcean)
 
 **Vercel stays the live bot.** People use it, so nothing below touches it: Telegram keeps sending
 updates to Vercel, and Vercel keeps running the scheduled jobs. The VM is a second copy, sharing the
@@ -7,9 +7,9 @@ guide), done only when you decide.
 
 | | |
 |---|---|
-| Server | Hetzner CX33 `ubuntu-8gb-fsn1-2`, 4 CPU, 8 GB RAM, 80 GB disk, Ubuntu 24.04 |
-| Address | `168.119.246.35` |
-| Website | `https://168-119-246-35.sslip.io` (sslip.io is a free name pointing at the IP; a real domain can replace it) |
+| Server | DigitalOcean Droplet `ubuntu-s-1vcpu-2gb-lon1` (London), 1 CPU, 2 GB RAM + 2 GB swap, 50 GB disk, Ubuntu 24.04 |
+| Address | `209.97.132.149` |
+| Website | `https://209-97-132-149.sslip.io` (sslip.io is a free name pointing at the IP; a real domain can replace it) |
 | Code on the server | `/home/cft/app`, run by the `cft` user |
 | Files | `deploy/` (setup, update, web server, service), `.github/workflows/deploy-vm.yml` (the GitHub button) |
 
@@ -23,15 +23,15 @@ Vercel Cron's jobs become systemd timers (`cft-cron-*.timer`), installed **switc
 1. Your PC's key (`C:\Users\user\.ssh\id_ed25519.pub`) goes on GitHub: github.com → Settings → SSH and
    GPG keys → New SSH key.
 2. The admin runs on the server, as root: `ssh-import-id gh:jasperanderson-png`
-3. Check from your PC: `ssh root@168.119.246.35`
+3. Check from your PC: `ssh root@209.97.132.149`
 
 ## 2. Set up the server (once)
 
 ```bash
-scp deploy/setup-server.sh root@168.119.246.35:
-ssh root@168.119.246.35 bash setup-server.sh
+scp deploy/setup-server.sh root@209.97.132.149:
+ssh root@209.97.132.149 bash setup-server.sh
 # until the deploy files are merged into main:
-# ssh root@168.119.246.35 BRANCH=refactor/shrink-codebase bash setup-server.sh
+# ssh root@209.97.132.149 BRANCH=refactor/shrink-codebase bash setup-server.sh
 ```
 
 The first run stops and prints the server's **deploy key**: add it on GitHub → the repository →
@@ -46,10 +46,10 @@ GitHub → the repository → Settings → Secrets and variables → Actions →
 
 | Secret | Value |
 |---|---|
-| `VM_HOST` | `168.119.246.35` |
+| `VM_HOST` | `209.97.132.149` |
 | `VM_USER` | `cft` |
 | `VM_SSH_KEY` | the whole file `C:\Users\user\.ssh\cft_github_actions` (the private key, used only by this button) |
-| `VM_HOST_KEY` | `168.119.246.35 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/XXueaqYW+gORmTBp9Rm4O30Y1owBk3NPDzp+3DpuM` |
+| `VM_HOST_KEY` | `209.97.132.149 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIcxuH1ClZLMUyNhNd4E70uGHDZwrBEimVIt2BV4pWcJ` |
 
 And let that key in, on the server: append `C:\Users\user\.ssh\cft_github_actions.pub` to
 `/home/cft/.ssh/authorized_keys`.
@@ -62,7 +62,7 @@ GitHub → Actions → **Deploy to VM** → Run workflow → pick the branch. Or
 It never changes the database. If new migration files arrived, it says so; apply them by hand with
 `npm run db:migrate` after checking them. Remember the database is shared with Vercel.
 
-Check: `curl -s https://168-119-246-35.sslip.io/api/health` → `{"ok":true}`
+Check: `curl -s https://209-97-132-149.sslip.io/api/health` → `{"ok":true}`
 Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u caddy` (the website).
 
 ## Switching people over (later, only when decided)
