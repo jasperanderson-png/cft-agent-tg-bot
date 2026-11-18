@@ -1,7 +1,7 @@
 #!/bin/bash
 # Puts the latest code from GitHub live on the VM. Run as the cft user (the GitHub "Deploy to VM"
 # button does it over SSH): deploy/update.sh [branch]   (default: main)
-# Database changes are NOT applied here: run `npm run db:migrate` by hand after checking them.
+# Database changes are NOT applied here: run `npm run db:migrate` (as cft, in ~/app) by hand after checking them.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 branch="${1:-main}"

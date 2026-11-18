@@ -1,48 +1,72 @@
 # Running the bot on the VM (DigitalOcean)
 
-**Vercel stays the live bot.** People use it, so nothing below touches it: Telegram keeps sending
-updates to Vercel, and Vercel keeps running the scheduled jobs. The VM is a second copy, sharing the
-same database, that you can open and test. Switching people over is a separate step (the end of this
-guide), done only when you decide.
+**The VM is the live bot** (since 18/11/2026): Telegram sends every update here, the scheduled jobs
+run here, and so does the database. Vercel is no longer used (the project was deleted).
 
 | | |
 |---|---|
 | Server | DigitalOcean Droplet `ubuntu-s-1vcpu-2gb-lon1` (London), 1 CPU, 2 GB RAM + 2 GB swap, 50 GB disk, Ubuntu 24.04 |
 | Address | `209.97.132.149` |
 | Website | `https://209-97-132-149.sslip.io` (sslip.io is a free name pointing at the IP; a real domain can replace it) |
-| Code on the server | `/home/cft/app`, run by the `cft` user |
+| Code on the server | `/home/cft/app` (branch `main`), run by the `cft` user; settings in `/home/cft/app/.env` |
+| Database | PostgreSQL 17 on the server itself (`cft_agent`, only reachable from the server) |
 | Files | `deploy/` (setup, update, web server, service), `.github/workflows/deploy-vm.yml` (the GitHub button) |
 
 How it fits together: **Caddy** (web server) holds the HTTPS certificate, serves the Mini App from
-`dist/` and hands `/api/*` to the bot. The bot (`npm start`, `telegram_bot/server/start.ts`) is the
-same code as the Vercel function, as a background service (`cft-agent`) that restarts by itself.
-Vercel Cron's jobs become systemd timers (`cft-cron-*.timer`), installed **switched off**.
+`dist/` and hands `/api/*` to the bot. The bot (`npm start`, `telegram_bot/server/start.ts`) runs as a
+background service (`cft-agent`) that restarts by itself. The scheduled jobs are systemd timers
+(`cft-cron-*.timer`, the same times as `crons` in `vercel.json`). Logins: SSH keys only, no passwords.
 
-## 1. Access (once)
+## Deploying
 
-1. Your PC's key (`C:\Users\user\.ssh\id_ed25519.pub`) goes on GitHub: github.com → Settings → SSH and
-   GPG keys → New SSH key.
-2. The admin runs on the server, as root: `ssh-import-id gh:jasperanderson-png`
-3. Check from your PC: `ssh root@209.97.132.149`
+GitHub → Actions → **Deploy to VM** → Run workflow → `main`. Or on the server, as `cft`:
+`cd ~/app && deploy/update.sh main`. It fetches the code, installs, builds and restarts the bot.
 
-## 2. Set up the server (once)
+It never changes the database. If new migration files arrived, it says so; apply them by hand, as
+`cft`, after checking them: `cd ~/app && npm run db:migrate`.
 
-```bash
-scp deploy/setup-server.sh root@209.97.132.149:
-ssh root@209.97.132.149 bash setup-server.sh
-# until the deploy files are merged into main:
-# ssh root@209.97.132.149 BRANCH=refactor/shrink-codebase bash setup-server.sh
-```
+Check: `curl -s https://209-97-132-149.sslip.io/api/health` → `{"ok":true}`
+Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the jobs), `journalctl -u caddy` (the website).
 
-The first run stops and prints the server's **deploy key**: add it on GitHub → the repository →
-Settings → Deploy keys (read-only, leave write access off), then run the script again.
+## The database
 
-Then fill in `/home/cft/app/.env` with the same values as on Vercel (Vercel → Project → Settings →
-Environment Variables), **except** `APP_URL`, which the script already set to the VM's address.
+- PostgreSQL 17, listening on `127.0.0.1` only (and the firewall allows only SSH and the website).
+  The bot's address is in `.env` (`DATABASE_URL`) and in `/home/cft/.local-db-url`.
+- **Nightly backup** at 21:30 UTC (`cft-db-backup.timer` → `/usr/local/bin/cft-db-backup`): a full
+  copy in `/var/backups/cft-db/`, kept 14 days. Make one now: `sudo -u cft /usr/local/bin/cft-db-backup`.
+- **Restore** a copy (stops the bot first):
+  ```bash
+  systemctl stop cft-agent
+  sudo -u cft pg_restore --clean --if-exists --no-owner -d "$(cat /home/cft/.local-db-url)" /var/backups/cft-db/<file>.dump
+  systemctl start cft-agent
+  ```
+- Turn on **DigitalOcean Backups** for the Droplet too: the nightly copies live on the same server.
+- Moved from Supabase on 18/11/2026 (`/root/dbmove/final.dump` is the copy taken then). Supabase's
+  address is kept in `.env` as `SUPABASE_DATABASE_URL`, which nothing reads.
 
-## 3. The "Deploy to VM" button on GitHub (once)
+## Setting up a new server
 
-GitHub → the repository → Settings → Secrets and variables → Actions → New repository secret:
+1. Your PC's key (`C:\Users\user\.ssh\id_ed25519.pub`) in the provider's "SSH key" box when creating
+   the server, or `ssh-import-id gh:jasperanderson-png` on it.
+2. Install:
+   ```bash
+   scp deploy/setup-server.sh root@<ip>:
+   ssh root@<ip> bash setup-server.sh
+   ```
+   The first run stops and prints the server's **deploy key**: add it on GitHub → the repository →
+   Settings → Deploy keys (read-only), then run the script again.
+3. Fill in `/home/cft/app/.env` (copy the current server's, except `APP_URL`, which the script sets),
+   then as `cft`: `cd ~/app && deploy/update.sh main`.
+4. Database: install PostgreSQL 17 and restore the latest nightly copy (see above).
+5. Move people: turn on the timers
+   (`systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer cft-cron-stations.timer`),
+   point Telegram at it (as `cft`: `cd ~/app && npm run telegram:setup`), change the Mini App URL in
+   @BotFather (Bot Settings → Configure Mini App), and switch the old server's timers off, or every
+   job runs twice.
+
+## The "Deploy to VM" button on GitHub
+
+Repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |---|---|
@@ -51,28 +75,4 @@ GitHub → the repository → Settings → Secrets and variables → Actions →
 | `VM_SSH_KEY` | the whole file `C:\Users\user\.ssh\cft_github_actions` (the private key, used only by this button) |
 | `VM_HOST_KEY` | `209.97.132.149 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIcxuH1ClZLMUyNhNd4E70uGHDZwrBEimVIt2BV4pWcJ` |
 
-And let that key in, on the server: append `C:\Users\user\.ssh\cft_github_actions.pub` to
-`/home/cft/.ssh/authorized_keys`.
-
-## Deploying
-
-GitHub → Actions → **Deploy to VM** → Run workflow → pick the branch. Or on the server, as `cft`:
-`cd ~/app && deploy/update.sh main`. It fetches the code, installs, builds and restarts the bot.
-
-It never changes the database. If new migration files arrived, it says so; apply them by hand with
-`npm run db:migrate` after checking them. Remember the database is shared with Vercel.
-
-Check: `curl -s https://209-97-132-149.sslip.io/api/health` → `{"ok":true}`
-Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u caddy` (the website).
-
-## Switching people over (later, only when decided)
-
-Do these together, then Vercel can be retired:
-
-1. Turn on the VM's scheduled jobs:
-   `systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer cft-cron-stations.timer`
-2. Point Telegram at the VM: as `cft`, `cd ~/app && npm run telegram:setup`.
-3. Remove the `crons` from `vercel.json` (or the Vercel project), or every job runs twice.
-
-To go back: run `npm run telegram:setup` from a machine whose `APP_URL` is the Vercel address, and
-turn the timers off again (`systemctl disable --now 'cft-cron-*.timer'`).
+The matching public key (`cft_github_actions.pub`) is in `/home/cft/.ssh/authorized_keys`.
