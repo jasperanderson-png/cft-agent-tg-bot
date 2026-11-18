@@ -1,23 +1,32 @@
 import { createHash } from 'node:crypto';
 import { env } from './env.js';
 import { HttpError } from './http.js';
+import { redisCommand } from './redis.js';
 import { DRIVER_MAP } from '../shared/driver-config.js';
 
-// Our Redis store (Upstash, REST): the daily and monthly budgets that keep TomTom truck routing and
-// the Google natural voice inside their free allowances, per-client rate limits, the voice clip cache
-// and small "say it once" markers. Every key starts with "cft:".
+// Our Redis store: the daily and monthly budgets that keep TomTom truck routing and the Google
+// natural voice inside their free allowances, per-client rate limits, the voice clip cache and small
+// "say it once" markers. Every key starts with "cft:". Our own Redis on the server (REDIS_URL,
+// core/redis.ts) when set, else Upstash's REST API (KV_REST_API_URL / KV_REST_API_TOKEN).
 
 /** Our free allowances (shared/driver-config.ts). */
 export const BUDGETS = DRIVER_MAP.budgets;
 export type Budget = keyof typeof BUDGETS;
 
-export const kvReady = () => !!(env.kvUrl && env.kvToken);
+export const kvReady = () => !!env.redisUrl || !!(env.kvUrl && env.kvToken);
 export const digest = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 32);
 const month = () => new Date().toISOString().slice(0, 7);
 
-/** One Redis command over Upstash's REST API. */
+/** One Redis command: on our own Redis when REDIS_URL is set, else over Upstash's REST API. */
 export async function kv(...command: (string | number)[]): Promise<unknown> {
   if (!kvReady()) throw new HttpError(503, 'Storage is not configured.', 'kv_off');
+  if (env.redisUrl) {
+    try {
+      return await redisCommand(env.redisUrl, command);
+    } catch {
+      throw new HttpError(503, 'Storage is unavailable.', 'kv_down');
+    }
+  }
   let res: Response;
   try {
     res = await fetch(env.kvUrl, {

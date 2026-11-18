@@ -10,6 +10,6 @@ export default defineConfig({
     // Paid services (TomTom, Google voice, the Redis that caps them) and OpenRouteService
     // are never called from tests, even when a developer's .env.local has the keys: tests that need
     // them set fakes and stub fetch.
-    env: { TOMTOM_API_KEY: '', GOOGLE_TTS_KEY: '', KV_REST_API_URL: '', KV_REST_API_TOKEN: '', ORS_API_KEY: '' },
+    env: { TOMTOM_API_KEY: '', GOOGLE_TTS_KEY: '', REDIS_URL: '', KV_REST_API_URL: '', KV_REST_API_TOKEN: '', ORS_API_KEY: '' },
   },
 });

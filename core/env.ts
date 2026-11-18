@@ -108,7 +108,14 @@ export const env = {
   get googleTtsKey() {
     return (process.env.GOOGLE_TTS_KEY ?? '').trim();
   },
-  /** Upstash Redis (REST): our daily and monthly caps, rate limits and the voice cache. */
+  /**
+   * Our Redis on the same server (redis://:password@127.0.0.1:6379): our daily and monthly caps, rate
+   * limits and the voice cache. When set it is used instead of Upstash.
+   */
+  get redisUrl() {
+    return (process.env.REDIS_URL ?? '').trim();
+  },
+  /** Upstash Redis (REST), used when REDIS_URL is not set. */
   get kvUrl() {
     return (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').trim();
   },
