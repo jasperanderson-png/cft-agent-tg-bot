@@ -9,7 +9,8 @@ import { HttpError, UUID_RE } from '../../support/helpers/http.js';
 import { telegramAdmin } from '../../support/helpers/admins.js';
 import { notifyResult } from './notify.js';
 import { autoSyncAttempt } from './sheets.js';
-import { fullName, requireInitData, type VerifiedInitData } from '../../support/helpers/telegram.js';
+import { fullName, type VerifiedInitData } from '../../support/helpers/telegram.js';
+import { requireTelegramUser } from '../../support/helpers/web-login.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 
 interface AttemptRow {
@@ -164,7 +165,7 @@ const lockTelegramUser = (c: pg.PoolClient, id: number) => c.query('select pg_ad
  * attempt (with a fresh token) so a returning candidate lands where they left off.
  */
 export async function telegramSession(body: Record<string, unknown>): Promise<AttemptState | { state: 'none'; suggestedName: string; isAdmin: boolean }> {
-  const tg = requireInitData(body.initData);
+  const tg = await requireTelegramUser(getPool(), body.initData);
   return tx(async (c) => {
     await lockTelegramUser(c, tg.user.id);
     await touchTelegramUser(c, tg.user);
@@ -191,7 +192,7 @@ export async function startAttempt(body: Record<string, unknown>): Promise<Attem
   if (err) throw new HttpError(400, err, 'invalid_name');
 
   let tg: VerifiedInitData | null = null;
-  if (typeof body.initData === 'string' && body.initData) tg = requireInitData(body.initData);
+  if (typeof body.initData === 'string' && body.initData) tg = await requireTelegramUser(getPool(), body.initData);
   else if (!env.allowWebCandidates) throw new HttpError(401, 'Open this test from the CFT Telegram bot to begin.', 'telegram_required');
 
   return tx(async (c) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DriverWithTrips, TripSummary } from '../../../../../support/common/types';
+import type { DriverRequestCard, DriverWithTrips, TripSummary } from '../../../../../support/common/types';
 import { driversApi, type ApiError } from '../../lib/api';
 import { haptic, routePageUrl, tg, useBackButton } from '../../lib/telegram';
 import { fmtDate, fmtDay, fmtDuration, Icon, Spinner, useToast } from '../../components/ui';
@@ -18,16 +18,48 @@ const STATUS: Record<TripSummary['status'], { text: string; color: string }> = {
   stale: { text: 'Recording stopped', color: '#ff8a8a' },
 };
 
+/** Where a driver came from: "invited by Aziz · website link · approved by Jasper". */
+function origin(d: DriverWithTrips): string {
+  const link = d.via === 'website' ? 'website link' : d.via === 'bot' ? 'bot link' : d.via === 'link' ? 'driver link' : null;
+  return [
+    d.invitedBy ? `invited by ${d.invitedBy}` : d.via === 'bot' || d.via === 'website' ? 'came by themselves' : null,
+    link,
+    d.approvedBy && `approved by ${d.approvedBy}${d.ownLink ? ' (own link)' : ''}`,
+  ].filter(Boolean).join(' · ');
+}
+
 export function Drivers({ onBack }: { onBack: () => void }) {
   const [list, setList] = useState<DriverWithTrips[] | null>(null);
+  const [requests, setRequests] = useState<DriverRequestCard[]>([]);
+  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [driver, setDriver] = useState<DriverWithTrips | null>(null);
+  const [toastNode, toast] = useToast();
   const load = useCallback(() => {
     setError('');
     driversApi.list().then((r) => setList(r.drivers), (e: ApiError) => setError(e.message));
+    driversApi.requests().then((r) => setRequests(r.pending), () => setRequests([]));
   }, []);
   useEffect(load, [load]);
   useBackButton(driver ? () => setDriver(null) : onBack);
+
+  /** Approve or decline, as the buttons in the admins' chat do (the first decision wins). */
+  const decide = async (r: DriverRequestCard, action: 'approve' | 'decline') => {
+    setBusy(r.id);
+    try {
+      const next = await driversApi.decide(r.id, action);
+      setRequests(next.pending);
+      haptic.success();
+      toast(action === 'approve' ? `${r.name} approved: they have the route map now` : `${r.name} declined`);
+      driversApi.list().then((x) => setList(x.drivers), () => {});
+    } catch (e) {
+      haptic.error();
+      toast((e as ApiError).message);
+      load();
+    } finally {
+      setBusy('');
+    }
+  };
 
   if (driver) return <DriverTrips d={driver} onBack={() => setDriver(null)} />;
   const current = list?.filter((d) => !d.removed) ?? [];
@@ -38,11 +70,32 @@ export function Drivers({ onBack }: { onBack: () => void }) {
       <span className="d-avatar">{initials(d.name)}</span>
       <span className="t-person-text">
         <b>{d.name ?? 'Telegram user'}</b>
-        <span>{[d.username && '@' + d.username, d.removed ? 'removed' : `joined ${fmtDay(d.joinedAt)}`, d.invitedBy && `by ${d.invitedBy}`].filter(Boolean).join(' · ')}</span>
+        <span>{[d.username && '@' + d.username, d.removed ? 'removed' : `joined ${fmtDay(d.joinedAt)}`].filter(Boolean).join(' · ')}</span>
+        {!d.removed && origin(d) && <span>{origin(d)}</span>}
         <span>{d.trips ? `${d.trips} trip${d.trips === 1 ? '' : 's'} · ${mi(d.drivenMi)} · last ${fmtDay(d.lastTripAt)}` : 'No trips yet'}</span>
       </span>
       <Icon name="right" style={{ color: '#666' }} />
     </button>
+  );
+
+  const requestCard = (r: DriverRequestCard) => (
+    <div key={r.id} className="t-card">
+      <div className="t-row">
+        <span className="d-avatar">{initials(r.name)}</span>
+        <div>
+          <b>{r.name}{r.username ? ` @${r.username}` : ''}</b>
+          <span>{[r.phone, r.company].filter(Boolean).join(' · ') || '—'}</span>
+        </div>
+      </div>
+      <span className="d-hint" style={{ margin: 0 }}>
+        {r.invitedBy ? `Invited by ${r.invitedBy}` : 'Came by themselves'} · via {r.via === 'website' ? 'website' : 'bot'}{r.invitedBy ? ' link' : ''}
+        {r.source ? ` · heard about us: ${r.source}` : ''} · asked {fmtDay(r.submittedAt)}
+      </span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="d-cta wide" disabled={!!busy} onClick={() => decide(r, 'approve')}>{busy === r.id ? <Spinner /> : 'Approve'}</button>
+        <button type="button" className="t-danger" style={{ flex: 1 }} disabled={!!busy} onClick={() => decide(r, 'decline')}>Decline</button>
+      </div>
+    </div>
   );
 
   return (
@@ -60,10 +113,16 @@ export function Drivers({ onBack }: { onBack: () => void }) {
           <div className="d-sec">{[0, 1, 2, 3].map((i) => <div key={i} data-skel style={{ height: 64, borderRadius: 12 }} />)}</div>
         ) : (
           <>
+            {requests.length > 0 && (
+              <section className="d-sec">
+                <span className="d-eyebrow">WAITING FOR APPROVAL · {requests.length}</span>
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))' }}>{requests.map(requestCard)}</div>
+              </section>
+            )}
             <section className="d-sec">
               <span className="d-eyebrow">DRIVERS · {current.length}</span>
               {current.length ? <div className="t-people" data-rows>{current.map(row)}</div> : (
-                <div className="d-empty"><Icon name="truck" size={22} /><span>No drivers yet. Make a driver link in the bot: /invitedriver. Agents can make them too.</span></div>
+                <div className="d-empty"><Icon name="truck" size={22} /><span>No drivers yet. Send your driver links from the bot: /invitedriver. Agents have their own links too.</span></div>
               )}
             </section>
             {removed.length > 0 && (
@@ -76,6 +135,7 @@ export function Drivers({ onBack }: { onBack: () => void }) {
           </>
         )}
       </main>
+      {toastNode}
     </div>
   );
 }

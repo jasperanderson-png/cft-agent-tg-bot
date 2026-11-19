@@ -10,6 +10,7 @@ import { Hub } from './screens/admins/Hub';
 import { useAdminSession } from './lib/session';
 import { routePageUrl, startParam, tg } from './lib/telegram';
 import { reportMapError } from './lib/report';
+import { WebGate } from './screens/website/WebGate';
 
 /**
  * Which screen the Mini App shows, from the URL hash:
@@ -42,15 +43,19 @@ const onRoutePage = location.pathname.replace(/\/+$/, '') === ROUTE_PAGE;
 // #/driver (not #/drivers, the admins' Drivers screen) and the start param "driver" open the map.
 if (!onRoutePage && (/^#\/driver(\/|$)/.test(location.hash) || startParam === 'driver')) location.replace(routePageUrl());
 
-/** Leaves the map: back where they came from; drivers (who open it from their menu button) close the app. */
-const leaveMap = () => (history.length > 1 ? history.back() : tg ? tg.close() : location.assign('/#/discounts'));
+/**
+ * Leaves the map: back where they came from; drivers (who open it from their menu button) close the app.
+ * On the website: its home, with Log out.
+ */
+const leaveMap = () => (history.length > 1 ? history.back() : tg ? tg.close() : location.assign('/?home'));
 
 export function App() {
   if (onRoutePage) {
     const page = tripId ? <TripReplay id={tripId} onExit={() => (history.length > 1 ? history.back() : location.assign('/#/drivers'))} /> : <DriverMap onExit={leaveMap} />;
-    return <div className="app"><MapCrashGuard><Suspense fallback={<div className="center-msg">Loading the map…</div>}>{page}</Suspense></MapCrashGuard></div>;
+    return <WebGate><div className="app"><MapCrashGuard><Suspense fallback={<div className="center-msg">Loading the map…</div>}>{page}</Suspense></MapCrashGuard></div></WebGate>;
   }
-  return <MainApp />;
+  // On the website (outside Telegram), WebGate signs people in first and opens their home screen.
+  return <WebGate><MainApp /></WebGate>;
 }
 
 if (onRoutePage) {

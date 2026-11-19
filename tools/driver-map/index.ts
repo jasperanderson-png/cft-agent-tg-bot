@@ -8,7 +8,9 @@ import { rateLimit } from '../../support/helpers/kv.js';
 import { DRIVER_MAP } from '../../support/common/driver-config.js';
 import { detourMinutes, readAsks } from './detours.js';
 import type { Tool } from '../../support/helpers/tool.js';
-import { fullName, INIT_HEADER, requireInitData, type TelegramUser } from '../../support/helpers/telegram.js';
+import { fullName, INIT_HEADER, type TelegramUser } from '../../support/helpers/telegram.js';
+import { requireTelegramUser } from '../../support/helpers/web-login.js';
+import { afterDecision, decide, listRequests } from '../../support/helpers/driver-requests.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 import { driverStations, locateStations, refreshStationLocations, stationPoints } from './stations.js';
 import { planRoute, searchPlaces } from './routing.js';
@@ -20,13 +22,13 @@ import { addTripPoints, adminDrivers, adminTrip, adminTrips, sendTripFile, start
 
 /** The route map is also for drivers (joined through a driver link). Anyone else is refused. */
 async function mapViewer(req: ApiRequest): Promise<{ user: TelegramUser; role: 'agent' | 'admin' | 'driver' }> {
-  const { user } = requireInitData(req.headers[INIT_HEADER]);
   const db = getPool();
+  const { user } = await requireTelegramUser(db, req.headers[INIT_HEADER]);
   await touchTelegramUser(db, user);
   if (await telegramAdmin(db, user)) return { user, role: 'admin' };
   if (await isAgent(db, user.id)) return { user, role: 'agent' };
   if (await isDriver(db, user.id)) return { user, role: 'driver' };
-  throw new HttpError(403, 'The route map is for CFT drivers. Ask CFT for a driver link.', 'not_driver');
+  throw new HttpError(403, 'The route map is for approved CFT drivers. Request access from the CFT agent who invited you, or on the CFT website.', 'not_driver');
 }
 type MapViewer = { user: TelegramUser; role: 'agent' | 'admin' | 'driver' };
 const asMapViewer = (h: (v: MapViewer, req: ApiRequest, params: string[]) => Promise<unknown>) => async (req: ApiRequest, params: string[]) => ({ status: 200, body: await h(await mapViewer(req), req, params) });
@@ -56,6 +58,16 @@ export const driverMap: Tool = {
     route('GET', 'admin/drivers/:tg/trips', asAdmin((_a, _r, [tg]) => adminTrips(getPool(), Number(tg))));
     route('GET', 'admin/trips/:id', asAdmin((_a, _r, [id]) => adminTrip(getPool(), id)));
     route('POST', 'admin/trips/:id/send', asAdmin((a, _r, [id]) => sendTripFile(getPool(), a.telegramUserId, id)));
+    // Driver access requests (support/helpers/driver-requests.ts): the waiting ones and the last decided,
+    // and approving or declining one, the same as the buttons in the admins' chat.
+    route('GET', 'admin/driver-requests', asAdmin(() => listRequests(getPool())));
+    route('POST', 'admin/driver-requests/:id/:action', asAdmin(async (a, _r, [id, action]) => {
+      if (action !== 'approve' && action !== 'decline') throw new HttpError(404, 'Not found.');
+      const d = await decide(id, a.id, action === 'approve');
+      if (d.done) await afterDecision(getPool(), id);
+      else throw new HttpError(409, `Already ${d.status}${d.decidedBy ? ` by ${d.decidedBy}` : ''}.`);
+      return listRequests(getPool());
+    }));
     route('POST', 'driver/locate', asMapViewer(() => locateStations(getPool())));
     route('POST', 'driver/route', asMapViewer(async (v, req) => {
       await limit(v, 'route');

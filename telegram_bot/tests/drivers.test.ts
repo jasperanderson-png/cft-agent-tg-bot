@@ -2,6 +2,7 @@
 // agents see all drivers (or their own) and remove their own, an admin removes anyone. Also the
 // menu-button repair: each person's menu is set again when Telegram missed it. Telegram is stubbed.
 // Needs TEST_DATABASE_URL.
+import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closePool, getPool } from '../../database/db.js';
 import { migrate } from '../../database/migrate.js';
@@ -39,11 +40,26 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
   const api = (method: string, path: string, user: number) =>
     router({ method, path, query: new URLSearchParams(), headers: { 'x-telegram-init-data': signInitData({ id: user, first_name: 'D' }, BOT) }, body: null, ip: '10.0.0.2' } as ApiRequest);
   const isDriver = async (tg: number) => !!(await getPool().query('select 1 from map_drivers where telegram_user_id = $1', [tg])).rows[0];
-  /** Makes a driver link by tapping through, as an admin or agent would; returns its token. */
+  /**
+   * A driver link as admins and agents made them before requests (they still work until they expire):
+   * an admin's gives the map at once, an agent's leads to a request. Returns its token.
+   */
   async function driverLink(from: number, label = 'Night') {
-    await tap(from, `drv:inv:24:${label}`);
-    const edit = of(from, 'editMessageText').at(-1)!;
-    return /\?start=driver_([A-Za-z0-9_-]+)/.exec(edit.text!)![1];
+    const token = `T${from}${label}`.padEnd(43, 'x');
+    const admin = (await getPool().query('select id from admins where telegram_user_id = $1', [from])).rows[0]?.id ?? null;
+    await getPool().query(
+      `insert into driver_invites (token_hash, label, created_by_admin, created_by_agent, expires_at) values ($1, $2, $3, $4, now() + interval '1 day')`,
+      [createHash('sha256').update(token).digest('hex'), label, admin, admin ? null : from],
+    );
+    return token;
+  }
+  /** A driver opens an agent's link, answers the request's questions, and the owner approves. */
+  async function joinThroughRequest(driver: number, token: string) {
+    await say(driver, `/start driver_${token}`);
+    await hook({ update_id: ++id, message: { chat: { id: driver, type: 'private' }, from: { id: driver, first_name: `U${driver}`, username: `u${driver}` }, contact: { phone_number: '+12145550000', user_id: driver } } });
+    await say(driver, 'Test Trucking');
+    const req = (await getPool().query(`select id from driver_requests where telegram_user_id = $1 and status = 'pending'`, [driver])).rows[0];
+    await tap(OWNER, `dreq:ok:${req.id}`);
   }
 
   beforeAll(async () => {
@@ -78,9 +94,8 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     await say(OWNER, '/start'); // the owner becomes an admin on first contact
     sent.length = 0;
     await tap(OWNER, 'drv:new');
-    expect(of(OWNER)[0].text).toContain('Invite a driver');
+    expect(of(OWNER)[0].text).toContain('Your driver links'); // the personal links (driver-requests.test.ts)
     const token = await driverLink(OWNER);
-    expect(of(OWNER, 'editMessageText').at(-1)!.text).toContain('Anyone with this link can join');
 
     sent.length = 0;
     await say(DRIVER, `/start driver_${token}`);
@@ -114,15 +129,17 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     expect(buttons(of(AGENT)[0]).map((b) => b.text)).toEqual(expect.arrayContaining(['🚚 Invite a driver', '👤 My drivers']));
     expect(of(AGENT, 'setMyCommands')[0].body.commands.map((c: { command: string }) => c.command)).toEqual(['start', 'invitedriver', 'drivers', 'help']);
     sent.length = 0;
-    await say(AGENT, '/invitedriver Fleet');
-    expect(of(AGENT)[0].text).toContain('Invite a driver');
+    await say(AGENT, '/invitedriver');
+    expect(of(AGENT)[0].text).toContain('Your driver links');
     sent.length = 0;
+    // An agent's link: the driver requests access and an admin approves; the agent hears it.
     const token = await driverLink(AGENT, 'Fleet');
     await say(DRIVER2, `/start driver_${token}`);
+    expect(await isDriver(DRIVER2)).toBe(false);
+    await say(DRIVER2, '/start'); // still answering the questions: asked again
+    await joinThroughRequest(DRIVER2, token);
     expect(await isDriver(DRIVER2)).toBe(true);
-    const joined = of(AGENT)[0];
-    expect(joined.text).toContain('joined as a driver (link “Fleet”)');
-    expect(buttons(joined)[0].callback_data).toBe('drv:list:mine');
+    expect(of(AGENT).at(-1)!.text).toContain('whom you invited, was approved by');
 
     // All drivers: the admin's driver too, theirs marked; a remove button only for their own.
     sent.length = 0;
@@ -145,7 +162,7 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     await tap(AGENT, `drv:rmy:${DRIVER}`);
     expect(await isDriver(DRIVER)).toBe(true);
     // Their own driver goes.
-    await say(DRIVER3, `/start driver_${token}`);
+    await joinThroughRequest(DRIVER3, token);
     sent.length = 0;
     await tap(AGENT, `drv:rm:${DRIVER3}`);
     expect(of(AGENT)[0].text).toContain('Remove <b>U7405</b> as a driver?');
@@ -182,7 +199,10 @@ describe.skipIf(!DB)('drivers (PostgreSQL)', () => {
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
     expect(((await api('GET', 'driver/stations', DRIVER)).body as any).trips.noticeSeen).toBe(true);
 
-    const t0 = Date.now();
+    // A trip that started an hour ago, its points sent as they happened: the server keeps each point's
+    // time between the trip's start and now, so the test can't send ten minutes "in the future".
+    await getPool().query(`update driver_trips set started_at = now() - interval '1 hour' where id = $1`, [id]);
+    const t0 = Date.now() - 30 * 60_000;
     const batch = { seq: 0, points: [[t0, 32.78, -96.8, 20, 5], [t0 + 15_000, 32.79, -96.8, 20, 5]] };
     expect((await call('POST', `driver/trips/${id}/points`, DRIVER, batch)).body).toEqual({ saved: 2 });
     expect((await call('POST', `driver/trips/${id}/points`, DRIVER, batch)).body).toEqual({ saved: 0 }); // a retry counts once

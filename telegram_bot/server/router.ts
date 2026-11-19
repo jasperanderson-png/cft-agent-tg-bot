@@ -3,6 +3,11 @@ import { getPool } from '../../database/db.js';
 import { bodyObject, HttpError, ok, type AddRoute, type ApiRequest, type ApiResponse, type Handler } from '../../support/helpers/http.js';
 import { TOOLS } from './tools.js';
 import { handleWebhook } from '../webhook.js';
+import { roleOf, viewerOf } from '../handlers/viewer.js';
+import { botUsername } from '../../support/helpers/agents.js';
+import { rateLimit } from '../../support/helpers/kv.js';
+import { fullName, INIT_HEADER } from '../../support/helpers/telegram.js';
+import { endWebSession, LOGIN_PREFIX, pollWebLogin, requireTelegramUser, startWebLogin } from '../../support/helpers/web-login.js';
 
 // Every API route (/api/*): the app's own (Telegram webhook, admin sign-in, users, downloads), then
 // each tool's from its index.ts (see tools.ts).
@@ -25,6 +30,23 @@ route('POST', 'admin/admins', asAdmin((a, req) => admins.addAdmin(a, bodyObject(
 route('DELETE', 'admin/admins/:id', asAdmin((a, _r, [id]) => admins.removeAdmin(a, id)));
 route('POST', 'admin/exports', asAdmin((a, req) => admins.createExport(a, bodyObject(req))));
 route('GET', 'exports/:token', async (_req, [token]) => ({ status: 200, body: null, file: await admins.downloadExport(token) }));
+
+// The website (fuel.cftransport.com): the bot's name for its buttons, the sign-in confirmed in the bot
+// (support/helpers/web-login.ts), and who is signed in (their role decides their home screen, as their
+// menu button does in the bot).
+route('GET', 'web/info', async () => ok({ bot: await botUsername() }));
+route('POST', 'web/login', async (req) => {
+  await rateLimit('web-login', req.ip, 10);
+  const code = await startWebLogin(getPool());
+  return ok({ code, link: `https://t.me/${await botUsername()}?start=${LOGIN_PREFIX}${code}` });
+});
+route('GET', 'web/login/:code', async (_req, [code]) => ok(await pollWebLogin(getPool(), code)));
+route('POST', 'web/logout', async (req) => ok(await endWebSession(getPool(), String(req.headers[INIT_HEADER] ?? '')).then(() => ({ ok: true }))));
+route('GET', 'web/me', async (req) => {
+  const db = getPool();
+  const { user } = await requireTelegramUser(db, req.headers[INIT_HEADER]);
+  return ok({ role: roleOf(await viewerOf(db, user, undefined)), name: fullName(user) || user.username || 'there' });
+});
 
 for (const t of TOOLS) t.routes?.(route);
 

@@ -101,6 +101,8 @@ export interface TelegramMessage {
   text?: string;
   caption?: string;
   document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
+  /** A shared contact: the person's own phone when they tap a "Share my phone" button (user_id is theirs). */
+  contact?: { phone_number: string; user_id?: number; first_name?: string };
   /** Where a forwarded message came from (a channel post forwarded to the bot, for example). */
   forward_origin?: { type?: string; chat?: { id: number; title?: string; type?: string } };
   /** A shared location. With live_period it is a live location: its updates arrive as edited_message. */

@@ -8,6 +8,9 @@ import { botApi, fullName, type PrivateMessage } from '../../support/helpers/tel
 import { showAdminHome } from './admins/index.js';
 import { showAgentHome } from './agents/fuel-search.js';
 import type { Viewer } from './viewer.js';
+import { getPool } from '../../database/db.js';
+import { refCode } from '../../support/helpers/driver-requests.js';
+import { beginRequest } from './driver-requests.js';
 
 // Invite links (t.me/<bot>?start=agent_<token>, driver_<token> or admin_<token>). Anyone can open one, whatever
 // their role, so they are answered before the role folders.
@@ -59,6 +62,8 @@ async function joinAsDriver(msg: PrivateMessage, token: string, who: Viewer): Pr
   const chat_id = msg.chat.id;
   const r = await redeemDriverInvite(msg.from, token, who.admin || who.agent);
   if (!r.ok) {
+    // An agent's driver link: a request with that agent as the inviter, approved by an admin.
+    if (r.reason === 'request') return beginRequest(getPool(), msg, who, await refCode(getPool(), { agentId: r.agentId }), 'bot');
     if (r.reason === 'staff') await botApi('sendMessage', { chat_id, text: 'You are already CFT staff and have the route map (📍 on Find discounts, or the Hub). This driver link was not used: send it to the driver it is meant for.' });
     else if (r.reason === 'already') await showDriverHome(chat_id, msg.from.first_name);
     else await botApi('sendMessage', { chat_id, text: DRIVER_INVITE_USED });

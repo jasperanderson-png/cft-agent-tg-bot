@@ -33,7 +33,8 @@ export async function refuseAdminMessage(msg: PrivateMessage): Promise<boolean> 
 /** Taps on admin-only inline buttons. True when refused. */
 export async function refuseAdminCallback(cb: PrivateCallback): Promise<boolean> {
   if (cb.data.startsWith(LEADS_CALLBACK)) await answer(cb, NOT_AUTHORIZED.replace(/<[^>]+>/g, ''));
-  else if (cb.data.startsWith(TEAM_CALLBACK) || cb.data.startsWith(SHIFT_CALLBACK) || cb.data.startsWith(ADMIN_TEAM_CALLBACK) || cb.data.startsWith(DRIVER_CALLBACK)) await answer(cb, 'For CFT administrators only.');
+  else if (cb.data.startsWith(DRIVER_CALLBACK)) await answer(cb, 'For CFT admins and agents only.'); // agents have the driver links too
+  else if (cb.data.startsWith(TEAM_CALLBACK) || cb.data.startsWith(SHIFT_CALLBACK) || cb.data.startsWith(ADMIN_TEAM_CALLBACK)) await answer(cb, 'For CFT administrators only.');
   else return false;
   return true;
 }

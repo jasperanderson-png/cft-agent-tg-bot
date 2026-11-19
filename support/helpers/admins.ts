@@ -5,7 +5,8 @@ import { dummyHash, newToken, sha256, verifyPassword } from './crypto.js';
 import { getPool, tx, type Db } from '../../database/db.js';
 import { env } from './env.js';
 import { bearer, HttpError, ok, UUID_RE, type ApiRequest, type Handler } from './http.js';
-import { fullName, requireInitData, storedName, type TelegramUser } from './telegram.js';
+import { fullName, storedName, type TelegramUser } from './telegram.js';
+import { requireTelegramUser } from './web-login.js';
 import { touchTelegramUser } from './users.js';
 
 const SESSION_HOURS = 12;
@@ -79,8 +80,8 @@ export async function login(body: Record<string, unknown>, ip: string | null) {
 
 /** One-tap sign-in inside Telegram for owners and admins linked by Telegram ID. */
 export async function telegramLogin(body: Record<string, unknown>) {
-  const tg = requireInitData(body.initData);
   const db = getPool();
+  const tg = await requireTelegramUser(db, body.initData);
   await touchTelegramUser(db, tg.user);
   const a = await telegramAdmin(db, tg.user);
   if (!a) throw new HttpError(403, 'This Telegram account is not an admin. Ask an existing admin to add you.', 'not_admin');

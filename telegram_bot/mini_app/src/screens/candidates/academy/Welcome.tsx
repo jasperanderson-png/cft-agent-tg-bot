@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PublicConfig } from '../../../../../../support/common/types';
 import { nameError, normalizeName } from '../../../../../../support/common/validation';
-import { tg } from '../../../lib/telegram';
+import { signedIn } from '../../../lib/telegram';
 import { Accent, Lines } from '../../../components/ui';
 
 export function Welcome({ config, initialName, onContinue, isAdmin }: {
@@ -12,7 +12,7 @@ export function Welcome({ config, initialName, onContinue, isAdmin }: {
 }) {
   const [name, setName] = useState(initialName);
   const [err, setErr] = useState('');
-  const blocked = config.requireTelegram && !tg;
+  const blocked = config.requireTelegram && !signedIn;
   const passPct = Math.round((config.passMark / config.total) * 100);
 
   const submit = () => {

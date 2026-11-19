@@ -51,7 +51,26 @@ declare global {
 const wa = typeof window !== 'undefined' ? window.Telegram?.WebApp : undefined;
 /** True only inside a Telegram client (the SDK script also loads in a normal browser, with empty initData). */
 export const tg: TgWebApp | null = wa && wa.initData ? wa : null;
-export const initData = tg?.initData ?? '';
+
+// The website (fuel.cftransport.com): signed in by confirming in the bot (screens/website/), the session
+// is kept on this browser and sent where Telegram's initData goes (support/helpers/web-login.ts).
+const WEB_SESSION_KEY = 'cft.webSession';
+const storedSession = () => {
+  try { return localStorage.getItem(WEB_SESSION_KEY) ?? ''; } catch { return ''; }
+};
+export function saveWebSession(session: string) {
+  try { localStorage.setItem(WEB_SESSION_KEY, session); } catch { /* private mode: signed in for this visit only */ }
+}
+export function clearWebSession() {
+  try { localStorage.removeItem(WEB_SESSION_KEY); } catch { /* nothing kept */ }
+}
+
+/** Telegram's signed sign-in inside the Mini App, the website's session outside it. */
+export const initData = tg?.initData ?? storedSession();
+/** Whether the person is signed in (inside Telegram, or logged in on the website). */
+export const signedIn = !!initData;
+/** Their first name inside Telegram (the website asks the server: web/me). */
+export const firstName = tg?.initDataUnsafe.user?.first_name ?? '';
 export const startParam = tg?.initDataUnsafe.start_param ?? '';
 
 /**

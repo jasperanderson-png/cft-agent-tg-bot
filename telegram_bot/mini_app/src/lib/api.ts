@@ -1,4 +1,4 @@
-import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../support/common/types';
+import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverRequestCard, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../support/common/types';
 import type { AgentDiscounts, PartnerBrand } from '../../../../support/common/discounts';
 import type { DetourAsk, DetourResult } from '../../../../support/common/driver-route';
 import { initData } from './telegram';
@@ -113,11 +113,24 @@ export const driversApi = {
   trips: (telegramUserId: number) => authed<{ trips: TripSummary[] }>('GET', `admin/drivers/${telegramUserId}/trips`),
   trip: (id: string) => authed<TripDetail>('GET', `admin/trips/${id}`),
   sendTrip: (id: string) => authed<{ sent: true }>('POST', `admin/trips/${id}/send`, {}),
+  /** Driver access requests: the waiting ones and the last decided; approving or declining one. */
+  requests: () => authed<DriverRequests>('GET', 'admin/driver-requests'),
+  decide: (id: string, action: 'approve' | 'decline') => authed<DriverRequests>('POST', `admin/driver-requests/${id}/${action}`, {}),
 };
+type DriverRequests = { pending: DriverRequestCard[]; decided: DriverRequestCard[] };
 
 /** Find discounts, for agents (and admins). Signed in by Telegram's initData on every call. */
 const viewer = <T>(method: string, path: string, body?: unknown) => request<T>(method, path, body, { 'x-telegram-init-data': initData });
 type Picks = { states: string[]; brands: PartnerBrand[] };
+export type WebRole = 'admins' | 'agents' | 'drivers' | 'candidates';
+/** The website (screens/website/): its sign-in confirmed in the bot, and who is signed in. */
+export const webApi = {
+  info: () => request<{ bot: string }>('GET', 'web/info'),
+  startLogin: () => request<{ code: string; link: string }>('POST', 'web/login', {}),
+  pollLogin: (code: string) => request<{ status: 'waiting' | 'expired' } | { status: 'ok'; session: string }>('GET', `web/login/${encodeURIComponent(code)}`),
+  me: () => viewer<{ role: WebRole; name: string }>('GET', 'web/me'),
+  logout: () => viewer<{ ok: true }>('POST', 'web/logout', {}),
+};
 /** The drivers' fuel map (/route). Signed in like Find discounts. */
 export const driverApi = {
   stations: () => viewer<DriverStations>('GET', 'driver/stations'),

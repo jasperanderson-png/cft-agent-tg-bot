@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AdminData } from '../../../../../../support/common/types';
 import { ApiError, adminApi, hasAdminToken, setAdminToken } from '../../../lib/api';
-import { initData, tg, useBackButton } from '../../../lib/telegram';
+import { firstName, initData, signedIn, useBackButton } from '../../../lib/telegram';
 import { Icon, useToast, useWidth, type IconName } from '../../../components/ui';
 import { Questions, Topics } from './Analytics';
 import { AttemptDetail, Attempts } from './Attempts';
@@ -73,11 +73,11 @@ export function AdminApp({ onExit }: { onExit?: () => void } = {}) {
           setAdminToken('');
         }
       }
-      if (tg) {
+      if (signedIn) {
         try {
           const s = await adminApi.telegramLogin(initData);
           setAdminToken(s.token);
-          setEmail(s.email || tg.initDataUnsafe.user?.first_name || 'Telegram admin');
+          setEmail(s.email || firstName || 'Telegram admin');
           setPhase('ready');
           return load();
         } catch {
@@ -117,7 +117,7 @@ export function AdminApp({ onExit }: { onExit?: () => void } = {}) {
   if (phase === 'login') {
     return (
       <div className="scroll">
-        <Login notice={notice || (tg ? 'Your Telegram account is not an admin. Ask an owner to add you, or sign in with email.' : '')} onSignedIn={(t, e) => { setAdminToken(t); setEmail(e); setNotice(''); setPhase('ready'); setPage('overview'); load(); }} />
+        <Login notice={notice || (signedIn ? 'Your Telegram account is not an admin. Ask an owner to add you, or sign in with email.' : '')} onSignedIn={(t, e) => { setAdminToken(t); setEmail(e); setNotice(''); setPhase('ready'); setPage('overview'); load(); }} />
       </div>
     );
   }

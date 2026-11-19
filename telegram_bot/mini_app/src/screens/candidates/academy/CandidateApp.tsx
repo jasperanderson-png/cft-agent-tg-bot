@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AttemptResult, AttemptState, InProgressAttempt, PublicConfig } from '../../../../../../support/common/types';
 import { ApiError, candidateApi } from '../../../lib/api';
-import { initData, tg } from '../../../lib/telegram';
+import { initData, signedIn, tg } from '../../../lib/telegram';
 import { Instructions } from './Instructions';
 import { ResultsView } from './ResultsView';
 import { clearBackup, TestView } from './TestView';
@@ -65,7 +65,7 @@ export function CandidateApp({ scrollTop }: { scrollTop: () => void }) {
     setView({ k: 'loading' });
     try {
       setConfig(await candidateApi.config());
-      if (tg) {
+      if (signedIn) {
         const s = await candidateApi.session(initData);
         if (s.state === 'none') {
           setName(s.suggestedName);

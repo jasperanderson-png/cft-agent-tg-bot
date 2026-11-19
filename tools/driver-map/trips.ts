@@ -4,6 +4,7 @@ import { HttpError, UUID_RE } from '../../support/helpers/http.js';
 import { botSendDocument } from '../../support/helpers/telegram.js';
 import { tx, type Db } from '../../database/db.js';
 import { truckOf } from './routing.js';
+import { DRIVER_ORIGIN_COLS, DRIVER_ORIGIN_JOINS } from '../../support/helpers/driver-requests.js';
 
 // Trip history (migration 0011): every trip a driver navigates on the route map, kept 12 months as
 // proof. The map sends the start (from, to, the fuel stop and its CFT price, the planned route), then
@@ -140,20 +141,18 @@ export async function adminDrivers(db: Db): Promise<{ drivers: DriverWithTrips[]
                   from driver_trips group by telegram_user_id)
      select coalesce(d.telegram_user_id, t.telegram_user_id) as id,
             coalesce(nullif(trim(concat_ws(' ', tu.first_name, tu.last_name)), ''), d.name, t.name) as name,
-            coalesce(tu.username, d.username) as username, d.joined_at, coalesce(ad.name, ag.name) as invited_by,
+            coalesce(tu.username, d.username) as username, d.joined_at, ${DRIVER_ORIGIN_COLS},
             d.telegram_user_id is null as removed, coalesce(t.trips, 0) as trips, t.last_trip, coalesce(t.mi, 0) as mi
        from map_drivers d
        full join t on t.telegram_user_id = d.telegram_user_id
        left join telegram_users tu on tu.id = coalesce(d.telegram_user_id, t.telegram_user_id)
-       left join driver_invites i on i.id = d.invite_id
-       left join admins ad on ad.id = i.created_by_admin
-       left join agents ag on ag.telegram_user_id = i.created_by_agent
+       ${DRIVER_ORIGIN_JOINS}
       order by t.last_trip desc nulls last, d.joined_at desc nulls last`,
   );
   return {
     drivers: rows.map((r) => ({
       telegramUserId: Number(r.id), name: r.name, username: r.username, joinedAt: iso(r.joined_at), invitedBy: r.invited_by,
-      removed: r.removed, trips: r.trips, lastTripAt: iso(r.last_trip), drivenMi: Math.round(Number(r.mi)),
+      via: r.via, approvedBy: r.approved_by, approvedAt: iso(r.approved_at), ownLink: r.own_link ?? false, removed: r.removed, trips: r.trips, lastTripAt: iso(r.last_trip), drivenMi: Math.round(Number(r.mi)),
     })),
   };
 }

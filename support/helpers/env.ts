@@ -16,6 +16,10 @@ export const env = {
   get appUrl() {
     return (process.env.APP_URL ?? '').replace(/\/+$/, '');
   },
+  /** The drivers' website (https://fuel.cftransport.com): the same app, signed in through the bot. Falls back to APP_URL. */
+  get webUrl() {
+    return (process.env.WEB_URL ?? '').replace(/\/+$/, '') || (process.env.APP_URL ?? '').replace(/\/+$/, '');
+  },
   /** Lets candidates start without Telegram (local development, or a deliberate web rollout). */
   get allowWebCandidates() {
     return process.env.ALLOW_WEB_CANDIDATES === 'true';

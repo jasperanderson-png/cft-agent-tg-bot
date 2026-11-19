@@ -6,7 +6,8 @@ import { agentProfile, isAgent } from '../../support/helpers/agents.js';
 import { getPool } from '../../database/db.js';
 import { bodyObject, HttpError, ok, requireCron, type ApiRequest } from '../../support/helpers/http.js';
 import type { Tool } from '../../support/helpers/tool.js';
-import { fullName, INIT_HEADER, requireInitData, type TelegramUser } from '../../support/helpers/telegram.js';
+import { fullName, INIT_HEADER, type TelegramUser } from '../../support/helpers/telegram.js';
+import { requireTelegramUser } from '../../support/helpers/web-login.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 import { sendAgentExcel, sendSelection, sendStation, type Selection } from './agent-prices.js';
 import { fetchAllStations, FuelError, recentStations } from './cabinet.js';
@@ -21,8 +22,8 @@ const MAX_SEND_STATES = 10;
 
 /** An agent or admin calling from the Mini App. Anyone else is refused. */
 async function discountViewer(req: ApiRequest): Promise<{ user: TelegramUser; role: 'agent' | 'admin' }> {
-  const { user } = requireInitData(req.headers[INIT_HEADER]);
   const db = getPool();
+  const { user } = await requireTelegramUser(db, req.headers[INIT_HEADER]);
   await touchTelegramUser(db, user);
   if (await telegramAdmin(db, user)) return { user, role: 'admin' };
   if (await isAgent(db, user.id)) return { user, role: 'agent' };

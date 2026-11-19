@@ -327,11 +327,37 @@ export interface DriverWithTrips {
   username: string | null;
   joinedAt: string | null;
   invitedBy: string | null;
+  /** Which of the inviter's links they came with: bot, website, or a driver link made before requests. */
+  via: 'bot' | 'website' | 'link' | null;
+  /** The admin who approved their request (none for a driver link), when, and whether it was their own link. */
+  approvedBy: string | null;
+  approvedAt: string | null;
+  ownLink: boolean;
   /** No longer a driver (removed); their trips are kept as proof. */
   removed: boolean;
   trips: number;
   lastTripAt: string | null;
   drivenMi: number;
+}
+
+/** A driver's request for the route map, as admins see it (support/helpers/driver-requests.ts). */
+export interface DriverRequestCard {
+  id: string;
+  telegramUserId: number;
+  name: string;
+  username: string | null;
+  phone: string | null;
+  company: string | null;
+  /** "Who told you about us", when they came by themselves. */
+  source: string | null;
+  via: 'bot' | 'website';
+  invitedBy: string | null;
+  /** Approved by the admin whose own link they came with. */
+  ownLink: boolean;
+  status: 'asking' | 'pending' | 'approved' | 'declined';
+  submittedAt: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
 }
 
 /** The truck the route is planned for (OpenRouteService "heavy vehicle"). */

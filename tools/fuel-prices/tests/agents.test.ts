@@ -274,7 +274,7 @@ describe.skipIf(!DB)('agents in the bot and the Mini App (PostgreSQL)', () => {
     await say(AGENT, `/start agent_${token}`, { first_name: 'Aziz', last_name: 'Karimov', username: 'aziz_k' });
     expect(texts(AGENT)).toContain('Welcome, Aziz! You can now look up CFT discount prices');
     expect(of(AGENT, 'setChatMenuButton')[0].body.menu_button).toEqual({ type: 'web_app', text: 'Discounts', web_app: { url: 'https://academy.example.com/#/discounts' } });
-    expect(sent.find((m) => m.method === 'setMyCommands' && m.body.scope?.chat_id === AGENT)!.body.commands.map((c: any) => c.command)).toEqual(['start', 'help']);
+    expect(sent.find((m) => m.method === 'setMyCommands' && m.body.scope?.chat_id === AGENT)!.body.commands.map((c: any) => c.command)).toEqual(['start', 'invitedriver', 'drivers', 'help']); // every agent invites drivers (17/11/2026)
     expect(texts(ADMIN)).toContain('✅ <b>Aziz Karimov</b> @aziz_k joined as an agent (link “Aziz”)');
     // The same link works for a second person too, and counts them.
     sent.length = 0;

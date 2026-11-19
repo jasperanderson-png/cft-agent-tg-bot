@@ -9,6 +9,7 @@ import { candidates } from './handlers/candidates/index.js';
 import { drivers } from './handlers/drivers/index.js';
 import { channelMembership, groupMessage } from './handlers/channel.js';
 import { inviteToken, joinWithInvite } from './handlers/invite.js';
+import { requestCallback, requestMessage } from './handlers/driver-requests.js';
 import { liveLocation } from './handlers/live-location.js';
 import { menuKey, roleOf, viewerOf, type Role, type RoleHandlers, type Viewer } from './handlers/viewer.js';
 import type { Db } from '../database/db.js';
@@ -66,6 +67,8 @@ export async function handleWebhook(req: ApiRequest) {
     await touchTelegramUser(db, cb.from, { startedBot: true });
     try {
       const who = await viewerOf(db, cb.from, update.update_id);
+      // Driver requests (admins decide) and the website's login: before the role folders.
+      if (await requestCallback(db, cb as PrivateCallback, who)) return { ok: true };
       if (await ROLES[roleOf(who)].callback(db, cb as PrivateCallback, who)) return { ok: true };
     } catch (e) {
       console.error('bot callback failed', (e as Error).message);
@@ -90,6 +93,8 @@ export async function handleWebhook(req: ApiRequest) {
   try {
     const who = await viewerOf(db, msg.from, update.update_id);
     const token = inviteToken(msg.text);
+    // Driver requests and the website's login come first: anyone may open those links.
+    if (await requestMessage(db, msg, who)) return { ok: true };
     if (token) await joinWithInvite(msg, token, who);
     else {
       await ROLES[roleOf(who)].message(db, msg, who);
