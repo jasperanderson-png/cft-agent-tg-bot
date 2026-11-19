@@ -335,7 +335,7 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .bank-list { flex: none; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .bank-item { width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 10px 14px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); border-left: 2px solid transparent; background: transparent; text-align: left; color: #fff; cursor: pointer; transition: background 0.2s; }
 .bank-item[aria-current='true'] { border-left-color: var(--blue); background: rgba(160, 220, 255, 0.1); }
-.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .editor { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .keybtn { flex: none; width: 38px; height: 40px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.12); background: transparent; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
 .keybtn[aria-checked='true'] { border-color: var(--blue); background: var(--blue); color: #000; }
