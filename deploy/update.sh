@@ -4,6 +4,7 @@
 # New database migrations are applied only with --migrate, and then BEFORE the new code goes live
 # (the old code ignores new tables; the new code needs them). Without --migrate, a deploy that brings
 # new migrations stops and changes nothing, so the live bot never runs code its database lacks.
+# Only added files count: an applied migration is never run again, so editing one needs no --migrate.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 branch=main
@@ -24,7 +25,7 @@ echo "Code: ${before:0:7} -> ${after:0:7} ($branch)"
 
 new_migrations=""
 if [ "$before" != "$after" ]; then
-  new_migrations=$(git diff --name-only --diff-filter=AM "$before" "$after" -- db_storage/migrations)
+  new_migrations=$(git diff --name-only --diff-filter=A "$before" "$after" -- db_storage/migrations)
 fi
 if [ -n "$new_migrations" ] && [ "$migrate" -eq 0 ]; then
   git checkout --quiet -B "$branch" "$before"
