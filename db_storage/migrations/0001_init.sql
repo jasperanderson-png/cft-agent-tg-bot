@@ -1,7 +1,7 @@
 -- CFT Agent Academy — initial schema.
 -- All access goes through the server API, which connects as the database owner.
--- Row Level Security is enabled on every table with NO policies, so Supabase's public
--- `anon` / `authenticated` roles (the browser-facing REST API) can read or write nothing.
+-- Row Level Security is enabled on every table with NO policies: only the owner role the server
+-- connects as can read or write.
 
 create table topics (
   id          text primary key check (id ~ '^[a-z][a-z0-9_-]{1,40}$'),
@@ -170,7 +170,8 @@ create table audit_events (
   created_at  timestamptz not null default now()
 );
 
--- Lock the browser-facing Supabase roles out entirely.
+-- Row Level Security on every table. The anon/authenticated revokes only run where those roles exist
+-- (they did on Supabase, where this database used to live); our own PostgreSQL has neither.
 do $$
 declare t text;
 begin

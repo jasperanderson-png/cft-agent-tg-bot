@@ -294,7 +294,8 @@ begin
   return query select v_id, 'updated'::text;
 end $$;
 
--- Lock the browser-facing Supabase roles out of the new tables and the function.
+-- Row Level Security on the new tables; the function is not public. The anon/authenticated revokes only
+-- run where those roles exist (they did on Supabase); our own PostgreSQL has neither.
 do $$
 declare t text;
 begin

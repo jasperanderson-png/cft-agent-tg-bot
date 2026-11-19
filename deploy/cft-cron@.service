@@ -1,4 +1,4 @@
-# One scheduled job: calls /api/cron/<name> on the bot, like Vercel Cron did. Started by the
+# One scheduled job: calls /api/cron/<name> on the bot. Started by the
 # cft-cron-<name>.timer files that deploy/setup-server.sh writes. Logs: journalctl -u 'cft-cron@*'
 [Unit]
 Description=CFT Agent scheduled job: %i

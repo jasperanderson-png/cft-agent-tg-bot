@@ -6,10 +6,8 @@ const MAX_BODY = 2.5 * 1024 * 1024; // CSV exports can be large
 const isForm = (req: IncomingMessage) => /^application\/x-www-form-urlencoded\b/i.test(req.headers['content-type'] ?? '');
 const formObject = (raw: string) => Object.fromEntries(new URLSearchParams(raw));
 
-async function readBody(req: IncomingMessage & { body?: unknown }): Promise<unknown> {
+async function readBody(req: IncomingMessage): Promise<unknown> {
   const form = isForm(req);
-  // A host that parsed the body already (some serverless runtimes) hands it over as req.body.
-  if (req.body !== undefined) return typeof req.body === 'string' ? (form ? formObject(req.body) : JSON.parse(req.body || 'null')) : req.body;
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const c of req) {
@@ -23,6 +21,7 @@ async function readBody(req: IncomingMessage & { body?: unknown }): Promise<unkn
 }
 
 function send(res: ServerResponse, status: number, body: unknown) {
+  if (res.writableEnded) return; // already answered (the 60 s deadline in start.ts)
   res.statusCode = status;
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('cache-control', 'no-store');
@@ -31,11 +30,9 @@ function send(res: ServerResponse, status: number, body: unknown) {
 }
 
 /** Adapts Node's http request/response (the server, the local dev server) to the router. */
-export async function nodeHandler(req: IncomingMessage & { body?: unknown }, res: ServerResponse): Promise<void> {
+export async function nodeHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://local');
-  // /api/<path>, or /api/main?__path=<path> from a host that rewrites every call to one function
-  const path = (url.searchParams.get('__path') ?? url.pathname.replace(/^\/api\/?/, '')).replace(/^\/+|\/+$/g, '');
-  url.searchParams.delete('__path');
+  const path = url.pathname.replace(/^\/api\/?/, '').replace(/^\/+|\/+$/g, '');
 
   let body: unknown = null;
   const len = req.headers['content-length'];
@@ -59,6 +56,7 @@ export async function nodeHandler(req: IncomingMessage & { body?: unknown }, res
 
   const out = await handle({ method: req.method ?? 'GET', path, query: url.searchParams, headers, body, ip });
   if (out.file) {
+    if (res.writableEnded) return;
     res.statusCode = out.status;
     res.setHeader('content-type', out.file.contentType);
     res.setHeader('content-disposition', `${out.file.inline ? 'inline' : 'attachment'}; filename="${out.file.filename}"`);

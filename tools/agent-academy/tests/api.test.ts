@@ -274,7 +274,7 @@ describe.skipIf(!DB)('API (PostgreSQL)', () => {
     expect(r.body).toEqual({ ok: true });
   });
 
-  it('keeps the public Supabase roles locked out via RLS', async () => {
+  it('has Row Level Security on every table', async () => {
     const { rows } = await getPool().query("select relname from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and not relrowsecurity");
     expect(rows).toEqual([]);
   });

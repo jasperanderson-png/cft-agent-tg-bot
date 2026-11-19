@@ -304,7 +304,7 @@ describe('config · thresholds live in one config', () => {
   it('has sane values', () => {
     expect(DRIVER_MAP.corridorMi).toBeLessThan(DRIVER_MAP.nearbyMi);
     expect(DRIVER_MAP.detour.candidates).toBeGreaterThan(0);
-    expect(DRIVER_MAP.relocateBudgetS).toBeLessThan(60); // a request may take 60 s at most
+    expect(DRIVER_MAP.relocateBudgetS).toBeLessThan(60); // the server answers every request within 60 s
   });
 });
 

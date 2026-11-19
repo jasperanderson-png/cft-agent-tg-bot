@@ -75,7 +75,7 @@ export const DRIVER_MAP = {
   // ---- station map points (tools/driver-map/stations.ts)
   /** The daily job re-checks map points older than this many days. */
   relocateDays: 90,
-  /** The daily job stops starting new lookups after this many seconds (a request may take 60 at most). */
+  /** The daily job stops starting new lookups after this many seconds (the server answers every request within 60 s). */
   relocateBudgetS: 45,
   /** At most this many address lookups per daily run (the free services' daily limits). */
   relocateMax: 400,

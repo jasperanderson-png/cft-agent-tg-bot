@@ -1,6 +1,5 @@
 node_modules
 dist
-.vercel
 *.log
 .DS_Store
 # Secrets and personal settings never leave this machine.

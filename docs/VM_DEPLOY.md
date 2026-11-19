@@ -23,8 +23,10 @@ background service (`cft-agent`) that restarts by itself. The scheduled jobs are
 GitHub → Actions → **Deploy to VM** → Run workflow → `main`. Or on the server, as `cft`:
 `cd ~/app && deploy/update.sh main`. It fetches the code, installs, builds and restarts the bot.
 
-It never changes the database. If new migration files arrived, it says so; apply them by hand, as
-`cft`, after checking them: `cd ~/app && npm run db:migrate`.
+Database changes: if the new code brings migration files, a plain deploy stops before changing
+anything and lists them (the bot keeps running the old code). Check them, then deploy again with
+`deploy/update.sh main --migrate` (or tick **migrate** in the workflow): the migrations are applied
+first, while the old code still runs, and only then does the new code go live.
 
 Check: `curl -s https://209-97-132-149.sslip.io/api/health` → `{"ok":true}`
 Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the jobs), `journalctl -u caddy` (the website).

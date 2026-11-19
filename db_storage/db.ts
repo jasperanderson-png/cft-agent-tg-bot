@@ -12,9 +12,10 @@ function sslFor(url: URL): pg.PoolConfig['ssl'] {
   const mode = process.env.DATABASE_SSL;
   if (mode === 'disable') return false;
   if (!mode && ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return false;
+  // A database on another machine: TLS with the certificate checked, against DATABASE_CA_CERT if given,
+  // otherwise against the system's trusted CAs. Ours is on 127.0.0.1 and needs none of this.
   if (process.env.DATABASE_CA_CERT) return { ca: process.env.DATABASE_CA_CERT.replace(/\\n/g, '\n') };
-  // Supabase requires TLS. Without a CA bundle we encrypt but don't pin the certificate.
-  return { rejectUnauthorized: false };
+  return { rejectUnauthorized: true };
 }
 
 export function getPool(): pg.Pool {
@@ -22,7 +23,6 @@ export function getPool(): pg.Pool {
   if (!env.databaseUrl) throw new HttpError(503, 'The server is not configured yet (DATABASE_URL is missing).');
   const url = new URL(env.databaseUrl);
   url.searchParams.delete('sslmode'); // TLS is configured explicitly below
-  url.searchParams.delete('supa'); // Supabase pooler hint, not a libpq option
   pool = new pg.Pool({
     connectionString: url.toString(),
     ssl: sslFor(url),

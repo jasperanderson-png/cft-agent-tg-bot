@@ -154,8 +154,9 @@ cache (Redis) and the scheduled jobs. Setting it up, deploying, backups and rest
 **[docs/VM_DEPLOY.md](docs/VM_DEPLOY.md)**.
 
 Deploying a change: push to `main`, then GitHub → Actions → **Deploy to VM** (or on the server, as `cft`:
-`cd ~/app && deploy/update.sh main`). Database changes are applied by hand on the server, as `cft`:
-`cd ~/app && npm run db:migrate`.
+`cd ~/app && deploy/update.sh main`). A change that brings database migrations is deployed with
+`deploy/update.sh main --migrate` (or **migrate** ticked in the workflow), which applies them before the new
+code goes live; without it, such a deploy stops and changes nothing.
 
 ### Settings files
 
@@ -439,7 +440,7 @@ Owners open the **🚚 Driver Leads** section of the bot (`/leads`) and get a ke
 
 Leads arrive from the driver registration page at `/drivers/`, from vendor webhooks, from CSV files sent to the bot and, when switched on, from the public FMCSA carrier registry. Every record goes into one master table (FMCSA carrier records are replaced with the current set on each sync). A lead is delivered once: an update to a driver who was already delivered is merged into their record and never sent again.
 
-Before first use, run `npm run db:migrate` against the production database, then deploy.
+Its tables arrive with a database migration: deploy with `--migrate` (docs/VM_DEPLOY.md, "Deploying").
 
 Full guide: [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md).
 

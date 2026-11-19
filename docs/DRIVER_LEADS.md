@@ -198,7 +198,7 @@ Two imports of the same person at the same moment wait for each other (advisory 
 | `lead_tombstones` | USDOT keys of FMCSA records deleted as old, so they never return as new leads. |
 | `bot_updates`, `lead_rate_hits` | Retry protection and form throttling. |
 
-Row Level Security is on for all of them with no policies, and the `ingest_driver` function is not callable by Supabase's public roles.
+Row Level Security is on for all of them with no policies, and the `ingest_driver` function is not callable by the `public` role, only by the owner the server connects as.
 
 ## Vendor webhook reference
 
@@ -261,23 +261,21 @@ To pass on an opt-out: `{"phone": "…", "optout": true}`.
 ```bash
 npm run typecheck && npm test && npm run build
 
-# On the server, as cft (docs/VM_DEPLOY.md):
-# 1. Get the code: push to main, then
-cd ~/app && deploy/update.sh main
+# On the server, as cft (docs/VM_DEPLOY.md). Push to main, then deploy with --migrate:
+# it adds the new tables first (the old code ignores them) and only then puts the new code live.
+cd ~/app && deploy/update.sh main --migrate
+# (or GitHub → Actions → Deploy to VM with "migrate" ticked)
 
-# 2. Add the new tables to the database
-npm run db:migrate
-
-# 3. Optional: in ~/app/.env set LEADS_COMPANY_NAME, and LEADS_FMCSA_ENABLED=true if you
+# 2. Optional: in ~/app/.env set LEADS_COMPANY_NAME, and LEADS_FMCSA_ENABLED=true if you
 #    decide to use the FMCSA source, then: sudo systemctl restart cft-agent
 
-# 4. Add /leads to the owners' command menu (optional; the buttons work without it)
+# 3. Add /leads to the owners' command menu (optional; the buttons work without it)
 npm run telegram:setup
 ```
 
 Then send `/start` to the bot. Owners get the home screen with the two sections.
 
-Run the migration right after deploying the code. The new code expects the new tables; the old code ignores them.
+The tables must exist before the new code runs: the new code expects them, the old code ignores them. A deploy without `--migrate` that brings these migrations stops and changes nothing.
 
 ## Calling and texting rules
 
