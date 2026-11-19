@@ -7,13 +7,12 @@ import { env } from './env.js';
 import { HttpError } from './http.js';
 import { audit } from './admins.js';
 import { botUsername } from './agents.js';
-import type { TelegramUser } from './telegram.js';
+import { storedName, type TelegramUser } from './telegram.js';
 
 export const ADMIN_INVITE_PREFIX = 'admin_';
 /** How long a new admin link may work, in hours. */
 export const ADMIN_INVITE_HOURS = [1, 24, 72, 168] as const;
 
-const tgName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 80) || null;
 export const adminInviteLink = (bot: string, token: string) => `https://t.me/${bot}?start=${ADMIN_INVITE_PREFIX}${token}`;
 
 export async function createAdminInvite(db: Db, ownerId: string, hoursIn: unknown, labelIn: unknown) {
@@ -54,7 +53,7 @@ export async function redeemAdminInvite(user: TelegramUser, token: string, isAdm
     const { rows: added } = await c.query(
       `insert into admins (telegram_user_id, name, role, added_by) values ($1, $2, 'admin', $3)
        on conflict (telegram_user_id) do nothing returning id`,
-      [user.id, tgName(user), inv.created_by],
+      [user.id, storedName(user), inv.created_by],
     );
     if (!added[0]) return { ok: false, reason: 'already' };
     // An agent who becomes an admin keeps nothing of the agent role: admins see everything agents do.

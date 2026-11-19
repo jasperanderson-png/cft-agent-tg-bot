@@ -10,6 +10,12 @@ export interface TelegramUser {
   language_code?: string;
 }
 
+/** "First Last" from a Telegram user (either part may be missing); empty when Telegram gives neither. */
+export const fullName = (u: { first_name?: string | null; last_name?: string | null }) => [u.first_name, u.last_name].filter(Boolean).join(' ');
+
+/** The name we store for a person: at most 80 characters, null when Telegram gives none. */
+export const storedName = (u: TelegramUser) => fullName(u).slice(0, 80) || null;
+
 export interface VerifiedInitData {
   user: TelegramUser;
   authDate: number;

@@ -6,7 +6,7 @@ import { agentProfile, isAgent } from '../../support/helpers/agents.js';
 import { getPool } from '../../database/db.js';
 import { bodyObject, HttpError, ok, requireCron, type ApiRequest } from '../../support/helpers/http.js';
 import type { Tool } from '../../support/helpers/tool.js';
-import { INIT_HEADER, requireInitData, type TelegramUser } from '../../support/helpers/telegram.js';
+import { fullName, INIT_HEADER, requireInitData, type TelegramUser } from '../../support/helpers/telegram.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 import { sendAgentExcel, sendSelection, sendStation, type Selection } from './agent-prices.js';
 import { fetchAllStations, FuelError, recentStations } from './cabinet.js';
@@ -123,7 +123,7 @@ export const fuelPrices: Tool = {
         pulledAt: pulledAt?.toISOString() ?? null,
         stations,
         me: {
-          name: [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Agent', username: user.username ?? null, role,
+          name: fullName(user) || 'Agent', username: user.username ?? null, role,
           since: profile?.since ?? null, invitedBy: profile?.invitedBy ?? null,
         },
       };

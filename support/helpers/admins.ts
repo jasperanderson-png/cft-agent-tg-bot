@@ -5,7 +5,7 @@ import { dummyHash, newToken, sha256, verifyPassword } from './crypto.js';
 import { getPool, tx, type Db } from '../../database/db.js';
 import { env } from './env.js';
 import { bearer, HttpError, ok, UUID_RE, type ApiRequest, type Handler } from './http.js';
-import { requireInitData, type TelegramUser } from './telegram.js';
+import { fullName, requireInitData, storedName, type TelegramUser } from './telegram.js';
 import { touchTelegramUser } from './users.js';
 
 const SESSION_HOURS = 12;
@@ -22,7 +22,6 @@ export interface Admin {
   sessionId: string;
 }
 
-const tgName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 80) || null;
 
 /**
  * The admin row for a Telegram account. Owners listed in ADMIN_TELEGRAM_IDS are created (or
@@ -35,7 +34,7 @@ export async function telegramAdmin(db: Db, user: TelegramUser): Promise<{ id: s
       `insert into admins (telegram_user_id, name, role) values ($1, $2, 'owner')
        on conflict (telegram_user_id) do update set role = 'owner', name = coalesce(admins.name, excluded.name)
        returning id, email, role`,
-      [user.id, tgName(user)],
+      [user.id, storedName(user)],
     );
     return rows[0];
   }
@@ -156,7 +155,7 @@ export async function listUsers(): Promise<AdminUser[]> {
   );
   return rows.map((r) => ({
     telegramUserId: r.tg,
-    name: [r.first_name, r.last_name].filter(Boolean).join(' ') || r.candidate_name || r.admin_name || null,
+    name: fullName(r) || r.candidate_name || r.admin_name || null,
     username: r.username,
     candidateName: r.candidate_name,
     startedBot: !!r.started_bot,

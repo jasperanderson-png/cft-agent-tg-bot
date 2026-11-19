@@ -6,7 +6,7 @@ import { tx, type Db } from '../../database/db.js';
 import { env } from './env.js';
 import { HttpError } from './http.js';
 import { audit, type Admin } from './admins.js';
-import { botApi, type TelegramUser } from './telegram.js';
+import { botApi, storedName, type TelegramUser } from './telegram.js';
 
 export const INVITE_PREFIX = 'agent_';
 /** How long a new link may work, in hours: the choices admins get. */
@@ -33,7 +33,6 @@ export interface InviteRow {
   uses: number;
 }
 
-const tgName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 80) || null;
 
 export async function isAgent(db: Db, telegramUserId: number): Promise<boolean> {
   const { rows } = await db.query("select 1 from agents where telegram_user_id = $1 and 'discounts' = any(permissions)", [telegramUserId]);
@@ -111,7 +110,7 @@ export async function redeemInvite(user: TelegramUser, token: string, isAdmin: b
       `insert into agents (telegram_user_id, name, username, invite_id, invited_by) values ($1, $2, $3, $4, $5)
        on conflict (telegram_user_id) do update set permissions = '{discounts}', name = excluded.name, username = excluded.username,
          invite_id = excluded.invite_id, invited_by = excluded.invited_by, joined_at = now()`,
-      [user.id, tgName(user), user.username?.slice(0, 64) ?? null, inv.id, inv.created_by],
+      [user.id, storedName(user), user.username?.slice(0, 64) ?? null, inv.id, inv.created_by],
     );
     await c.query('update agent_invites set used_at = now(), used_by = $2, uses = uses + 1 where id = $1', [inv.id, user.id]);
     await audit(c, inv.created_by, 'agent.join', 'agent', String(user.id), { invite: inv.id });

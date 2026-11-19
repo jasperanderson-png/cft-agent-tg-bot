@@ -7,7 +7,7 @@ import { tx, type Db } from '../../database/db.js';
 import { HttpError } from './http.js';
 import { audit } from './admins.js';
 import { botUsername, INVITE_HOURS, isAgent } from './agents.js';
-import { botApi, type TelegramUser } from './telegram.js';
+import { botApi, storedName, type TelegramUser } from './telegram.js';
 
 export const DRIVER_INVITE_PREFIX = 'driver_';
 
@@ -25,7 +25,6 @@ export interface DriverRow {
   invitedByAgent: number | null;
 }
 
-const tgName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 80) || null;
 export const driverInviteLink = (bot: string, token: string) => `https://t.me/${bot}?start=${DRIVER_INVITE_PREFIX}${token}`;
 
 export async function isDriver(db: Db, telegramUserId: number): Promise<boolean> {
@@ -83,7 +82,7 @@ export async function redeemDriverInvite(user: TelegramUser, token: string, isSt
     const inv = rows[0];
     if (!inv) return { ok: false, reason: 'invalid' };
     if (await isDriver(c, user.id)) return { ok: false, reason: 'already' };
-    await c.query('insert into map_drivers (telegram_user_id, name, username, invite_id) values ($1, $2, $3, $4)', [user.id, tgName(user), user.username?.slice(0, 64) ?? null, inv.id]);
+    await c.query('insert into map_drivers (telegram_user_id, name, username, invite_id) values ($1, $2, $3, $4)', [user.id, storedName(user), user.username?.slice(0, 64) ?? null, inv.id]);
     await c.query('update driver_invites set uses = uses + 1 where id = $1', [inv.id]);
     await audit(c, inv.created_by_admin, 'driver.join', 'driver', String(user.id), { invite: inv.id });
     return { ok: true, inviterChat: inv.inviter_chat != null ? Number(inv.inviter_chat) : null, label: inv.label };

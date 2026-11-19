@@ -8,7 +8,7 @@ import { rateLimit } from '../../support/helpers/kv.js';
 import { DRIVER_MAP } from '../../support/common/driver-config.js';
 import { detourMinutes, readAsks } from './detours.js';
 import type { Tool } from '../../support/helpers/tool.js';
-import { INIT_HEADER, requireInitData, type TelegramUser } from '../../support/helpers/telegram.js';
+import { fullName, INIT_HEADER, requireInitData, type TelegramUser } from '../../support/helpers/telegram.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 import { driverStations, locateStations, refreshStationLocations, stationPoints } from './stations.js';
 import { planRoute, searchPlaces } from './routing.js';
@@ -32,7 +32,7 @@ type MapViewer = { user: TelegramUser; role: 'agent' | 'admin' | 'driver' };
 const asMapViewer = (h: (v: MapViewer, req: ApiRequest, params: string[]) => Promise<unknown>) => async (req: ApiRequest, params: string[]) => ({ status: 200, body: await h(await mapViewer(req), req, params) });
 /** Per Telegram user (not per IP: many trucks share a phone carrier's addresses), whichever service answers. */
 const limit = (v: MapViewer, name: 'route' | 'places' | 'detours') => rateLimit(name, `tg:${v.user.id}`, env.driverRate(name, DRIVER_MAP.ratePerMinute[name]));
-const driverName = (u: TelegramUser) => [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || null;
+const driverName = (u: TelegramUser) => fullName(u) || u.username || null;
 
 export const driverMap: Tool = {
   id: 'driver-map',

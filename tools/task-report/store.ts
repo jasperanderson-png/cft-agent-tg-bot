@@ -1,6 +1,7 @@
 import type { Db } from '../../database/db.js';
 import { env } from '../../support/helpers/env.js';
 import { HttpError } from '../../support/helpers/http.js';
+import { fullName } from '../../support/helpers/telegram.js';
 import type { Day } from './periods.js';
 import { KINDS, type Kind } from './words.js';
 
@@ -50,7 +51,7 @@ const SHIFT = 'id, staff_id as "staffId", work_date::text as "workDate", started
 const ENTRY = 'id, work_date::text as "workDate", kind, text, detail, area, size, highlight, source, created_at as "createdAt"';
 
 export const personName = (u: { first_name?: string; last_name?: string; id: number }) =>
-  ([u.first_name, u.last_name].filter(Boolean).join(' ').trim() || `ID ${u.id}`).slice(0, 80);
+  (fullName(u).trim() || `ID ${u.id}`).slice(0, 80);
 
 /** The person's row, created on first use. Keeps their name up to date. */
 export async function ensureStaff(db: Db, u: { id: number; first_name?: string; last_name?: string }): Promise<Staff> {

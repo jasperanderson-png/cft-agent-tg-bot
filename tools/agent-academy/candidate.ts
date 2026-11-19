@@ -9,7 +9,7 @@ import { HttpError, UUID_RE } from '../../support/helpers/http.js';
 import { telegramAdmin } from '../../support/helpers/admins.js';
 import { notifyResult } from './notify.js';
 import { autoSyncAttempt } from './sheets.js';
-import { requireInitData, type VerifiedInitData } from '../../support/helpers/telegram.js';
+import { fullName, requireInitData, type VerifiedInitData } from '../../support/helpers/telegram.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 
 interface AttemptRow {
@@ -179,7 +179,7 @@ export async function telegramSession(body: Record<string, unknown>): Promise<At
     }
     return {
       state: 'none' as const,
-      suggestedName: normalizeName([tg.user.first_name, tg.user.last_name].filter(Boolean).join(' ')),
+      suggestedName: normalizeName(fullName(tg.user)),
       isAdmin: !!(await telegramAdmin(c, tg.user)),
     };
   });

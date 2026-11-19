@@ -223,13 +223,9 @@ export function Collapse({ open, children }: { open: boolean; children: ReactNod
 
 // ---- icons (stroke paths in a 24×24 box)
 export const X = 'M18 6 6 18 M6 6l12 12';
-export const CHEVRON = 'm6 9 6 6 6-6';
-export const PUMP = 'M3 22h12 M4 9h10 M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18 M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5';
-export const STAR = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z';
 export const CHECK = 'M20 6 9 17l-5-5';
 export const PIN = 'M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0 M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0';
 export const NAV = 'M3 11 22 2l-9 19-2-8-8-2z';
-export const LAYERS = 'm12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z M22 17.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65 M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65';
 export const LOCATE = 'M2 12h3 M19 12h3 M12 2v3 M12 19v3 M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0';
 export const STRAIGHT = 'M12 20V4 M5 11l7-7 7 7';
 export const TURN_RIGHT = 'M6 20v-7a4 4 0 0 1 4-4h9 M15 5l4 4-4 4';

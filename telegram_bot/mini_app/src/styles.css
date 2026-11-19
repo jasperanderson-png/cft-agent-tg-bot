@@ -553,13 +553,6 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .a-hello { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .a-hello h1 { margin: 0; font-family: var(--cond); font-weight: 700; font-size: 40px; line-height: .9; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .a-invite { flex: none; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--blue); color: #000; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-.a-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.a-stat { border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); padding: 16px; display: flex; flex-direction: column; gap: 6px; color: #fff; text-align: left; cursor: pointer; }
-.a-stat-top { display: flex; justify-content: space-between; align-items: center; }
-.a-stat-top > span:last-child { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: rgba(160,220,255,.1); color: var(--blue); }
-.a-stat-top .icon { width: 14px; height: 14px; }
-.a-stat b { font-family: var(--cond); font-weight: 700; font-size: 30px; line-height: 1; }
-.a-stat > span:last-child { font-size: 13px; color: var(--muted); }
 .a-label { margin: 4px 4px -4px; font-size: 11px; font-weight: 700; letter-spacing: .09em; color: var(--muted); }
 .a-nav { border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); padding: 6px; display: flex; flex-direction: column; }
 .a-link { display: flex; align-items: center; gap: 12px; padding: 10px; border: 0; border-radius: 14px; background: none; color: #fff; text-align: left; cursor: pointer; width: 100%; }

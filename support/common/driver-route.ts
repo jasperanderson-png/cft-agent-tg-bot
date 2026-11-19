@@ -316,7 +316,6 @@ export function priceAge(updatedAt: string | null | undefined, now = Date.now(),
 
 /** How the driver ranks stations on a route (the ★ choice on the map's card). */
 export type RankBy = 'rec' | 'cheap' | 'disc';
-export const RANK_LABEL: Record<RankBy, string> = { rec: 'Recommended', cheap: 'Cheapest', disc: 'Biggest discount' };
 
 /** What a truck mile costs (fuel, wear, the driver's time): about the US industry average. */
 const COST_PER_MI = 2;

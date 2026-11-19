@@ -4,7 +4,7 @@ import { INVITE_PREFIX, redeemInvite } from '../../support/helpers/agents.js';
 import { DRIVER_INVITE_PREFIX, redeemDriverInvite } from '../../support/helpers/drivers.js';
 import { showDriverHome } from './drivers/index.js';
 import { DRIVER_CALLBACK } from './driver-invites.js';
-import { botApi, type PrivateMessage } from '../../support/helpers/telegram.js';
+import { botApi, fullName, type PrivateMessage } from '../../support/helpers/telegram.js';
 import { showAdminHome } from './admins/index.js';
 import { showAgentHome } from './agents/fuel-search.js';
 import type { Viewer } from './viewer.js';
@@ -32,7 +32,7 @@ export function inviteToken(text: string | undefined): Invite | null {
 }
 
 const nameOf = (msg: PrivateMessage) =>
-  `<b>${esc([msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ') || 'Someone')}</b>${msg.from.username ? ' @' + esc(msg.from.username) : ''}`;
+  `<b>${esc(fullName(msg.from) || 'Someone')}</b>${msg.from.username ? ' @' + esc(msg.from.username) : ''}`;
 
 export async function joinWithInvite(msg: PrivateMessage, invite: Invite, who: Viewer): Promise<void> {
   if (invite.kind === 'admin') return joinAsAdmin(msg, invite.token, who);

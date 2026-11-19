@@ -216,6 +216,3 @@ export function cfStyle(): Promise<Style> {
   });
   return built;
 }
-
-/** Map data credits (OpenStreetMap licence). */
-export const MAP_CREDITS = "© OpenStreetMap contributors · OpenMapTiles · OpenFreeMap";
