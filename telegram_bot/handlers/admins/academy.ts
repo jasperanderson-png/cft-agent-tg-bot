@@ -1,6 +1,6 @@
-import type { Db } from '../../../db_storage/db.js';
-import { SECTION } from '../../../core/home.js';
-import type { PrivateMessage } from '../../../core/telegram.js';
+import type { Db } from '../../../database/db.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import type { PrivateMessage } from '../../../support/helpers/telegram.js';
 import { sendConsoleLink, sendExcelReport, sendStats, showAcademy } from '../../../tools/agent-academy/chat.js';
 import { commandOf } from '../viewer.js';
 

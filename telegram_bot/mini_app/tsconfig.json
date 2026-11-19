@@ -1,6 +1,6 @@
 // The Mini App: runs in the browser inside Telegram. src/ holds the shell (App.tsx, lib/, components/)
 // and the screens, grouped by who uses them (screens/admins, agents, candidates, shared).
-// It may import shared/, never the server side (core/, db_storage/, tools/, task_report/, telegram_bot/*.ts).
+// It may import support/common/, never the server side (support/helpers/, database/, tools/, telegram_bot/*.ts).
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
@@ -8,5 +8,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client"]
   },
-  "include": ["src", "../../shared"]
+  "include": ["src", "../../support/common"]
 }

@@ -1,9 +1,9 @@
-import { escHtml as esc } from '../../shared/html.js';
-import { fmtDMYHM } from '../../shared/time.js';
-import type { Db } from '../../db_storage/db.js';
-import { botApi, botSendDocument } from '../../core/telegram.js';
-import { reportTimeZone } from '../../core/updates.js';
-import { homeKeyboardFor } from '../../core/home.js';
+import { escHtml as esc } from '../../support/common/html.js';
+import { fmtDMYHM } from '../../support/common/time.js';
+import type { Db } from '../../database/db.js';
+import { botApi, botSendDocument } from '../../support/helpers/telegram.js';
+import { reportTimeZone } from '../../support/helpers/updates.js';
+import { homeKeyboardFor } from '../../support/helpers/home.js';
 import { fetchAllStations, FuelError, type Stage } from './cabinet.js';
 import { saveDataset } from './dataset.js';
 import { FUEL_FILENAME, fuelPricesXlsx } from './excel.js';

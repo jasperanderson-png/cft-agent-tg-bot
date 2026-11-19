@@ -1,8 +1,8 @@
 import { Resvg } from '@resvg/resvg-js';
-import { escXml as xml } from '../../../shared/html.js';
-import { brandFile, LOGO_RATIO, logoDataUri } from '../../../core/brand.js';
-import { SECTION } from '../../../core/home.js';
-import { botApi, botSendPhoto, type PrivateMessage } from '../../../core/telegram.js';
+import { escXml as xml } from '../../../support/common/html.js';
+import { brandFile, LOGO_RATIO, logoDataUri } from '../../../support/helpers/brand.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import { botApi, botSendPhoto, type PrivateMessage } from '../../../support/helpers/telegram.js';
 import { TOOLS } from '../../server/tools.js';
 import { commandOf } from '../viewer.js';
 
@@ -27,9 +27,9 @@ const ROLES = [
   { name: 'Drivers', what: 'Empty for now: ready for when drivers talk to the bot' },
 ];
 const BASE = [
-  { name: 'core/', what: 'Settings, the Telegram connection, who is admin or agent, brand fonts and logo' },
-  { name: 'db_storage/', what: 'The Postgres database: connection, migrations, Academy questions' },
-  { name: 'shared/', what: 'Dates, grading, CSV and types, used by the server and the Mini App' },
+  { name: 'support/helpers/', what: 'Settings, the Telegram connection, who is admin or agent, brand fonts and logo' },
+  { name: 'database/', what: 'The Postgres database: connection, migrations, Academy questions' },
+  { name: 'support/common/', what: 'Dates, grading, CSV and types, used by the server and the Mini App' },
 ];
 const OUTSIDE = [
   { name: 'Telegram', what: 'The bot, the Mini App, the reports chat' },
@@ -108,9 +108,9 @@ export function systemDesignSvg(): string {
   add(...layer(y, 'WHO can do what · telegram_bot/', 'The front door works out who is writing; that role’s folder answers.', ROLES, 2));
   add(arrow(y, 'asks the tools'), 60);
   const tools = TOOLS.map((t) => TOOL_INFO[t.id] ?? { name: t.id, what: '—' });
-  add(...layer(y, 'WHAT the business does · tools/ · task_report/', 'Each tool: its data, rules and what it sends. Never decides who may ask.', tools, 2));
+  add(...layer(y, 'WHAT the business does · tools/', 'Each tool: its data, rules and what it sends. Never decides who may ask.', tools, 2));
   add(arrow(y, 'imports only go down'), 60);
-  add(...layer(y, 'The base · core/ · db_storage/ · shared/', 'Plumbing every part uses.', BASE, 1));
+  add(...layer(y, 'The base · database/ · support/', 'Plumbing every part uses.', BASE, 1));
   add(arrow(y, 'talks to'), 60);
   add(...layer(y, 'Outside services', 'Everything runs on free plans.', OUTSIDE, 2));
   const mini = 'The Mini App (telegram_bot/mini_app) has its screens grouped the same way: admins, agents, candidates.';
@@ -129,8 +129,8 @@ const CAPTION = [
   '🧩 <b>System design</b> · how the bot is built now',
   '',
   '<b>WHO</b> (telegram_bot/): works out whether you are an admin, agent or candidate; that role’s folder decides what you can do.',
-  '<b>WHAT</b> (tools/, task_report/): the business itself, one folder per tool.',
-  '<b>BASE</b> (core/, db_storage/, shared/): settings, the database, shared helpers.',
+  '<b>WHAT</b> (tools/): the business itself, one folder per tool (the work reports too).',
+  '<b>BASE</b> (database/, support/): the database, settings and shared helpers.',
   '',
   'Rule that keeps it growing safely: imports only go down. A new tool = one folder + one line; a new role = one folder.',
 ].join('\n');

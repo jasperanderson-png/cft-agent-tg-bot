@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TripDetail } from '../../../../../shared/types';
-import { BRANDS, type DriverBrand } from '../../../../../shared/driver-route';
+import type { TripDetail } from '../../../../../support/common/types';
+import { BRANDS, type DriverBrand } from '../../../../../support/common/driver-route';
 import { driversApi, type ApiError } from '../../lib/api';
 import { useAdminSession } from '../../lib/session';
 import { haptic, useBackButton } from '../../lib/telegram';

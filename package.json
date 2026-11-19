@@ -13,11 +13,11 @@
     "preview": "vite preview telegram_bot/mini_app",
     "typecheck": "tsc -p tsconfig.json && tsc -p telegram_bot/mini_app/tsconfig.json",
     "test": "vitest run",
-    "db:migrate": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx db_storage/migrate.ts",
-    "db:seed": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx db_storage/seeds/academy/seed.ts",
-    "admin:create": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/create-admin.ts",
-    "telegram:setup": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/telegram-setup.ts",
-    "worklog": "node --env-file-if-exists=.env.production.local --import tsx scripts/worklog.ts"
+    "db:migrate": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx database/migrate.ts",
+    "db:seed": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx database/seeds/academy/seed.ts",
+    "admin:create": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx support/commands/create-admin.ts",
+    "telegram:setup": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx support/commands/telegram-setup.ts",
+    "worklog": "node --env-file-if-exists=.env.production.local --import tsx support/commands/worklog.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",

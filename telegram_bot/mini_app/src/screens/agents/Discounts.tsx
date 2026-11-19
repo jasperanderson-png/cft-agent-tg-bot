@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BRANDS, byPrice, normalize, parseQuery, stateName, titleCase, usd, type AgentDiscounts, type AgentStation, type PartnerBrand } from '../../../../../shared/discounts';
+import { BRANDS, byPrice, normalize, parseQuery, stateName, titleCase, usd, type AgentDiscounts, type AgentStation, type PartnerBrand } from '../../../../../support/common/discounts';
 import { discountsApi, type ApiError } from '../../lib/api';
 import { haptic, openExternal, routePageUrl, useBackButton } from '../../lib/telegram';
 import { fmtDay, Icon, Spinner, useToast } from '../../components/ui';

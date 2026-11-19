@@ -2,19 +2,19 @@
 // The database tests need TEST_DATABASE_URL (wiped and rebuilt each run). Telegram and FMCSA are stubbed.
 import { strFromU8, unzipSync } from 'fflate';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { csvObjects, decodeText, parseCSV } from '../../../shared/csv.js';
-import { contactKeys, formatPhone, normalizeCdlClass, normalizeEmail, normalizeLead, normalizePhone, normalizeState, normalizeYears } from '../../../shared/leads.js';
-import { closePool, getPool } from '../../../db_storage/db.js';
-import type { ApiRequest } from '../../../core/http.js';
+import { csvObjects, decodeText, parseCSV } from '../../../support/common/csv.js';
+import { contactKeys, formatPhone, normalizeCdlClass, normalizeEmail, normalizeLead, normalizePhone, normalizeState, normalizeYears } from '../../../support/common/leads.js';
+import { closePool, getPool } from '../../../database/db.js';
+import type { ApiRequest } from '../../../support/helpers/http.js';
 import { parseAction } from '../../../telegram_bot/handlers/admins/leads.js';
 import { limits } from '../actions.js';
 import { LEAD_HEADERS } from '../files.js';
 import { BACK, BUTTONS, DOWNLOADS, INLINE, KEYS, NO_NEW_LEADS } from '../messages.js';
-import { SECTION } from '../../../core/home.js';
+import { SECTION } from '../../../support/helpers/home.js';
 import { censusToRecord, censusWhere } from '../fmcsa.js';
 import { handle } from '../../../telegram_bot/server/router.js';
-import { migrate } from '../../../db_storage/migrate.js';
-import { seed } from '../../../db_storage/seeds/academy/seed.js';
+import { migrate } from '../../../database/migrate.js';
+import { seed } from '../../../database/seeds/academy/seed.js';
 
 try {
   process.loadEnvFile('.env.local');

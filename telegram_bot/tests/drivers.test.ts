@@ -3,12 +3,12 @@
 // menu-button repair: each person's menu is set again when Telegram missed it. Telegram is stubbed.
 // Needs TEST_DATABASE_URL.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closePool, getPool } from '../../db_storage/db.js';
-import { migrate } from '../../db_storage/migrate.js';
-import { seed } from '../../db_storage/seeds/academy/seed.js';
-import type { ApiRequest } from '../../core/http.js';
-import { botApi } from '../../core/telegram.js';
-import { signInitData } from '../../core/tests/helpers.js';
+import { closePool, getPool } from '../../database/db.js';
+import { migrate } from '../../database/migrate.js';
+import { seed } from '../../database/seeds/academy/seed.js';
+import type { ApiRequest } from '../../support/helpers/http.js';
+import { botApi } from '../../support/helpers/telegram.js';
+import { signInitData } from '../../support/helpers/tests/helpers.js';
 import { handle as router } from '../server/router.js';
 
 try {

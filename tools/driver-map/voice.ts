@@ -1,10 +1,10 @@
-import { env } from '../../core/env.js';
-import { HttpError } from '../../core/http.js';
-import { digest, kv, kvReady, rateLimit, spend } from '../../core/kv.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError } from '../../support/helpers/http.js';
+import { digest, kv, kvReady, rateLimit, spend } from '../../support/helpers/kv.js';
 
 // The natural navigation voice: Google Cloud Text-to-Speech, Chirp 3 HD. A phrase is synthesised
 // once: the MP3 is kept in our Redis and, being a plain GET URL, by the phone.
-// Characters count against our daily and monthly allowance (core/kv.ts, shared/driver-config.ts).
+// Characters count against our daily and monthly allowance (support/helpers/kv.ts, support/common/driver-config.ts).
 
 /** The voices offered (US English); Fenrir, a male voice, is the default the user chose. */
 export const VOICES: Record<string, string> = { fenrir: 'Fenrir', charon: 'Charon', orus: 'Orus', aoede: 'Aoede', kore: 'Kore', leda: 'Leda' };

@@ -1,7 +1,7 @@
-import { escHtml as esc } from '../../../shared/html.js';
-import { DRIVER_MAP } from '../../../shared/driver-config.js';
-import { env } from '../../../core/env.js';
-import { botApi } from '../../../core/telegram.js';
+import { escHtml as esc } from '../../../support/common/html.js';
+import { DRIVER_MAP } from '../../../support/common/driver-config.js';
+import { env } from '../../../support/helpers/env.js';
+import { botApi } from '../../../support/helpers/telegram.js';
 import { refuseAdminCallback, refuseAdminMessage, refuseAgentCallback } from '../not-allowed.js';
 import { commandOf, type RoleHandlers } from '../viewer.js';
 

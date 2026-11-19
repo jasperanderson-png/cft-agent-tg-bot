@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AcademySummary, AgentsList, DiscountsAdmin, DriverWithTrips, LeadsSummary } from '../../../../../shared/types';
+import type { AcademySummary, AgentsList, DiscountsAdmin, DriverWithTrips, LeadsSummary } from '../../../../../support/common/types';
 import { driversApi, hubApi, teamApi, type ApiError } from '../../lib/api';
 import { backToChat, haptic, loadSetting, routePageUrl, saveSetting, tg, useBackButton } from '../../lib/telegram';
 import { fmtDay, Icon, type IconName } from '../../components/ui';

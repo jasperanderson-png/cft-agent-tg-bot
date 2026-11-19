@@ -1,5 +1,5 @@
-import type { AgentStation, PartnerBrand } from '../../shared/discounts.js';
-import { tx, type Db } from '../../db_storage/db.js';
+import type { AgentStation, PartnerBrand } from '../../support/common/discounts.js';
+import { tx, type Db } from '../../database/db.js';
 import type { Extraction, Station } from './cabinet.js';
 
 // The discounts dataset agents search. Every complete pull of the cabinet by an admin is saved here

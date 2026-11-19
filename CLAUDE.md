@@ -2,7 +2,7 @@
 
 One Telegram bot (@cft_Agentbot) with its Mini App, one database, one server (DigitalOcean VM, docs/VM_DEPLOY.md). The layout
 and its rules are in README.md ("Project layout"): `telegram_bot/` decides who may do what,
-`tools/` and `task_report/` do the work, `db_storage/` is the database; imports only go downward.
+`tools/` does the work (one folder per feature), `database/` is the database, `support/` holds the helpers; imports only go downward.
 
 - The bot's own texts (buttons, commands, replies) are in English. Work reports in the channel are in Russian.
 - Dates are dd/mm/yyyy; the report time zone is Asia/Tashkent.

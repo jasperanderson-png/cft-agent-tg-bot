@@ -1,6 +1,6 @@
-import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../shared/types';
-import type { AgentDiscounts, PartnerBrand } from '../../../../shared/discounts';
-import type { DetourAsk, DetourResult } from '../../../../shared/driver-route';
+import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../support/common/types';
+import type { AgentDiscounts, PartnerBrand } from '../../../../support/common/discounts';
+import type { DetourAsk, DetourResult } from '../../../../support/common/driver-route';
 import { initData } from './telegram';
 
 export class ApiError extends Error {

@@ -1,10 +1,10 @@
-import { US_STATES } from '../../../shared/discounts.js';
-import { escHtml as esc } from '../../../shared/html.js';
-import type { Db } from '../../../db_storage/db.js';
-import { env } from '../../../core/env.js';
-import { SECTION } from '../../../core/home.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../../core/telegram.js';
-import { firstSight } from '../../../core/updates.js';
+import { US_STATES } from '../../../support/common/discounts.js';
+import { escHtml as esc } from '../../../support/common/html.js';
+import type { Db } from '../../../database/db.js';
+import { env } from '../../../support/helpers/env.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../support/helpers/telegram.js';
+import { firstSight } from '../../../support/helpers/updates.js';
 import { answerSearch, DISCOUNT_CALLBACK, maskBrands, SEARCH_HELP, sendAgentExcel, sendSelection } from '../../../tools/fuel-prices/agent-prices.js';
 import type { Viewer } from '../viewer.js';
 import { AGENT_DRIVER_BUTTONS, DRIVERS_COMMAND, INVITE_DRIVER_COMMAND } from '../driver-invites.js';

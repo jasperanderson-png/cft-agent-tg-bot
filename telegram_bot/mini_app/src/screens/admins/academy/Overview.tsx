@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { isPass, overview, questionStats, scoreDistribution } from '../../../../../../shared/analytics';
-import type { AdminAttempt } from '../../../../../../shared/types';
+import { isPass, overview, questionStats, scoreDistribution } from '../../../../../../support/common/analytics';
+import type { AdminAttempt } from '../../../../../../support/common/types';
 import { Icon, Modal, fmtDate, type IconName } from '../../../components/ui';
 import { activeTotal, PageHead, Section, statusChip, type AttemptFilters, type Ctx } from './common';
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DriverStation } from '../../../../../shared/types';
-import { byPrice, type AgentStation, type PartnerBrand } from '../../../../../shared/discounts';
-import { payPrice, savingOf } from '../../../../../shared/driver-route';
+import type { DriverStation } from '../../../../../support/common/types';
+import { byPrice, type AgentStation, type PartnerBrand } from '../../../../../support/common/discounts';
+import { payPrice, savingOf } from '../../../../../support/common/driver-route';
 import { Icon, useToast } from '../../components/ui';
 import { haptic, useBackButton } from '../../lib/telegram';
 import { Picker, Results, StationSheet } from '../agents/Discounts';

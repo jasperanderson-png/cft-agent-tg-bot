@@ -1,19 +1,19 @@
-import { telegramAdmin } from '../../core/admins.js';
-import { isAgent } from '../../core/agents.js';
-import { isDriver } from '../../core/drivers.js';
-import type { Db } from '../../db_storage/db.js';
-import { env } from '../../core/env.js';
-import type { PrivateCallback, PrivateMessage, TelegramUser } from '../../core/telegram.js';
+import { telegramAdmin } from '../../support/helpers/admins.js';
+import { isAgent } from '../../support/helpers/agents.js';
+import { isDriver } from '../../support/helpers/drivers.js';
+import type { Db } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
+import type { PrivateCallback, PrivateMessage, TelegramUser } from '../../support/helpers/telegram.js';
 
 /** Who sent an update. Decides which folder of telegram_bot/handlers/ answers it. */
 export interface Viewer {
-  /** A CFT administrator (core/admins.ts). */
+  /** A CFT administrator (support/helpers/admins.ts). */
   admin: boolean;
   /** One of the owners (ADMIN_TELEGRAM_IDS). */
   owner: boolean;
-  /** An agent (joined through an invite link; core/agents.ts). Admins are never also counted as agents. */
+  /** An agent (joined through an invite link; support/helpers/agents.ts). Admins are never also counted as agents. */
   agent: boolean;
-  /** A driver (joined through a driver link; core/drivers.ts): the route map only. Never also an admin or agent. */
+  /** A driver (joined through a driver link; support/helpers/drivers.ts): the route map only. Never also an admin or agent. */
   driver?: boolean;
   /** Telegram's id for the update, used to run file-sending actions once. */
   updateId?: number;

@@ -1,6 +1,6 @@
-import { DRIVER_MAP } from '../../shared/driver-config.js';
-import type { Db } from '../../db_storage/db.js';
-import { botApi, type TelegramUpdate } from '../../core/telegram.js';
+import { DRIVER_MAP } from '../../support/common/driver-config.js';
+import type { Db } from '../../database/db.js';
+import { botApi, type TelegramUpdate } from '../../support/helpers/telegram.js';
 import { liveLocationAlert } from '../../tools/driver-map/alerts.js';
 import { viewerOf } from './viewer.js';
 

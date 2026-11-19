@@ -7,6 +7,6 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["core", "db_storage", "scripts", "shared", "task_report", "telegram_bot", "tools", "vitest.config.ts"],
+  "include": ["database", "support", "telegram_bot", "tools", "vitest.config.ts"],
   "exclude": ["telegram_bot/mini_app/src", "tools/driver-leads/signup-page"]
 }

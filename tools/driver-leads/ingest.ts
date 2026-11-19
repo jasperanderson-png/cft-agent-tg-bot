@@ -1,9 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
-import { contactKeys, defaultConsentText, identityKeys, normalizeLead } from '../../shared/leads.js';
-import { newToken, sha256 } from '../../core/crypto.js';
-import { getPool, type Db } from '../../db_storage/db.js';
-import { env } from '../../core/env.js';
-import { HttpError, type ApiRequest } from '../../core/http.js';
+import { contactKeys, defaultConsentText, identityKeys, normalizeLead } from '../../support/common/leads.js';
+import { newToken, sha256 } from '../../support/helpers/crypto.js';
+import { getPool, type Db } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError, type ApiRequest } from '../../support/helpers/http.js';
 
 export interface LeadSource {
   id: string;

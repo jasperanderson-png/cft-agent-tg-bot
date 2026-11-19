@@ -76,7 +76,7 @@ Everything runs in the existing bot and database on our server. No new services 
 
 | File | Purpose |
 |---|---|
-| `shared/leads.ts` | Field names providers use, validation and normalisation. Pure functions. |
+| `support/common/leads.ts` | Field names providers use, validation and normalisation. Pure functions. |
 | `tools/driver-leads/ingest.ts` | Import pipeline, registration and opt-out endpoints, vendor webhook, suppression list. |
 | `tools/driver-leads/store.ts` | Claim, confirm and release for fresh-only delivery; export queries; statistics; access. |
 | `tools/driver-leads/messages.ts` | **Every text the bot sends in this section.** Change the wording here. |
@@ -84,9 +84,9 @@ Everything runs in the existing bot and database on our server. No new services 
 | `tools/driver-leads/actions.ts` | What each action does: new leads once, files, statistics, owner tools. |
 | `telegram_bot/handlers/admins/leads.ts` | Which button, command or uploaded file asks for which action, and who may. |
 | `tools/driver-leads/fmcsa.ts` | The FMCSA pull source and the daily sync. |
-| `tools/driver-leads/index.ts` | Driver Leads' API routes. `telegram_bot/handlers/admins/index.ts` and `core/home.ts` hold the home screen that switches between sections. |
+| `tools/driver-leads/index.ts` | Driver Leads' API routes. `telegram_bot/handlers/admins/index.ts` and `support/helpers/home.ts` hold the home screen that switches between sections. |
 | `tools/driver-leads/signup-page/` | The registration page, published at `/drivers/`. |
-| `db_storage/migrations/0003_driver_leads.sql` | Schema and the `ingest_driver` function. |
+| `database/migrations/0003_driver_leads.sql` | Schema and the `ingest_driver` function. |
 
 ## Where leads come from
 

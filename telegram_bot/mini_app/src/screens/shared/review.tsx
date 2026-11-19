@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { Answers, ReviewQuestion, Topic } from '../../../../../shared/types';
+import type { Answers, ReviewQuestion, Topic } from '../../../../../support/common/types';
 import { Bar, Icon } from '../../components/ui';
 
 export interface TopicScore {

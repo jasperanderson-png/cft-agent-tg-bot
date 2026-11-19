@@ -1,8 +1,8 @@
-import type { RangeKey } from '../../shared/time.js';
-import type { Db } from '../../db_storage/db.js';
-import { env } from '../../core/env.js';
-import { homeKeyboardFor } from '../../core/home.js';
-import { botApi } from '../../core/telegram.js';
+import type { RangeKey } from '../../support/common/time.js';
+import type { Db } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
+import { homeKeyboardFor } from '../../support/helpers/home.js';
+import { botApi } from '../../support/helpers/telegram.js';
 import { sendReportToChat, statsText } from './notify.js';
 
 // What the Agent Academy sends in a chat: the test's front page, the admin console link, statistics

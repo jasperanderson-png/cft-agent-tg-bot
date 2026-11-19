@@ -1,10 +1,10 @@
-// Server tests: core/tests (shared code), telegram_bot, task_report and each tool's tests/ folder.
+// Server tests: support/helpers/tests (the helpers), telegram_bot and each tool's tests/ folder.
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['core/**/*.test.ts', 'telegram_bot/**/*.test.ts', 'task_report/**/*.test.ts', 'tools/**/*.test.ts'],
+    include: ['support/**/*.test.ts', 'telegram_bot/**/*.test.ts', 'tools/**/*.test.ts'],
     testTimeout: 20000,
     fileParallelism: false,
     // Paid services (TomTom, Google voice, the Redis that caps them) and OpenRouteService

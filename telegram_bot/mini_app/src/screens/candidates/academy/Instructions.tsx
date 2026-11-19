@@ -1,4 +1,4 @@
-import type { PublicConfig } from '../../../../../../shared/types';
+import type { PublicConfig } from '../../../../../../support/common/types';
 import { useBackButton } from '../../../lib/telegram';
 import { Accent, Spinner } from '../../../components/ui';
 

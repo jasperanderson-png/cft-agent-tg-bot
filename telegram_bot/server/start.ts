@@ -8,7 +8,7 @@ const HOST = process.env.API_HOST ?? '127.0.0.1';
 
 // Every request is answered within 60 s: past that, the caller gets 504 and the log names the slow route.
 // Node cannot stop the handler itself, so the long jobs keep their own shorter budgets
-// (shared/driver-config.ts) and stop on time; this is the ceiling behind those budgets.
+// (support/common/driver-config.ts) and stop on time; this is the ceiling behind those budgets.
 const REQUEST_DEADLINE_MS = 60_000;
 
 const server = createServer((req, res) => {

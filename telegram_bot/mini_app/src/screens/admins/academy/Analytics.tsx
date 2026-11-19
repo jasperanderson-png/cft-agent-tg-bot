@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { findPatterns, PATTERN_RULES, questionStats, topicStats, type QuestionStat, type TopicStat } from '../../../../../../shared/analytics';
+import { findPatterns, PATTERN_RULES, questionStats, topicStats, type QuestionStat, type TopicStat } from '../../../../../../support/common/analytics';
 import { Bar, Icon } from '../../../components/ui';
 import { exportCsv } from './csv';
 import { MetaChips, PageHead, topicName, type Ctx } from './common';

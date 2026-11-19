@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import type { AdminAttempt, AdminData } from '../../../../../../shared/types';
-import { isPass } from '../../../../../../shared/analytics';
+import type { AdminAttempt, AdminData } from '../../../../../../support/common/types';
+import { isPass } from '../../../../../../support/common/analytics';
 import { Accent, Icon, Spinner, type IconName } from '../../../components/ui';
 
 export type Page = 'overview' | 'attempts' | 'attempt' | 'questions' | 'topics' | 'reports' | 'users' | 'bank' | 'settings';

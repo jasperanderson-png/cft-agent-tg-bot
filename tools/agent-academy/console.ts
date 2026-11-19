@@ -1,10 +1,10 @@
 import type pg from 'pg';
-import type { AdminAttempt, AdminData, AttemptResult, BankQuestion, OptionKey, Settings } from '../../shared/types.js';
-import { isValidTimeZone } from '../../shared/time.js';
-import { settingsError, validateQuestionEdit } from '../../shared/validation.js';
-import { adminMe, audit, type Admin } from '../../core/admins.js';
-import { getPool, tx, type Db } from '../../db_storage/db.js';
-import { HttpError, UUID_RE } from '../../core/http.js';
+import type { AdminAttempt, AdminData, AttemptResult, BankQuestion, OptionKey, Settings } from '../../support/common/types.js';
+import { isValidTimeZone } from '../../support/common/time.js';
+import { settingsError, validateQuestionEdit } from '../../support/common/validation.js';
+import { adminMe, audit, type Admin } from '../../support/helpers/admins.js';
+import { getPool, tx, type Db } from '../../database/db.js';
+import { HttpError, UUID_RE } from '../../support/helpers/http.js';
 import { buildResult, loadSettings } from './candidate.js';
 import { sheetsStatus } from './sheets.js';
 

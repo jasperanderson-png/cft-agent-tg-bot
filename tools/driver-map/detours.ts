@@ -1,8 +1,8 @@
-import type { DetourAsk, DetourResult, LatLng } from '../../shared/driver-route.js';
-import { DRIVER_MAP } from '../../shared/driver-config.js';
-import { env } from '../../core/env.js';
-import { HttpError } from '../../core/http.js';
-import { spendCapped } from '../../core/kv.js';
+import type { DetourAsk, DetourResult, LatLng } from '../../support/common/driver-route.js';
+import { DRIVER_MAP } from '../../support/common/driver-config.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError } from '../../support/helpers/http.js';
+import { spendCapped } from '../../support/helpers/kv.js';
 import { asPoint, key, ORS, orsFetch } from './routing.js';
 
 // Real detour time for the cheapest stations near a route (POST /api/driver/detours). Straight-line

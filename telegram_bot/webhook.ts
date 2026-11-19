@@ -1,8 +1,8 @@
-import { getPool } from '../db_storage/db.js';
-import { env } from '../core/env.js';
-import { HttpError, secretMatches, type ApiRequest } from '../core/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage, type TelegramUpdate } from '../core/telegram.js';
-import { touchTelegramUser } from '../core/users.js';
+import { getPool } from '../database/db.js';
+import { env } from '../support/helpers/env.js';
+import { HttpError, secretMatches, type ApiRequest } from '../support/helpers/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage, type TelegramUpdate } from '../support/helpers/telegram.js';
+import { touchTelegramUser } from '../support/helpers/users.js';
 import { admins } from './handlers/admins/index.js';
 import { agents } from './handlers/agents/index.js';
 import { candidates } from './handlers/candidates/index.js';
@@ -11,11 +11,11 @@ import { channelMembership, groupMessage } from './handlers/channel.js';
 import { inviteToken, joinWithInvite } from './handlers/invite.js';
 import { liveLocation } from './handlers/live-location.js';
 import { menuKey, roleOf, viewerOf, type Role, type RoleHandlers, type Viewer } from './handlers/viewer.js';
-import type { Db } from '../db_storage/db.js';
+import type { Db } from '../database/db.js';
 
 // The bot's front door. It checks that an update really comes from Telegram, works out WHO sent it
 // (admin, agent, driver or candidate) and hands it to that role's folder in handlers/. Each role folder
-// decides what its people can do; the work itself is done by the tools (tools/, task_report/).
+// decides what its people can do; the work itself is done by the tools (tools/).
 //
 // To add a role (drivers, dispatchers…): write handlers/<role>/index.ts and add it to ROLES and to
 // roleOf() in handlers/viewer.ts.

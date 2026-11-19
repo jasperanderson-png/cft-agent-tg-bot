@@ -2,7 +2,7 @@
 // reply, the hint for a plain location, and alerts on each position update. Telegram, the database
 // lookup of who is writing and the alert logic itself (tested in tools/driver-map) are stubbed.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Db } from '../../db_storage/db.js';
+import type { Db } from '../../database/db.js';
 
 const role = vi.hoisted(() => ({ current: { admin: false, owner: false, agent: false, driver: true } }));
 const alert = vi.hoisted(() => ({ text: null as string | null, calls: [] as unknown[][] }));

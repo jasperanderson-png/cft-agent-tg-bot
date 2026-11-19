@@ -3,12 +3,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   cheapest, milesBetween, payPrice, pointAlong, projectOnPath, rankStations, savingOf, stationsAlongRoute, type DriverBrand, type LatLng,
-} from '../../../shared/driver-route.js';
+} from '../../../support/common/driver-route.js';
 import { censusLookup, chainMatch, chainStores, geoKey, orsLookup, storeNo, type GeoStation } from '../geocode.js';
 import { planRoute, readRoute, truckOf } from '../routing.js';
 import { readTomTom } from '../tomtom.js';
 import { voiceClip } from '../voice.js';
-import { DRIVER_MAP } from '../../../shared/driver-config.js';
+import { DRIVER_MAP } from '../../../support/common/driver-config.js';
 
 // Omaha → Lincoln → Kearney along I-80, roughly.
 const PATH: LatLng[] = [

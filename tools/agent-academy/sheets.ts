@@ -1,8 +1,8 @@
 import { createSign } from 'node:crypto';
-import type { SheetsStatus } from '../../shared/types.js';
-import { getPool, type Db } from '../../db_storage/db.js';
-import { env } from '../../core/env.js';
-import { HttpError } from '../../core/http.js';
+import type { SheetsStatus } from '../../support/common/types.js';
+import { getPool, type Db } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError } from '../../support/helpers/http.js';
 
 /**
  * Google Sheets export through a service account (GOOGLE_SERVICE_ACCOUNT_JSON).

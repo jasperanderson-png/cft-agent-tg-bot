@@ -1,5 +1,5 @@
-import { byPrice, stateName, titleCase, usd, type AgentStation } from '../../shared/discounts.js';
-import { escHtml as esc } from '../../shared/html.js';
+import { byPrice, stateName, titleCase, usd, type AgentStation } from '../../support/common/discounts.js';
+import { escHtml as esc } from '../../support/common/html.js';
 
 // The messages agents forward to drivers: one clean table per state, cheapest first. Tables are
 // monospace (<pre>) and at most 32 characters wide, so they line up on a phone without wrapping.

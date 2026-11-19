@@ -1,5 +1,5 @@
-import { cumulativeMiles, headingDeg, type LatLng } from '../../../../../shared/driver-route';
-import type { DriverRoute, DriverRouteStep } from '../../../../../shared/types';
+import { cumulativeMiles, headingDeg, type LatLng } from '../../../../../support/common/driver-route';
+import type { DriverRoute, DriverRouteStep } from '../../../../../support/common/types';
 
 // Driving along a route: where the truck is on it, how far off it, which turn is next, and the road's
 // heading there. Pure functions, called every animation frame, so they look only near the last known

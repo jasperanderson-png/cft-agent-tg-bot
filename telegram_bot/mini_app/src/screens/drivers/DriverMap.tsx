@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../shared/types';
+import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../support/common/types';
 import {
   afterDriving, applyDetours, bestChecked, BRAND_ORDER, BRANDS, milesBetween, nextDetourRound, payPrice, rangeNow, rankStations, reachable, stationsAlongRoute,
   type DriverBrand, type FuelRange, type LatLng, type Placed, type RankBy,
-} from '../../../../../shared/driver-route';
-import { DRIVER_MAP } from '../../../../../shared/driver-config';
-import { US_STATES as STATE_NAMES } from '../../../../../shared/states';
-import { titleCase } from '../../../../../shared/discounts';
+} from '../../../../../support/common/driver-route';
+import { DRIVER_MAP } from '../../../../../support/common/driver-config';
+import { US_STATES as STATE_NAMES } from '../../../../../support/common/states';
+import { titleCase } from '../../../../../support/common/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
 import { fmtDuration as hm } from '../../components/ui';
@@ -38,7 +38,7 @@ interface Trip { phase: Phase; stopId: number | null }
 interface Field { text: string; place: DriverPlace | null }
 interface Fix extends LatLng { heading: number | null; speed: number | null; accuracy: number | null }
 
-// Thresholds: shared/driver-config.ts. On a planned route the map shows the best few (cheapShown),
+// Thresholds: support/common/driver-config.ts. On a planned route the map shows the best few (cheapShown),
 // by the driver's choice of brands and ranking.
 const { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI, nearbyMax: NEARBY_MAX, cheapShown: BEST_SHOWN } = DRIVER_MAP;
 /** What the route card shows: every station on and near the route (by price), or the best 3 by a ranking. */

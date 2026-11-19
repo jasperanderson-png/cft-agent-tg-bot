@@ -1,0 +1,15 @@
+{
+  // Keeps the file list short: the standard setup files fold under package.json and .gitignore
+  // (click the arrow next to them to see them), and the generated folders are hidden.
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "package-lock.json, tsconfig.json, tsconfig.base.json, vitest.config.ts",
+    ".gitignore": ".gitattributes, .env.example, .env.production.local, .env, .env.local",
+    "README.md": "CLAUDE.md"
+  },
+  "files.exclude": {
+    "node_modules": true,
+    "dist": true
+  }
+}

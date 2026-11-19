@@ -1,8 +1,8 @@
-import type { DriverWithTrips, TripDetail, TripPoint, TripSummary } from '../../shared/types.js';
-import { milesBetween } from '../../shared/driver-route.js';
-import { HttpError, UUID_RE } from '../../core/http.js';
-import { botSendDocument } from '../../core/telegram.js';
-import { tx, type Db } from '../../db_storage/db.js';
+import type { DriverWithTrips, TripDetail, TripPoint, TripSummary } from '../../support/common/types.js';
+import { milesBetween } from '../../support/common/driver-route.js';
+import { HttpError, UUID_RE } from '../../support/helpers/http.js';
+import { botSendDocument } from '../../support/helpers/telegram.js';
+import { tx, type Db } from '../../database/db.js';
 import { truckOf } from './routing.js';
 
 // Trip history (migration 0011): every trip a driver navigates on the route map, kept 12 months as

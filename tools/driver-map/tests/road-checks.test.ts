@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   afterDriving, applyDetours, bestChecked, bestStop, cumulativeMiles, detourAsks, milesBetween, nextDetourRound, priceAge, projectOnPath, rangeNow, rangeOf, reachable,
   simplifyPath, stationsAlongRoute, type LatLng, type Placed,
-} from '../../../shared/driver-route.js';
-import { DRIVER_MAP } from '../../../shared/driver-config.js';
-import type { DriverStation } from '../../../shared/types.js';
-import { env } from '../../../core/env.js';
-import { firstTime, rateLimit, spendCapped } from '../../../core/kv.js';
-import type { Db } from '../../../db_storage/db.js';
+} from '../../../support/common/driver-route.js';
+import { DRIVER_MAP } from '../../../support/common/driver-config.js';
+import type { DriverStation } from '../../../support/common/types.js';
+import { env } from '../../../support/helpers/env.js';
+import { firstTime, rateLimit, spendCapped } from '../../../support/helpers/kv.js';
+import type { Db } from '../../../database/db.js';
 import { detourMinutes, matrixRequest, readAsks, readDetours } from '../detours.js';
 import { activeTripPath, alertText, liveLocationAlert, nextStationAhead, nextStationOnRoute, travelHeading } from '../alerts.js';
 import { refreshStationLocations } from '../stations.js';

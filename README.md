@@ -64,9 +64,27 @@ Lead vendors → /api/leads/ingest/<source>        leads pushed by providers and
 
 ## Project layout
 
-One bot, one Mini App, one database and one deployment. The code is split two ways:
-**what** the business can do (`tools/`, `task_report/`) and **who** can do it in the chat
-(`telegram_bot/handlers/<role>/`).
+**What kind of project this is:** a TypeScript web application, built as a *modular monolith with
+layers*. It is one program, deployed as one service on our server. Each business feature has its own
+folder, and the code is stacked in layers that only import downward. It is written with modules and
+functions, not classes, which is the usual style for TypeScript and React.
+
+### At a glance
+
+| Folder | What it is | How often you open it |
+|---|---|---|
+| `telegram_bot/` | The bot: what each kind of user (admin, agent, driver, candidate) sees and may do, plus the Mini App screens | Often |
+| `tools/` | The business features, one folder each: the test, driver leads, fuel prices, the route map, agents, work reports | Often |
+| `database/` | The database: connection, table changes (migrations), the Academy questions | Sometimes |
+| `docs/` | Guides: the server, driver leads | When needed |
+| `deploy/` | How the server runs the bot. Its path is fixed on the server, so it stays at the top | Rarely |
+| `support/` | Helper code and hand-run commands (below) | Rarely |
+
+The files at the top (`package.json`, `tsconfig*.json`, `vitest.config.ts`, `.gitignore`, …) are the
+standard settings every JavaScript project has; the tools look for them there by name, so they cannot
+move. In VS Code they are folded under `package.json` and `.gitignore` (`.vscode/settings.json`).
+
+### In detail
 
 ```
 telegram_bot/                THE BOT: talks to Telegram, decides who may do what
@@ -99,33 +117,35 @@ tools/                       THE BUSINESS: one folder per tool, never imports te
   driver-map/                🗺 The drivers' route map: stations.ts (partner stations, read from fuel-prices),
                              geocode.ts, routing.ts + tomtom.ts (truck routes), voice.ts
   agents/                    👥 Invite links and the agent list (API for the Team screen)
-task_report/                 Work reports (shifts, daily/weekly/monthly reports to a channel)
-db_storage/                  THE DATABASE: db.ts (connection), migrate.ts, migrations/, seeds/academy/
-core/                        Plumbing everyone uses: env, http, telegram (Bot API client), admins, agents
-                             and drivers (who is who), home.ts (section names, home keyboard), tool.ts, xlsx,
-                             brand/ (fonts and logo for server-drawn pictures)
-shared/                      Code server and browser both use: types, grading, analytics, CSV, dates
-scripts/                     Things you run by hand: telegram-setup.ts (npm run telegram:setup),
-                             create-admin.ts (npm run admin:create), worklog.ts (npm run worklog)
+  task-report/               ⏱ Work reports: shifts, daily/weekly/monthly reports to a channel
+database/                    THE DATABASE: db.ts (connection), migrate.ts, migrations/, seeds/academy/
+docs/                        Guides: VM_DEPLOY.md (the server), DRIVER_LEADS.md
 deploy/                      Our server (guide: docs/VM_DEPLOY.md): setup-server.sh, update.sh,
                              Caddyfile (website, HTTPS, security headers), the bot service, scheduled jobs
-.github/workflows/           deploy-vm.yml: the "Deploy to VM" button on GitHub
+support/                     THE BACKSTAGE
+  helpers/                   Server-only helpers: env (settings), http, telegram (Bot API client), admins,
+                             agents and drivers (who is who), home.ts (section names, home keyboard), tool.ts,
+                             xlsx, brand/ (fonts and logo for server-drawn pictures)
+  common/                    Code the server and the Mini App both use: types, grading, analytics, CSV, dates
+  commands/                  Things you run by hand: telegram-setup.ts (npm run telegram:setup),
+                             create-admin.ts (npm run admin:create), worklog.ts (npm run worklog)
+.github/workflows/           deploy-vm.yml: the "Deploy to VM" button on GitHub (GitHub needs this exact place)
 ```
 
 The rule that keeps it expandable: imports only go **down**:
-`telegram_bot` → `tools` / `task_report` → `core` / `db_storage` / `shared`.
+`telegram_bot` → `tools` → `support/helpers` / `database` → `support/common`.
 A tool may read another tool's data in one direction only (today: `driver-map` reads `fuel-prices`).
-`core` and `db_storage` count as one level; the Mini App uses only `shared`. `scripts/`
-sits on top and may use anything. Tests are exempt (they drive the whole bot through the router).
-`core/tests/layers.test.ts` checks all of this, so `npm test` fails on an upward import.
+`support/helpers` and `database` count as one level; the Mini App uses only `support/common`.
+`support/commands` sits on top and may use anything. Tests are exempt (they drive the whole bot through the router).
+`support/helpers/tests/layers.test.ts` checks all of this, so `npm test` fails on an upward import.
 
 Where new work goes:
-- **A new tool:** `tools/<name>/` with an `index.ts` (see `core/tool.ts`), added to `telegram_bot/server/tools.ts`.
+- **A new tool:** `tools/<name>/` with an `index.ts` (see `support/helpers/tool.ts`), added to `telegram_bot/server/tools.ts`.
 - **What a role can do in the chat:** that role's folder in `telegram_bot/handlers/`. A new role is a new folder plus a line in `webhook.ts` and `handlers/viewer.ts`.
 - **An API endpoint:** the tool's `index.ts` `routes`.
 - **A Mini App screen:** `telegram_bot/mini_app/src/screens/<role>/`.
-- **A type both sides need:** `shared/types.ts`.
-- **A database change:** the next numbered file in `db_storage/migrations/`.
+- **A type both sides need:** `support/common/types.ts`.
+- **A database change:** the next numbered file in `database/migrations/`.
 
 The server side and the browser side each have their own TypeScript config, so browser code cannot import server code by accident.
 
@@ -217,7 +237,7 @@ None of these are exposed to the browser. There are no `VITE_` variables.
 
 **Owners** are the Telegram IDs in `ADMIN_TELEGRAM_IDS`. They are admins automatically the first time they open the bot, and they can't be removed from inside the app.
 
-**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `core/admin-invites.ts`, `telegram_bot/handlers/admins/team/admins.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/handlers/admins/team/menu.ts`.
+**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `support/helpers/admin-invites.ts`, `telegram_bot/handlers/admins/team/admins.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/handlers/admins/team/menu.ts`.
 
 **Signing in.** Inside Telegram, admins tap **Admin console** (or send `/admin`) and are signed in by their Telegram account, with no password. Email and password sign-in exists for opening the console in a normal browser. Create those accounts with `npm run admin:create -- --email … [--telegram-id …]`.
 
@@ -285,7 +305,7 @@ What is protected and how:
 
 ## Database
 
-Migrations are in `db_storage/migrations/`. The driver-leads tables from the third and fourth are described in [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md#database).
+Migrations are in `database/migrations/`. The driver-leads tables from the third and fourth are described in [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md#database).
 
 | Table | Purpose |
 |---|---|
@@ -338,7 +358,7 @@ Coverage:
 - The two bot sections: who sees the home screen, what each section's keyboard and command menu contain.
 - Drivers: driver links from admins and every agent, the agents' home buttons and menu, All drivers / My drivers, agents removing only their own drivers, the route map refused to non-drivers.
 - Trip history: only drivers' trips recorded, a resent batch counted once, no miles across a gap, the stop and arrival marked, admins only.
-- Layers: `core/tests/layers.test.ts` fails on an import that goes upward.
+- Layers: `support/helpers/tests/layers.test.ts` fails on an import that goes upward.
 
 ## Content sources
 
@@ -383,9 +403,9 @@ A station without a discounted price in the cabinet (about 230, mostly Casey's) 
 ## Menu buttons (why agents saw "Start test")
 
 Each role has its own Telegram menu button: admins **CFT Hub**, agents **Discounts**, drivers **Route map**, everyone else the default **Start test**. Telegram sometimes misses the change (a timeout), and a person kept the old button. Now:
-- calls that are safe to repeat (setting menus, editing, answering taps) are tried once more after a timeout (`core/telegram.ts`); new messages never are, so nobody gets one twice;
+- calls that are safe to repeat (setting menus, editing, answering taps) are tried once more after a timeout (`support/helpers/telegram.ts`); new messages never are, so nobody gets one twice;
 - `telegram_users.menu_role` records what each person was last given; when it differs from their role's key (`menuKey` in `telegram_bot/handlers/viewer.ts`), the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/webhook.ts`). Changing a role's key gives everyone with that role the new menu (agents are on `agents.2`: the driver commands);
-- `scripts/telegram-setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
+- `support/commands/telegram-setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
 
 ## Driver route map
 
@@ -395,13 +415,13 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Opening fast:** the station list from the last visit is kept on the phone and shows at once; the fresh list replaces it. `GET /api/driver/stations` never waits for address lookups: stations without a map point come without one, and the page then calls `POST /api/driver/locate` in the background (one lookup pass at a time across servers, a Redis lock released when the pass ends) and reloads the list. The first time, stations appear as a wave from the middle of the screen.
 - **Layout:** the map fills the screen; with nothing selected there is no bottom card (a clear map). Cards appear only for a tapped station, a planned route or a trip; the round buttons on the right always sit just above the card. While the driver moves the map, the top panel and the card step aside and come back when it stops. With a route planned, From / To shrink to one line (tap to change). Phones: search on top, card at the bottom. From 720 px wide (tablets, Telegram Desktop): both in a 380 px column on the left, the map beside them.
 - **By state** is the agents' own Find discounts screen (`Picker`, `Results`, `StationSheet` exported from `screens/agents/Discounts.tsx`), with the My route / By state switch on top and *Route here* on a station. Phones: full screen, like the agents'. From 900 px wide: a 420 px panel on the left, and the map beside it shows and frames the stations picked. Tapping a station on that map opens its card in the panel (the picks stay), and the open station is highlighted on the map.
-- **Building a route** takes the screen: a card with the steps (roads for the truck, live traffic, stations on the way) and *Cancel*, while the camera already shows both ends; the route then draws itself on. On the route, the bottom card has, top to bottom: the trip time with **‹ 1/3 ›** (swipe the station row too; the map follows); a one-row switch **All | Recommended | Cheapest | Biggest discount**; a one-row brand filter **All | Pilot | Love's | TA | Speedway** (several allowed); then the station with a compact **Go** (tap its name for the address and savings in one line). *All* = every station on and near the route (20 mi), cheapest first. The others = the **best 3**, numbered on the map ("1 · $4.53"): *Recommended* = price plus the detour there and back at about $2 a truck mile over a 150 gal fill; *Cheapest* and *Biggest discount* within 5 mi of the route. Choices are remembered on the phone. Ranking: `rankStations()` in `shared/driver-route.ts`.
+- **Building a route** takes the screen: a card with the steps (roads for the truck, live traffic, stations on the way) and *Cancel*, while the camera already shows both ends; the route then draws itself on. On the route, the bottom card has, top to bottom: the trip time with **‹ 1/3 ›** (swipe the station row too; the map follows); a one-row switch **All | Recommended | Cheapest | Biggest discount**; a one-row brand filter **All | Pilot | Love's | TA | Speedway** (several allowed); then the station with a compact **Go** (tap its name for the address and savings in one line). *All* = every station on and near the route (20 mi), cheapest first. The others = the **best 3**, numbered on the map ("1 · $4.53"): *Recommended* = price plus the detour there and back at about $2 a truck mile over a 150 gal fill; *Cheapest* and *Biggest discount* within 5 mi of the route. Choices are remembered on the phone. Ranking: `rankStations()` in `support/common/driver-route.ts`.
 - **My location:** From empty = the driver's location, with its accuracy (±ft). *Use my current location* (in From's suggestions, or the target button in From) and the locate button ask for a fresh, precise fix: the button flies to the last known place at once, says "Finding your location…", and asks the phone and Telegram's own location together (`telegramLocation()` in `lib/telegram.ts`; Telegram after 1.5 s or the phone's refusal, 10 s at most; Telegram's is also asked when the phone stays silent for 4 s, which happens inside Telegram). When Telegram was refused access, the message has a **Turn on** button that opens Telegram's settings.
 - **Markers:** the driver is a pulsing **blue** dot (an arrow while driving; always on top), the route's start a pulsing **green** dot (only when it is not the driver's own location) and the finish a pulsing **red** flag, so they stand out on the light-blue route line.
 - **Suggestions:** typing in From / To shows towns with CFT stations and states at once (from the station list already on the phone), then OpenRouteService places join in; answers are remembered for the session.
 - **Truck routes:** **TomTom** truck routing with live traffic (height, weight, length, hazmat; traffic delay, slow stretches coloured on the route, speed limits, street names and exit numbers). When TomTom is not set up, its allowance is used up or it fails, **OpenRouteService** (heavy vehicle, no traffic) answers instead. Place search: OpenRouteService.
 - **Navigation:** turn banner with the street being driven and the speed limit, the natural voice (Google Chirp 3 HD "Fenrir"; fixed lead-ins "In 1 mile, / In a quarter mile, / In 500 feet, / Now," fetched ahead), re-routing after ~2 s off the route, auto-zoom by distance to the next turn (until the driver pinches), the screen kept on. `/route?simulate` drives any trip in about three minutes. Until the natural voice works, the phone's own voice reads the same sentences (its best English voice, never a novelty one); after one "not available" answer the page stops asking for 30 minutes, so there is no wait before each phrase. A phone with no voice of its own (Telegram on Android) uses the **built-in voice pack**: 60 natural recorded phrases in `telegram_bot/mini_app/public/voice/` (4 distances × 13 manoeuvres, e.g. "In a quarter mile, take the exit on the right.", plus start / arrive / rerouting), made once with the open Piper voice *LJ Speech* (public domain) through sherpa-onnx; phrase list in `pack.json`. No street names, no billing, works offline once fetched; a route fetches only the phrases it needs. Order: natural cloud voice → phone voice → pack.
-- **Paid services and their caps:** `TOMTOM_API_KEY`, `GOOGLE_TTS_KEY` and our Redis on the server (`REDIS_URL`). Each paid service has a daily and a monthly cap of our own, kept a little under its free plan, in `shared/driver-config.ts` → `budgets` (TomTom routes 2,400 a day / 72,000 a month, under its 2,500 free requests a day; Google voice 60,000 characters a day / 900,000 a month, under Chirp 3 HD's 1 million free a month), counted across all users in Redis (`core/kv.ts`). All our Redis keys start with `cft:` (`cft:budget:*`, `cft:rate:*`, `cft:voice:*`). Past a cap the app falls back (OpenRouteService, phone voice): nothing is ever charged. **Google Text-to-Speech needs billing turned on in its Google Cloud project** (free tier still applies); until then `/api/driver/voice` answers 503 and the phone voice is used.
+- **Paid services and their caps:** `TOMTOM_API_KEY`, `GOOGLE_TTS_KEY` and our Redis on the server (`REDIS_URL`). Each paid service has a daily and a monthly cap of our own, kept a little under its free plan, in `support/common/driver-config.ts` → `budgets` (TomTom routes 2,400 a day / 72,000 a month, under its 2,500 free requests a day; Google voice 60,000 characters a day / 900,000 a month, under Chirp 3 HD's 1 million free a month), counted across all users in Redis (`support/helpers/kv.ts`). All our Redis keys start with `cft:` (`cft:budget:*`, `cft:rate:*`, `cft:voice:*`). Past a cap the app falls back (OpenRouteService, phone voice): nothing is ever charged. **Google Text-to-Speech needs billing turned on in its Google Cloud project** (free tier still applies); until then `/api/driver/voice` answers 503 and the phone voice is used.
 - **Station points:** each station is placed once and cached in `station_geo` with its source: the chain's own store locator via **All The Places** (same store number in the same state, or the only store of the brand in that city), then the **US Census** address service, then OpenRouteService search only when it lands in the same state with high confidence; otherwise no pin (still in *By state*), tried again after a week.
 - **Prices** are the agents' prices (cabinet discounted price + the margin), never the cabinet's own price. Each card shows how old its price is ("5 h ago"); past 24 hours it is marked **Old price** in amber.
 - **Stations on the route, by real detour:** the corridor (1.5 mi of the route line) is only the first filter; stations are found on the route line simplified to 20 m, and their miles along the route are then measured on the full line. The 5 cheapest corridor stations (reachable ones first when a range is set) get a real truck driving-time check (`POST /api/driver/detours`: one OpenRouteService matrix call, from 15 mi before each station to 15 mi after it); a station that costs more than 10 extra minutes (across a divided highway, far from an exit) moves to *Nearby stations*. While the best pick is still unchecked, up to 2 more rounds check the next cheapest, and the station recommended is always a checked one. The Mini App sends only station ids and the two route points; the server looks up where each station is. Matrix calls are capped at 480 a day and 14,000 a month (OpenRouteService free plan: 500 a day). The card says "+4 min off your route". Without OpenRouteService, or past the caps, the straight-line view stays.
@@ -409,11 +429,11 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Alerts on the road:** a driver (or agent / admin) shares their **live location** in the bot chat; when the next CFT station is ≤ 50 mi ahead the bot sends it: for a driver with a trip in progress (`driver_trips`, status driving, a point within the last 45 minutes) the next station **along the trip route** (in the corridor, ahead of where the driver is on it); otherwise (agents, admins, no trip, or more than 5 mi off the route) the nearest station within 45° of the direction of travel. With the price, the bot sends it with the price, once per station per driver (not again for 24 h). `telegram_bot/handlers/live-location.ts`, `tools/driver-map/alerts.ts`. Needs `edited_message` in the webhook's allowed updates: **run `npm run telegram:setup` once after deploying this**.
 - **Daily station job** (`/api/cron/stations`, 11:30 UTC, after the price pull): map points for new stations, and points older than 90 days checked again.
 - **Request limits** are per Telegram user (not per IP), for routes (20/min), place search (60/min) and detour checks (10/min), whichever map service answers; without Redis the count is kept per server. Override with `DRIVER_RATE_ROUTE`, `DRIVER_RATE_PLACES`, `DRIVER_RATE_DETOURS`.
-- **All thresholds** above (corridor, detour, stale price, alerts, limits, the daily job) are in one file: `shared/driver-config.ts`.
+- **All thresholds** above (corridor, detour, stale price, alerts, limits, the daily job) are in one file: `support/common/driver-config.ts`.
 - **Who can open it:** admins, agents and drivers (see [Drivers and trip history](#drivers-and-trip-history)). Errors on the page are shown on screen and reported to the server log (`[route page error]`, `POST /api/driver/log`).
 - **Its own address** (`/route`) because the map needs a looser security policy (map tiles, web workers, location): `deploy/Caddyfile`.
 - **Limits:** TomTom's truck data is good but not perfect: drivers still follow road signs. On Android Telegram, until Google billing is on, directions are spoken from the voice pack (no street names).
-- Code: `tools/driver-map/stations.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`, `detours.ts`, `alerts.ts`; `core/kv.ts`; `shared/driver-route.ts`, `shared/driver-config.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
+- Code: `tools/driver-map/stations.ts`, `geocode.ts`, `routing.ts`, `tomtom.ts`, `voice.ts`, `detours.ts`, `alerts.ts`; `support/helpers/kv.ts`; `support/common/driver-route.ts`, `support/common/driver-config.ts`; `telegram_bot/mini_app/src/screens/drivers/` (`DriverMap.tsx` the screen, `map.ts` + `map-style.ts` the map, `nav.ts` driving, `voice.ts` the voice, `ByState.tsx`, `pieces.tsx`); migrations `0009_station_geo.sql`, `0010_drivers.sql`.
 
 ## Drivers and trip history
 
@@ -432,7 +452,7 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Keeping:** 12 months (older trips are deleted when a new one starts). Trips stay when a driver is removed.
 - **Admins:** **CFT Hub → Drivers** (`#/drivers`): drivers (and removed ones whose trips are kept) with trips, miles and last trip; a driver's trips (date, from → to, status, fuel stop and price, planned vs recorded miles, time); **Map** opens the trip at `/route?trip=<id>` (planned route dashed, driven track orange, gaps dotted red, green start, red finish, the fuel stop); **File to chat** sends a CSV (trip details, gaps, every point in UTC) to the admin's chat with the bot.
 - **Before migration 0011** the map keeps working and nothing is recorded.
-- Code: `tools/driver-map/trips.ts` (server), `screens/drivers/trip-recorder.ts` (the phone), `screens/drivers/TripReplay.tsx` (a trip on the map), `screens/admins/Drivers.tsx` (the admins' screen), `core/drivers.ts` and `telegram_bot/handlers/driver-invites.ts` (links and lists); migrations `0010_drivers.sql`, `0011_driver_trips.sql`.
+- Code: `tools/driver-map/trips.ts` (server), `screens/drivers/trip-recorder.ts` (the phone), `screens/drivers/TripReplay.tsx` (a trip on the map), `screens/admins/Drivers.tsx` (the admins' screen), `support/helpers/drivers.ts` and `telegram_bot/handlers/driver-invites.ts` (links and lists); migrations `0010_drivers.sql`, `0011_driver_trips.sql`.
 
 ## Driver leads
 
@@ -446,7 +466,7 @@ Full guide: [docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md).
 
 ## Work reports
 
-`task_report/` posts the user's work reports to a Telegram channel, for readers who are not programmers.
+`tools/task-report/` posts the user's work reports to a Telegram channel, for readers who are not programmers.
 The reports are in **Russian**; the bot's buttons and replies stay in English.
 
 - **Shifts:** admins tap **⏱ Shift** (or `/shift`, `/startshift`, `/endshift`). Ending a shift posts the
@@ -454,7 +474,7 @@ The reports are in **Russian**; the bot's buttons and replies stay in English.
 - **The work log:** Claude Code adds entries after finished work (`npm run worklog`, see `CLAUDE.md`);
   the user can add their own with `/done`, `/better`, `/learned`, `/plan`, `/blocker` (add `#Area`).
   `/worklog` lists today's entries with delete buttons; `/preview [week|month]` shows a report without sending it.
-- **Reports:** a picture card in the CFT look (`task_report/card.ts`, Fira Sans because Barlow has no Cyrillic)
+- **Reports:** a picture card in the CFT look (`tools/task-report/card.ts`, Fira Sans because Barlow has no Cyrillic)
   plus a short caption. Daily when a shift ends; weekly (Sunday–Saturday) on Saturday evening; monthly on the
   last day of the month, followed by the full list of solved tasks. `report_posts` lets each report out once.
 - **The evening job** (23:00–23:59 Tashkent): reminds about an open shift, closes one open for more than 16 hours

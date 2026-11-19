@@ -1,9 +1,9 @@
-import { telegramAdmin } from '../../core/admins.js';
-import { hasWorkReports } from '../../core/home.js';
-import type { Db } from '../../db_storage/db.js';
-import { botApi, type ChatMemberUpdate, type TelegramMessage } from '../../core/telegram.js';
-import { checkChannel, connectChannel, REPORT_CHAT_TYPES } from '../../task_report/channel.js';
-import { ensureStaff, forgetChannel, getStaff, moveChannel } from '../../task_report/store.js';
+import { telegramAdmin } from '../../support/helpers/admins.js';
+import { hasWorkReports } from '../../support/helpers/home.js';
+import type { Db } from '../../database/db.js';
+import { botApi, type ChatMemberUpdate, type TelegramMessage } from '../../support/helpers/telegram.js';
+import { checkChannel, connectChannel, REPORT_CHAT_TYPES } from '../../tools/task-report/channel.js';
+import { ensureStaff, forgetChannel, getStaff, moveChannel } from '../../tools/task-report/store.js';
 import { offerChannel } from './admins/shift.js';
 import { commandOf } from './viewer.js';
 

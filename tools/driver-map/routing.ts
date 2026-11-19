@@ -1,6 +1,6 @@
-import type { DriverPlace, DriverRoute, DriverRouteStep, TruckProfile } from '../../shared/types.js';
-import { env } from '../../core/env.js';
-import { HttpError } from '../../core/http.js';
+import type { DriverPlace, DriverRoute, DriverRouteStep, TruckProfile } from '../../support/common/types.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError } from '../../support/helpers/http.js';
 import { tomtomReady, tomtomRoute } from './tomtom.js';
 
 // Truck routes and place search for the drivers' route map, through OpenRouteService (free plan:

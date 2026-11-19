@@ -2,17 +2,17 @@
 // stubbed; nothing here reaches the real websites. The bot tests need TEST_DATABASE_URL.
 import { strFromU8, unzipSync } from 'fflate';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closePool, getPool } from '../../../db_storage/db.js';
-import type { ApiRequest } from '../../../core/http.js';
+import { closePool, getPool } from '../../../database/db.js';
+import type { ApiRequest } from '../../../support/helpers/http.js';
 import { fetchAllStations, FuelError, price, toStation, type Stage } from '../cabinet.js';
 import { FUEL_BUTTON } from '../../../telegram_bot/handlers/admins/fuel.js';
 import { FUEL_FILENAME, FUEL_HEADERS, fuelPricesXlsx } from '../excel.js';
 import { fuelInsights } from '../insights.js';
 import { fuelCaption } from '../export.js';
 import { handle as router } from '../../../telegram_bot/server/router.js';
-import { signInitData } from '../../../core/tests/helpers.js';
-import { migrate } from '../../../db_storage/migrate.js';
-import { seed } from '../../../db_storage/seeds/academy/seed.js';
+import { signInitData } from '../../../support/helpers/tests/helpers.js';
+import { migrate } from '../../../database/migrate.js';
+import { seed } from '../../../database/seeds/academy/seed.js';
 
 try {
   process.loadEnvFile('.env.local');

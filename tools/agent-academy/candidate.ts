@@ -1,16 +1,16 @@
 import type pg from 'pg';
-import { gradeAttempt, sanitizeAnswers } from '../../shared/grading.js';
-import type { Answers, AttemptResult, AttemptState, InProgressAttempt, OptionKey, PublicConfig, ReviewQuestion, Settings } from '../../shared/types.js';
-import { nameError, normalizeName } from '../../shared/validation.js';
-import { newToken, sha256 } from '../../core/crypto.js';
-import { getPool, tx, type Db } from '../../db_storage/db.js';
-import { env } from '../../core/env.js';
-import { HttpError, UUID_RE } from '../../core/http.js';
-import { telegramAdmin } from '../../core/admins.js';
+import { gradeAttempt, sanitizeAnswers } from '../../support/common/grading.js';
+import type { Answers, AttemptResult, AttemptState, InProgressAttempt, OptionKey, PublicConfig, ReviewQuestion, Settings } from '../../support/common/types.js';
+import { nameError, normalizeName } from '../../support/common/validation.js';
+import { newToken, sha256 } from '../../support/helpers/crypto.js';
+import { getPool, tx, type Db } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError, UUID_RE } from '../../support/helpers/http.js';
+import { telegramAdmin } from '../../support/helpers/admins.js';
 import { notifyResult } from './notify.js';
 import { autoSyncAttempt } from './sheets.js';
-import { requireInitData, type VerifiedInitData } from '../../core/telegram.js';
-import { touchTelegramUser } from '../../core/users.js';
+import { requireInitData, type VerifiedInitData } from '../../support/helpers/telegram.js';
+import { touchTelegramUser } from '../../support/helpers/users.js';
 
 interface AttemptRow {
   id: string;

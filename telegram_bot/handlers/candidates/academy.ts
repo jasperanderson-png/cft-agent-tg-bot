@@ -1,5 +1,5 @@
-import { SECTION } from '../../../core/home.js';
-import { botApi, type PrivateMessage } from '../../../core/telegram.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import { botApi, type PrivateMessage } from '../../../support/helpers/telegram.js';
 import { showAcademy } from '../../../tools/agent-academy/chat.js';
 import { ACADEMY_ADMIN_ONLY } from '../admins/academy.js';
 import { commandOf } from '../viewer.js';

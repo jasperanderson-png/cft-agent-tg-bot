@@ -1,10 +1,10 @@
 // Admin invite links: an owner makes one, the person opens it and is an admin; each link works once;
 // only owners make links or remove admins. Telegram is stubbed. Needs TEST_DATABASE_URL.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closePool, getPool } from '../../db_storage/db.js';
-import { migrate } from '../../db_storage/migrate.js';
-import { seed } from '../../db_storage/seeds/academy/seed.js';
-import type { ApiRequest } from '../../core/http.js';
+import { closePool, getPool } from '../../database/db.js';
+import { migrate } from '../../database/migrate.js';
+import { seed } from '../../database/seeds/academy/seed.js';
+import type { ApiRequest } from '../../support/helpers/http.js';
 import { handle as router } from '../server/router.js';
 
 try {

@@ -1,7 +1,7 @@
-import { isPass, overview, questionStats, topicStats } from '../../shared/analytics.js';
-import { excelSerial, fmtDMY, fmtDMYHM, inRange, type Range } from '../../shared/time.js';
-import type { AdminAttempt, BankQuestion, Settings, Topic } from '../../shared/types.js';
-import { buildXlsx, type Cell, type SheetSpec } from '../../core/xlsx.js';
+import { isPass, overview, questionStats, topicStats } from '../../support/common/analytics.js';
+import { excelSerial, fmtDMY, fmtDMYHM, inRange, type Range } from '../../support/common/time.js';
+import type { AdminAttempt, BankQuestion, Settings, Topic } from '../../support/common/types.js';
+import { buildXlsx, type Cell, type SheetSpec } from '../../support/helpers/xlsx.js';
 
 export interface ReportInput {
   questions: BankQuestion[];

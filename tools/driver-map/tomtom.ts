@@ -1,12 +1,12 @@
-import type { DriverRoute, DriverRouteStep, TruckProfile } from '../../shared/types.js';
-import { env } from '../../core/env.js';
-import { HttpError } from '../../core/http.js';
-import { kvReady, spend } from '../../core/kv.js';
+import type { DriverRoute, DriverRouteStep, TruckProfile } from '../../support/common/types.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError } from '../../support/helpers/http.js';
+import { kvReady, spend } from '../../support/helpers/kv.js';
 
 // Truck routes with live traffic from TomTom: the truck's height, weight, length and hazmat, live
 // traffic in the travel time, the slow stretches on the route, speed limits, and turn-by-turn steps
 // with street names and exit numbers. Every call spends one unit of our daily and monthly allowance
-// (core/kv.ts, shared/driver-config.ts); when TomTom is not set up, over its allowance or failing,
+// (support/helpers/kv.ts, support/common/driver-config.ts); when TomTom is not set up, over its allowance or failing,
 // routing.ts falls back to OpenRouteService.
 
 const MI_PER_M = 1 / 1609.344;

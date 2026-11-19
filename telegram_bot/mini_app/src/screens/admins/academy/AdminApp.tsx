@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AdminData } from '../../../../../../shared/types';
+import type { AdminData } from '../../../../../../support/common/types';
 import { ApiError, adminApi, hasAdminToken, setAdminToken } from '../../../lib/api';
 import { initData, tg, useBackButton } from '../../../lib/telegram';
 import { Icon, useToast, useWidth, type IconName } from '../../../components/ui';

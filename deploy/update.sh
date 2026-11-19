@@ -25,7 +25,7 @@ echo "Code: ${before:0:7} -> ${after:0:7} ($branch)"
 
 new_migrations=""
 if [ "$before" != "$after" ]; then
-  new_migrations=$(git diff --name-only --diff-filter=A "$before" "$after" -- db_storage/migrations)
+  new_migrations=$(git diff --name-only --diff-filter=A "$before" "$after" -- database/migrations)
 fi
 if [ -n "$new_migrations" ] && [ "$migrate" -eq 0 ]; then
   git checkout --quiet -B "$branch" "$before"

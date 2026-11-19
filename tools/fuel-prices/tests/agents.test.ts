@@ -3,13 +3,13 @@
 // removal). Telegram and the fuel cabinet are stubbed. The bot tests need TEST_DATABASE_URL.
 import { strFromU8, unzipSync } from 'fflate';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseQuery, type AgentStation } from '../../../shared/discounts.js';
-import { closePool, getPool } from '../../../db_storage/db.js';
-import type { ApiRequest } from '../../../core/http.js';
+import { parseQuery, type AgentStation } from '../../../support/common/discounts.js';
+import { closePool, getPool } from '../../../database/db.js';
+import type { ApiRequest } from '../../../support/helpers/http.js';
 import { handle as router } from '../../../telegram_bot/server/router.js';
-import { signInitData } from '../../../core/tests/helpers.js';
-import { migrate } from '../../../db_storage/migrate.js';
-import { seed } from '../../../db_storage/seeds/academy/seed.js';
+import { signInitData } from '../../../support/helpers/tests/helpers.js';
+import { migrate } from '../../../database/migrate.js';
+import { seed } from '../../../database/seeds/academy/seed.js';
 import { toStation } from '../cabinet.js';
 import { displayName, partnerBrand } from '../dataset.js';
 import { cheapestByState, stateMessages, stationTable, TABLE_WIDTH } from '../driver-message.js';

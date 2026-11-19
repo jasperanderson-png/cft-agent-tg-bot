@@ -2,13 +2,13 @@
 // Set TEST_DATABASE_URL (e.g. in .env.local); the database is wiped and rebuilt for each run.
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { hashPassword } from '../../../core/crypto.js';
-import { closePool, getPool } from '../../../db_storage/db.js';
-import type { ApiRequest } from '../../../core/http.js';
+import { hashPassword } from '../../../support/helpers/crypto.js';
+import { closePool, getPool } from '../../../database/db.js';
+import type { ApiRequest } from '../../../support/helpers/http.js';
 import { handle } from '../../../telegram_bot/server/router.js';
-import { migrate } from '../../../db_storage/migrate.js';
-import { seed } from '../../../db_storage/seeds/academy/seed.js';
-import { signInitData } from '../../../core/tests/helpers.js';
+import { migrate } from '../../../database/migrate.js';
+import { seed } from '../../../database/seeds/academy/seed.js';
+import { signInitData } from '../../../support/helpers/tests/helpers.js';
 
 try {
   process.loadEnvFile('.env.local');
@@ -17,7 +17,7 @@ try {
 }
 const DB = process.env.TEST_DATABASE_URL;
 const BOT = '777000:TEST-bot-token';
-const OFFICIAL: { n: number; correct: string }[] = JSON.parse(readFileSync('db_storage/seeds/academy/questions.json', 'utf8'));
+const OFFICIAL: { n: number; correct: string }[] = JSON.parse(readFileSync('database/seeds/academy/questions.json', 'utf8'));
 
 async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
   const req: ApiRequest = { method, path, query: new URLSearchParams(), headers, body: body ?? null, ip: '10.0.0.1' };

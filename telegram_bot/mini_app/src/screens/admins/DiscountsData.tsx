@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DiscountsAdmin } from '../../../../../shared/types';
+import type { DiscountsAdmin } from '../../../../../support/common/types';
 import { hubApi, teamApi, type ApiError } from '../../lib/api';
 import { haptic, tg, useBackButton } from '../../lib/telegram';
 import { fmtDate, Icon, Spinner, useToast } from '../../components/ui';

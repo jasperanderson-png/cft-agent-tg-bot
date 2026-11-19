@@ -1,22 +1,22 @@
-import type { Db } from '../../../db_storage/db.js';
-import { SECTION } from '../../../core/home.js';
-import { HttpError, UUID_RE } from '../../../core/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../../core/telegram.js';
-import { firstSight, reportTimeZone } from '../../../core/updates.js';
-import { checkChannel, connectChannel } from '../../../task_report/channel.js';
-import { dayOf } from '../../../task_report/periods.js';
-import { publish, sendPreview } from '../../../task_report/publish.js';
-import { beginShift, currentDay, endShift } from '../../../task_report/shifts.js';
+import type { Db } from '../../../database/db.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import { HttpError, UUID_RE } from '../../../support/helpers/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../support/helpers/telegram.js';
+import { firstSight, reportTimeZone } from '../../../support/helpers/updates.js';
+import { checkChannel, connectChannel } from '../../../tools/task-report/channel.js';
+import { dayOf } from '../../../tools/task-report/periods.js';
+import { publish, sendPreview } from '../../../tools/task-report/publish.js';
+import { beginShift, currentDay, endShift } from '../../../tools/task-report/shifts.js';
 import {
   addEntries, checkEntry, deleteEntry, ensureStaff, entriesBetween, getPost, getStaff, openShift, setChannel, shiftMinutes, type Entry, type PeriodKind,
-} from '../../../task_report/store.js';
-import { cut, durationEn, esc, hm, KIND, KINDS, type Kind } from '../../../task_report/words.js';
+} from '../../../tools/task-report/store.js';
+import { cut, durationEn, esc, hm, KIND, KINDS, type Kind } from '../../../tools/task-report/words.js';
 import { commandOf } from '../viewer.js';
 
 // ⏱ Shift, for admins: start and end a shift (ending it posts the day's report), add work-log
 // entries, see and delete today's entries, preview reports, and connect the chat reports go to
 // (a group or a channel).
-// The work itself is in task_report/. The bot speaks English; only the reports are in Russian.
+// The work itself is in tools/task-report/. The bot speaks English; only the reports are in Russian.
 
 export const SHIFT_CALLBACK = 'rep:';
 export const SHIFT_COMMANDS = [

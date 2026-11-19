@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { PublicConfig } from '../../../../../../shared/types';
-import { nameError, normalizeName } from '../../../../../../shared/validation';
+import type { PublicConfig } from '../../../../../../support/common/types';
+import { nameError, normalizeName } from '../../../../../../support/common/validation';
 import { tg } from '../../../lib/telegram';
 import { Accent, Lines } from '../../../components/ui';
 

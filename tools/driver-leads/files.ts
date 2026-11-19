@@ -1,7 +1,7 @@
-import { toCSV } from '../../shared/csv.js';
-import { DRIVER_TYPES, ENDORSEMENTS, EQUIPMENT, formatPhone, labels, leadId, US_STATES } from '../../shared/leads.js';
-import { excelSerial, fmtDMY, fmtDMYHM } from '../../shared/time.js';
-import { buildXlsx, type Cell, type SheetSpec, type Style } from '../../core/xlsx.js';
+import { toCSV } from '../../support/common/csv.js';
+import { DRIVER_TYPES, ENDORSEMENTS, EQUIPMENT, formatPhone, labels, leadId, US_STATES } from '../../support/common/leads.js';
+import { excelSerial, fmtDMY, fmtDMYHM } from '../../support/common/time.js';
+import { buildXlsx, type Cell, type SheetSpec, type Style } from '../../support/helpers/xlsx.js';
 import { trucksOf, type DriverRow, type ExportKind, type LeadStats } from './store.js';
 
 // The Excel and CSV files of the Driver Leads section. The texts sent with them are in messages.ts.

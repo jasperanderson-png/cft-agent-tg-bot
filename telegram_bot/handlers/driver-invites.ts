@@ -1,13 +1,13 @@
-import { escHtml as esc } from '../../shared/html.js';
-import { fmtDMY, fmtDMYHM } from '../../shared/time.js';
-import { INVITE_HOURS } from '../../core/agents.js';
-import { env } from '../../core/env.js';
-import { telegramAdmin } from '../../core/admins.js';
-import { createDriverInvite, listDrivers, removeDriver, revokeDriverInvite, type Actor, type DriverRow } from '../../core/drivers.js';
-import type { Db } from '../../db_storage/db.js';
-import { HttpError, UUID_RE } from '../../core/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../core/telegram.js';
-import { firstSight, reportTimeZone } from '../../core/updates.js';
+import { escHtml as esc } from '../../support/common/html.js';
+import { fmtDMY, fmtDMYHM } from '../../support/common/time.js';
+import { INVITE_HOURS } from '../../support/helpers/agents.js';
+import { env } from '../../support/helpers/env.js';
+import { telegramAdmin } from '../../support/helpers/admins.js';
+import { createDriverInvite, listDrivers, removeDriver, revokeDriverInvite, type Actor, type DriverRow } from '../../support/helpers/drivers.js';
+import type { Db } from '../../database/db.js';
+import { HttpError, UUID_RE } from '../../support/helpers/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../support/helpers/telegram.js';
+import { firstSight, reportTimeZone } from '../../support/helpers/updates.js';
 import { commandOf, type Viewer } from './viewer.js';
 
 // Driver links in the chat, for admins and every agent: make one, turn it off, see the drivers and

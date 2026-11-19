@@ -1,10 +1,10 @@
-import { escHtml } from '../../shared/html.js';
-import { fmtDMYHM, rangeFor, type Range, type RangeKey } from '../../shared/time.js';
+import { escHtml } from '../../support/common/html.js';
+import { fmtDMYHM, rangeFor, type Range, type RangeKey } from '../../support/common/time.js';
 import { loadAttempts } from './console.js';
-import { getPool, type Db } from '../../db_storage/db.js';
-import { env } from '../../core/env.js';
+import { getPool, type Db } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
 import { buildReport, reportFilename, summarize, type ReportInput, type Summary } from './reports.js';
-import { botApi, botSendDocument } from '../../core/telegram.js';
+import { botApi, botSendDocument } from '../../support/helpers/telegram.js';
 
 
 export interface ResultInfo {

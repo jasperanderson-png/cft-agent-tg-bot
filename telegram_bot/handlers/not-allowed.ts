@@ -1,4 +1,4 @@
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../core/telegram.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../support/helpers/telegram.js';
 import { NOT_AUTHORIZED } from '../../tools/driver-leads/messages.js';
 import { DISCOUNT_CALLBACK } from '../../tools/fuel-prices/agent-prices.js';
 import { isFuelRequest } from './admins/fuel.js';

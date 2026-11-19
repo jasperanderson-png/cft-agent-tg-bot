@@ -1,4 +1,4 @@
-import type { AttemptResult } from '../../../../../../shared/types';
+import type { AttemptResult } from '../../../../../../support/common/types';
 import { ReviewList, TopicRows, topicScores } from '../../shared/review';
 import { Accent, fmtDate, useCountUp } from '../../../components/ui';
 

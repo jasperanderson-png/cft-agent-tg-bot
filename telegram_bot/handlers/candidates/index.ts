@@ -1,5 +1,5 @@
-import { SECTION } from '../../../core/home.js';
-import { botApi } from '../../../core/telegram.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import { botApi } from '../../../support/helpers/telegram.js';
 import { CANDIDATE_HELP, showAcademy } from '../../../tools/agent-academy/chat.js';
 import { refuseAdminCallback, refuseAdminMessage, refuseAgentCallback } from '../not-allowed.js';
 import { commandOf, type RoleHandlers } from '../viewer.js';

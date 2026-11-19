@@ -1,5 +1,5 @@
-import type { TripPoint, TripPointsBody, TripStartBody } from '../../../../../shared/types';
-import { milesBetween } from '../../../../../shared/driver-route';
+import type { TripPoint, TripPointsBody, TripStartBody } from '../../../../../support/common/types';
+import { milesBetween } from '../../../../../support/common/driver-route';
 import { driverApi, ApiError } from '../../lib/api';
 
 // Trip history for drivers (server: tools/driver-map/trips.ts). One recorder per navigated trip: it

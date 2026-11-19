@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { weekStart, zoned, zonedToUtc } from '../../shared/time.js';
-import type { Db } from '../../db_storage/db.js';
+import { weekStart, zoned, zonedToUtc } from '../../support/common/time.js';
+import type { Db } from '../../database/db.js';
 
 /** One row of the master table, with its source's display name. */
 export interface DriverRow {

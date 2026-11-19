@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { BankQuestion, Settings } from '../../../../../../shared/types';
-import { settingsError, validateQuestionEdit, type QuestionEditErrors } from '../../../../../../shared/validation';
+import type { BankQuestion, Settings } from '../../../../../../support/common/types';
+import { settingsError, validateQuestionEdit, type QuestionEditErrors } from '../../../../../../support/common/validation';
 import { ApiError, adminApi } from '../../../lib/api';
 import { useBackButton } from '../../../lib/telegram';
 import { Icon, Spinner } from '../../../components/ui';

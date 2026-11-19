@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
-import type { DriverStation, TruckProfile } from '../../../../../shared/types';
-import { BRANDS, payPrice, priceAge, rangeOf, savingOf } from '../../../../../shared/driver-route';
-import { titleCase } from '../../../../../shared/discounts';
+import type { DriverStation, TruckProfile } from '../../../../../support/common/types';
+import { BRANDS, payPrice, priceAge, rangeOf, savingOf } from '../../../../../support/common/driver-route';
+import { titleCase } from '../../../../../support/common/discounts';
 import { fmtDate } from '../../components/ui';
 
 // The drivers' map: small shared parts (cards, sheets, icons, formatting), used by DriverMap.tsx and

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { isPass, overview } from '../../../../../../shared/analytics';
-import { dmy, inRange, rangeFor, weekStart, zoned } from '../../../../../../shared/time';
-import type { ReportRange } from '../../../../../../shared/types';
+import { isPass, overview } from '../../../../../../support/common/analytics';
+import { dmy, inRange, rangeFor, weekStart, zoned } from '../../../../../../support/common/time';
+import type { ReportRange } from '../../../../../../support/common/types';
 import { ApiError, adminApi } from '../../../lib/api';
 import { canTelegramDownload, telegramDownload, tg } from '../../../lib/telegram';
 import { Bar, Icon, Spinner } from '../../../components/ui';

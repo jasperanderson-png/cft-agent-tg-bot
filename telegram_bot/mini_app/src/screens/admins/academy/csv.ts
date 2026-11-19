@@ -1,4 +1,4 @@
-import { toCSV, csvFilename, type CsvColumn } from '../../../../../../shared/csv';
+import { toCSV, csvFilename, type CsvColumn } from '../../../../../../support/common/csv';
 import { adminApi } from '../../../lib/api';
 import { canTelegramDownload, telegramDownload } from '../../../lib/telegram';
 

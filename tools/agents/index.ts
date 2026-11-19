@@ -1,8 +1,8 @@
-import { createInvite, listAgents, removeAgent, revokeInvite } from '../../core/agents.js';
-import { asAdmin } from '../../core/admins.js';
-import { getPool } from '../../db_storage/db.js';
-import { bodyObject, HttpError, UUID_RE } from '../../core/http.js';
-import type { Tool } from '../../core/tool.js';
+import { createInvite, listAgents, removeAgent, revokeInvite } from '../../support/helpers/agents.js';
+import { asAdmin } from '../../support/helpers/admins.js';
+import { getPool } from '../../database/db.js';
+import { bodyObject, HttpError, UUID_RE } from '../../support/helpers/http.js';
+import type { Tool } from '../../support/helpers/tool.js';
 
 // Agents: invite links (anyone with one can join until it expires or is turned off), the agent list
 // and removing an agent. The Team screen of the Mini App uses this API; the bot's /invite and /agents

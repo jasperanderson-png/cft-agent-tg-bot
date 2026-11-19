@@ -1,6 +1,6 @@
-import { SECTION, hasWorkReports, homeKeyboardFor, hubMenuButton } from '../../../core/home.js';
-import { env } from '../../../core/env.js';
-import { botApi } from '../../../core/telegram.js';
+import { SECTION, hasWorkReports, homeKeyboardFor, hubMenuButton } from '../../../support/helpers/home.js';
+import { env } from '../../../support/helpers/env.js';
+import { botApi } from '../../../support/helpers/telegram.js';
 import { ADMIN_HELP } from '../../../tools/agent-academy/chat.js';
 import { menu as leadsMenu } from '../../../tools/driver-leads/messages.js';
 import { SEARCH_HELP } from '../../../tools/fuel-prices/agent-prices.js';

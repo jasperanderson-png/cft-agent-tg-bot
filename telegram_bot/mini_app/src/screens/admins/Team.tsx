@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminUser, AgentInvite, AgentsList } from '../../../../../shared/types';
+import type { AdminUser, AgentInvite, AgentsList } from '../../../../../support/common/types';
 import { teamApi, type ApiError } from '../../lib/api';
 import { haptic, tg, useBackButton } from '../../lib/telegram';
 import { fmtDate, fmtDay, Icon, Spinner, useToast } from '../../components/ui';

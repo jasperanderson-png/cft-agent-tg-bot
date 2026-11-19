@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Answers, AttemptResult, InProgressAttempt, OptionKey } from '../../../../../../shared/types';
+import type { Answers, AttemptResult, InProgressAttempt, OptionKey } from '../../../../../../support/common/types';
 import { ApiError, candidateApi } from '../../../lib/api';
 import { haptic, useClosingConfirmation } from '../../../lib/telegram';
 import { Icon, Modal, Spinner, useWidth } from '../../../components/ui';

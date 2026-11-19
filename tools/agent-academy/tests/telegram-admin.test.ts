@@ -5,15 +5,15 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { excelSerial, fmtDMY, fmtDMYHM, rangeFor, weekStart } from '../../../shared/time.js';
-import { closePool, getPool } from '../../../db_storage/db.js';
-import type { ApiRequest } from '../../../core/http.js';
+import { excelSerial, fmtDMY, fmtDMYHM, rangeFor, weekStart } from '../../../support/common/time.js';
+import { closePool, getPool } from '../../../database/db.js';
+import type { ApiRequest } from '../../../support/helpers/http.js';
 import { resultMessage } from '../notify.js';
 import { handle } from '../../../telegram_bot/server/router.js';
-import { buildXlsx, colName } from '../../../core/xlsx.js';
-import { migrate } from '../../../db_storage/migrate.js';
-import { seed } from '../../../db_storage/seeds/academy/seed.js';
-import { signInitData } from '../../../core/tests/helpers.js';
+import { buildXlsx, colName } from '../../../support/helpers/xlsx.js';
+import { migrate } from '../../../database/migrate.js';
+import { seed } from '../../../database/seeds/academy/seed.js';
+import { signInitData } from '../../../support/helpers/tests/helpers.js';
 
 try {
   process.loadEnvFile('.env.local');
@@ -24,7 +24,7 @@ const DB = process.env.TEST_DATABASE_URL;
 const BOT = '777000:TEST-bot-token';
 const OWNER = 9447180;
 const OWNER2 = 1270439555;
-const OFFICIAL: { n: number; correct: string }[] = JSON.parse(readFileSync('db_storage/seeds/academy/questions.json', 'utf8'));
+const OFFICIAL: { n: number; correct: string }[] = JSON.parse(readFileSync('database/seeds/academy/questions.json', 'utf8'));
 
 let hasPython = true;
 try {

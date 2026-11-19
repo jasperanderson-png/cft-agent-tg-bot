@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { isPass } from '../../../../../../shared/analytics';
-import type { AdminAttempt, AttemptResult } from '../../../../../../shared/types';
+import { isPass } from '../../../../../../support/common/analytics';
+import type { AdminAttempt, AttemptResult } from '../../../../../../support/common/types';
 import { adminApi } from '../../../lib/api';
 import { ReviewList, TopicRows, topicScores } from '../../shared/review';
 import { Icon, Spinner, fmtDate, fmtDuration } from '../../../components/ui';

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DriverWithTrips, TripSummary } from '../../../../../shared/types';
+import type { DriverWithTrips, TripSummary } from '../../../../../support/common/types';
 import { driversApi, type ApiError } from '../../lib/api';
 import { haptic, routePageUrl, tg, useBackButton } from '../../lib/telegram';
 import { fmtDate, fmtDay, fmtDuration, Icon, Spinner, useToast } from '../../components/ui';

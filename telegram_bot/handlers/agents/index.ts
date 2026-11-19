@@ -1,5 +1,5 @@
-import { SECTION } from '../../../core/home.js';
-import { botApi } from '../../../core/telegram.js';
+import { SECTION } from '../../../support/helpers/home.js';
+import { botApi } from '../../../support/helpers/telegram.js';
 import { refuseAdminCallback, refuseAdminMessage } from '../not-allowed.js';
 import { commandOf, type RoleHandlers } from '../viewer.js';
 import { AGENT_HELP, discountCallback, searchMessage, setAgentMenu, showAgentHome } from './fuel-search.js';

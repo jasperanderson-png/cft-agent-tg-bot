@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminUser } from '../../../../../../shared/types';
+import type { AdminUser } from '../../../../../../support/common/types';
 import { ApiError, adminApi } from '../../../lib/api';
 import { Icon, Modal, Spinner, fmtDate } from '../../../components/ui';
 import { MetaChips, PageHead, type Ctx } from './common';

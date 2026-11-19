@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AttemptResult, AttemptState, InProgressAttempt, PublicConfig } from '../../../../../../shared/types';
+import type { AttemptResult, AttemptState, InProgressAttempt, PublicConfig } from '../../../../../../support/common/types';
 import { ApiError, candidateApi } from '../../../lib/api';
 import { initData, tg } from '../../../lib/telegram';
 import { Instructions } from './Instructions';

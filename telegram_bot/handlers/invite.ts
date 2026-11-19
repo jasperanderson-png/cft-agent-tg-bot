@@ -1,10 +1,10 @@
-import { escHtml as esc } from '../../shared/html.js';
-import { ADMIN_INVITE_PREFIX, redeemAdminInvite } from '../../core/admin-invites.js';
-import { INVITE_PREFIX, redeemInvite } from '../../core/agents.js';
-import { DRIVER_INVITE_PREFIX, redeemDriverInvite } from '../../core/drivers.js';
+import { escHtml as esc } from '../../support/common/html.js';
+import { ADMIN_INVITE_PREFIX, redeemAdminInvite } from '../../support/helpers/admin-invites.js';
+import { INVITE_PREFIX, redeemInvite } from '../../support/helpers/agents.js';
+import { DRIVER_INVITE_PREFIX, redeemDriverInvite } from '../../support/helpers/drivers.js';
 import { showDriverHome } from './drivers/index.js';
 import { DRIVER_CALLBACK } from './driver-invites.js';
-import { botApi, type PrivateMessage } from '../../core/telegram.js';
+import { botApi, type PrivateMessage } from '../../support/helpers/telegram.js';
 import { showAdminHome } from './admins/index.js';
 import { showAgentHome } from './agents/fuel-search.js';
 import type { Viewer } from './viewer.js';

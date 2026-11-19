@@ -55,7 +55,7 @@ Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the 
   keeps the counts.
 - What it holds: the daily and monthly counts that keep TomTom routes, the Google voice and
   OpenRouteService inside their free allowances, rate limits, the voice clip cache and "say it once"
-  markers (`core/kv.ts`, keys `cft:*`). The bot's address for it: `REDIS_URL` in `.env` (also in
+  markers (`support/helpers/kv.ts`, keys `cft:*`). The bot's address for it: `REDIS_URL` in `.env` (also in
   `/home/cft/.local-redis-url`). If Redis is down the bot keeps working, counting in memory.
 - Look inside: `REDISCLI_AUTH=$(sed -E 's#redis://:([^@]+)@.*#\1#' /home/cft/.local-redis-url) redis-cli --scan --pattern 'cft:*'`
 - Moved from Upstash on 18/11/2026. The `KV_REST_API_*` values in `.env` are no longer used while

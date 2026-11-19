@@ -5,10 +5,10 @@
  * House style: the first line is an emoji and a bold title that says what the message is, counts
  * are bold, dates are dd/mm/yyyy, and footnotes are in italics.
  */
-import { DRIVER_TYPES, EQUIPMENT, labels, leadId, US_STATES } from '../../shared/leads.js';
-import { escHtml as esc } from '../../shared/html.js';
-import { fmtDMY, fmtDMYHM } from '../../shared/time.js';
-import { env } from '../../core/env.js';
+import { DRIVER_TYPES, EQUIPMENT, labels, leadId, US_STATES } from '../../support/common/leads.js';
+import { escHtml as esc } from '../../support/common/html.js';
+import { fmtDMY, fmtDMYHM } from '../../support/common/time.js';
+import { env } from '../../support/helpers/env.js';
 import type { SyncResult } from './fmcsa.js';
 import type { IngestSummary, LeadSource } from './ingest.js';
 import { trucksOf, type DriverRow, type ExportKind, type ExportView, type LeadsRole, type LeadStats } from './store.js';

@@ -1,6 +1,6 @@
 import maplibregl, { type GeoJSONSource, type Map as MlMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { LatLng } from '../../../../../shared/driver-route';
+import type { LatLng } from '../../../../../support/common/driver-route';
 import { cfStyle } from './map-style';
 
 // The map under the drivers' route screen: MapLibre with the CF Transport night style (OpenStreetMap

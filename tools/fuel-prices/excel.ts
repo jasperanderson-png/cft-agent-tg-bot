@@ -1,5 +1,5 @@
-import { excelSerial, fmtDMYHM } from '../../shared/time.js';
-import { buildXlsx, type Cell, type SheetSpec, type Style } from '../../core/xlsx.js';
+import { excelSerial, fmtDMYHM } from '../../support/common/time.js';
+import { buildXlsx, type Cell, type SheetSpec, type Style } from '../../support/helpers/xlsx.js';
 import type { Extraction, Station } from './cabinet.js';
 import { fuelInsights, where } from './insights.js';
 

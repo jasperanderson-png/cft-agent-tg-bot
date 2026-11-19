@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SheetsStatus } from '../../../../../../shared/types';
+import type { SheetsStatus } from '../../../../../../support/common/types';
 import { ApiError, adminApi } from '../../../lib/api';
 import { Icon, Modal, Spinner } from '../../../components/ui';
 import type { Ctx } from './common';

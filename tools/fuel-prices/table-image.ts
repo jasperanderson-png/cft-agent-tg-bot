@@ -1,7 +1,7 @@
 import { Resvg } from '@resvg/resvg-js';
-import { byPrice, usd, type AgentStation } from '../../shared/discounts.js';
-import { brandFile, logoDataUri } from '../../core/brand.js';
-import { escXml as xml } from '../../shared/html.js';
+import { byPrice, usd, type AgentStation } from '../../support/common/discounts.js';
+import { brandFile, logoDataUri } from '../../support/helpers/brand.js';
+import { escXml as xml } from '../../support/common/html.js';
 
 // The price table drivers receive, drawn as a picture in the CFT Mini App's look (black, the CFT
 // logo, blue accents, Barlow): Station · City · State · Retail Price · Discount · Discounted Price ·
