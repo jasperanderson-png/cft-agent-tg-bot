@@ -152,7 +152,7 @@ export function AdminApp({ onExit }: { onExit?: () => void } = {}) {
         <header className="topnav" style={{ position: 'relative' }}>
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 14 }}>
             <img src="/assets/cft-primary.svg" alt="CF Transport" style={{ height: 17, width: 'auto', display: 'block' }} />
-            {w >= 1320 && <><span style={{ width: 1, height: 20, background: 'rgba(255,255,255,.14)' }} /><span className="eyebrow nowrap">AGENT ACADEMY · ADMIN</span></>}
+            {w >= 1600 && <><span style={{ width: 1, height: 20, background: 'rgba(255,255,255,.14)' }} /><span className="eyebrow nowrap">AGENT ACADEMY · ADMIN</span></>}
           </div>
           <nav aria-label="Admin">
             {NAV.map(([id, label]) => {
@@ -166,7 +166,7 @@ export function AdminApp({ onExit }: { onExit?: () => void } = {}) {
             })}
           </nav>
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
-            {w >= 1320 && <span className="muted" style={{ fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</span>}
+            {w >= 1600 && <span className="muted" style={{ fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</span>}
             <button className="pill" style={{ height: 38, padding: '0 14px', background: 'transparent' }} onClick={signOut}>Sign out</button>
           </div>
         </header>

@@ -570,7 +570,7 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .t-person .d-avatar { width: 40px; height: 40px; border-radius: 12px; }
 .t-person-text { flex: 1; min-width: 0; }
 .t-person-text b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-person-text span { font-size: 13px; color: var(--muted); }
+.t-person-text span { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-tag { flex: none; height: 24px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; background: var(--blue); color: #000; }
 .t-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
 .t-link code { flex: 1; min-width: 0; font-size: 13px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -642,3 +642,46 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
 .a-custom-reset { flex: none; height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: none; color: #ccc; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .a-custom-done { flex: 1; height: 48px; border: 0; border-radius: 12px; background: var(--blue); color: #000; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
 .a-custom-note { margin: 0 4px; font-size: 13px; color: var(--muted); }
+
+/* ---- Wide screens: Telegram Desktop with a large window, or a wide browser. The same screens, laid out
+   for the room, with gentle motion. Nothing below applies under 900 px, so phones stay exactly as they are. ---- */
+@media (min-width: 900px) {
+  .d-screen { max-width: 960px; }
+  /* Admin home: the tiles in one row, the "More" links side by side. */
+  .a-tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .a-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2px; }
+  /* Find discounts: the four brands in one row, the states in two columns. */
+  .d-brands { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .d-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .d-list > li + li .d-state { border-top: 0; }
+  .d-list > li:nth-child(n + 3) .d-state { border-top: 1px solid var(--line-2); }
+  .d-list > li:nth-child(odd) { border-right: 1px solid var(--line-2); }
+  /* Figures (Fuel discounts data, station details) three across; people (Team) in two columns. */
+  .t-figs, .d-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .t-people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  /* Find discounts results: stations in two columns, so each price stays next to its name. */
+  .d-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
+  /* Bottom sheets: a centred card instead of the full width of the window. */
+  .d-sheet { left: max(16px, calc(50% - 300px)); right: max(16px, calc(50% - 300px)); bottom: 24px; }
+}
+@media (min-width: 1280px) {
+  .d-screen { max-width: 1120px; }
+}
+/* Academy console overview: its six figures as 3 + 3 or 6 in a row, never 5 + 1. */
+@container (min-width: 640px) and (max-width: 1099px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (min-width: 1100px) { .kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* Motion on wide screens: content rises in when a screen opens, cards lift under the mouse. */
+@media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .d-main > *, .a-main > * { animation: cft-rise .45s var(--ease) backwards; }
+  .d-main > :nth-child(2), .a-main > :nth-child(2) { animation-delay: .05s; }
+  .d-main > :nth-child(3), .a-main > :nth-child(3) { animation-delay: .1s; }
+  .d-main > :nth-child(4), .a-main > :nth-child(4) { animation-delay: .15s; }
+  .d-main > :nth-child(n + 5), .a-main > :nth-child(n + 5) { animation-delay: .2s; }
+}
+@media (min-width: 900px) and (hover: hover) {
+  .a-tile, .d-brand, .t-card { transition: transform .2s var(--ease), border-color .2s, background .2s; }
+  .a-tile:not(.skel):hover, .d-brand:hover { transform: translateY(-3px); border-color: rgba(160, 220, 255, .4); }
+  .a-link, .d-state, .t-person, .d-row { transition: background .15s; }
+  .a-link:hover, .d-state:hover, .t-person:not(:disabled):hover { background: rgba(255, 255, 255, .04); }
+}

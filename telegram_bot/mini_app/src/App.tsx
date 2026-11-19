@@ -39,7 +39,8 @@ const tripId = new URLSearchParams(location.search).get('trip');
 /** The drivers' map has its own page; links to #/driver (or startapp=driver) are sent there. */
 const ROUTE_PAGE = '/route';
 const onRoutePage = location.pathname.replace(/\/+$/, '') === ROUTE_PAGE;
-if (!onRoutePage && (location.hash.startsWith('#/driver') || startParam === 'driver')) location.replace(routePageUrl());
+// #/driver (not #/drivers, the admins' Drivers screen) and the start param "driver" open the map.
+if (!onRoutePage && (/^#\/driver(\/|$)/.test(location.hash) || startParam === 'driver')) location.replace(routePageUrl());
 
 /** Leaves the map: back where they came from; drivers (who open it from their menu button) close the app. */
 const leaveMap = () => (history.length > 1 ? history.back() : tg ? tg.close() : location.assign('/#/discounts'));
