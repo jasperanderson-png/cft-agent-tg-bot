@@ -1,62 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DriverPlace, DriverRoute, DriverStation, DriverStations, TruckProfile } from '../../../../../support/common/types';
-import {
-  afterDriving, applyDetours, bestChecked, BRAND_ORDER, BRANDS, milesBetween, nextDetourRound, payPrice, rangeNow, rankStations, reachable, stationsAlongRoute,
-  type DriverBrand, type FuelRange, type LatLng, type Placed, type RankBy,
-} from '../../../../../support/common/driver-route';
+import type { DriverPlace, DriverRoute, DriverStation, TruckProfile } from '../../../../../support/common/types';
+import { afterDriving, BRAND_ORDER, BRANDS, milesBetween, payPrice, rangeNow, reachable, type DriverBrand, type FuelRange, type LatLng, type Placed } from '../../../../../support/common/driver-route';
 import { DRIVER_MAP } from '../../../../../support/common/driver-config';
-import { US_STATES as STATE_NAMES } from '../../../../../support/common/states';
-import { titleCase } from '../../../../../support/common/discounts';
 import { driverApi, type ApiError } from '../../lib/api';
 import { reportMapError } from '../../lib/report';
-import { fmtDuration as hm } from '../../components/ui';
-import { haptic, openTelegramLocationSettings, telegramLocation, telegramLocationRefused, useBackButton } from '../../lib/telegram';
+import { haptic, openTelegramLocationSettings, telegramLocationRefused, useBackButton } from '../../lib/telegram';
 import { ByState } from './ByState';
 import {
   ALL_STATION_LAYERS, createMap, drawDriven, drawRoute, drawTurn, driverMarker, filterStations, fitPath, fitPoints, ll, onStationTap, revealRoute, routeEnds, setRouteStations, setStations,
   showLayers, type MlMap,
 } from './map';
 import { drivenPath, locate, navOf, pointAt, speedLimitAt, stepsAt, unwrap, type Nav } from './nav';
-import {
-  CHECK, DEFAULT_TRUCK, EDIT, LOCATE, MUTE, NAV, PickRow, PIN, PriceBox, SOUND, StationCard, Svg, Truck, TruckSheet, X,
-  dist, firstPart, fullAddress, money, pct, placeOf, store, stored, truckText, turnIcon,
-} from './pieces';
+import { DEFAULT_TRUCK, LOCATE, MUTE, NAV, SOUND, StationCard, Svg, TruckSheet, X, dist, firstPart, fullAddress, money, placeOf, store, stored } from './pieces';
 import { hush, LEAD_INS, leadIn, packForSteps, packTurn, prefetchPack, prefetchVoice, sentence, speak, unlockVoice, voiceKind } from './voice';
 import { startRecording, type TripRecorder } from './trip-recorder';
+import { SHOWS, type Field, type Fix, type Mode, type Note, type Show, type Trip } from './drive-shared';
+import { useStations } from './use-stations';
+import { usePanelSizes } from './use-panel-sizes';
+import { useLocation } from './use-location';
+import { usePlaceSearch } from './use-place-search';
+import { useRoutePicks } from './use-route-picks';
+import { TopPanel, type Banner } from './TopPanel';
+import { RouteCard } from './RouteCard';
+import { BuildingCard, DoneCard, DrivingCard, StopCard, TripNotice } from './TripCards';
 import './driver.css';
 
 // The drivers' route map (/route). A clear map with every CFT station; tap one, or type where you are
 // going, for a truck route (TomTom with live traffic, else OpenRouteService) with the stations on it,
 // the cheapest picked; then turn-by-turn navigation with street names, speed limits, the natural voice
-// and re-routing. The map fills the screen, cards appear only
-// when there is something to show, and the driver arrow and camera move every frame outside React.
+// and re-routing. The map fills the screen, cards appear only when there is something to show, and the
+// driver arrow and camera move every frame outside React.
 // Data: GET /api/driver/stations, POST /api/driver/route, GET /api/driver/places, GET /api/driver/voice.
+//
+// This file holds the map, the driving (camera, arrivals, re-routing, the voice) and the trip record,
+// and ties the parts together. The parts beside it:
+//   use-stations.ts      the station list          use-location.ts    where the driver is (GPS)
+//   use-place-search.ts  From / To suggestions     use-route-picks.ts the stations along a route
+//   use-panel-sizes.ts   the panels' heights       drive-shared.ts    shared types
+//   TopPanel.tsx         turn banner, trip fields  RouteCard.tsx      the planned route's card
+//   TripCards.tsx        building, notice, driving, arrived, trip complete
 
-type Mode = 'route' | 'states';
-type Phase = 'go1' | 'stop' | 'go2' | 'done';
-interface Trip { phase: Phase; stopId: number | null }
-interface Field { text: string; place: DriverPlace | null }
-interface Fix extends LatLng { heading: number | null; speed: number | null; accuracy: number | null }
-
-// Thresholds: support/common/driver-config.ts. On a planned route the map shows the best few (cheapShown),
-// by the driver's choice of brands and ranking.
-const { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI, nearbyMax: NEARBY_MAX, cheapShown: BEST_SHOWN } = DRIVER_MAP;
-/** What the route card shows: every station on and near the route (by price), or the best 3 by a ranking. */
-type Show = 'all' | RankBy;
-const SHOWS: Show[] = ['all', 'rec', 'cheap', 'disc'];
-const SHOW_LABEL: Record<Show, string> = { all: 'All', rec: 'Recommended', cheap: 'Cheapest', disc: 'Biggest discount' };
-const byPay = (a: Placed<DriverStation>, b: Placed<DriverStation>) => (payPrice(a.item) ?? 99) - (payPrice(b.item) ?? 99) || a.offMi - b.offMi;
-const STATIONS_KEY = 'cft.stations.v1';
-const BUILD_STEPS = ['Finding roads for your truck', 'Checking live traffic', 'Finding CFT stations on the way'];
-const toFix = (p: GeolocationPosition): Fix => ({ lat: p.coords.latitude, lng: p.coords.longitude, heading: p.coords.heading ?? null, speed: p.coords.speed ?? null, accuracy: p.coords.accuracy ?? null });
 const wide = () => window.matchMedia('(min-width: 900px)').matches;
 const ARRIVE_MI = 0.12;
 const OFF_ROUTE_MI = 0.12;
 /** /route?simulate drives the route without moving (about three minutes for any trip). */
 const SIMULATE = /simulate/.test(location.search + location.hash);
 const inUS = (p: LatLng) => p.lat > 24 && p.lat < 50 && p.lng > -125.5 && p.lng < -66;
-const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const NO_DETOURS: ReadonlyMap<number, number | null> = new Map();
 const RANGE_KEY = 'cft.range.v2';
 
 export function DriverMap({ onExit }: { onExit: () => void }) {
@@ -70,24 +59,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [statesOpen, setStatesOpen] = useState<number | null>(null);
 
   // ---- stations
-  // The list from the last visit shows at once (from the phone), the fresh one replaces it.
-  const cachedAtStart = useRef(stored<DriverStations | null>(STATIONS_KEY, null));
-  const [data, setData] = useState<DriverStations | null>(cachedAtStart.current);
-  const [loadErr, setLoadErr] = useState('');
-  const fresh = useCallback((d: DriverStations) => { setData(d); store(STATIONS_KEY, d); }, []);
-  const load = useCallback(() => {
-    setLoadErr('');
-    driverApi.stations().then(fresh, (e: ApiError) => { if (!cachedAtStart.current) setLoadErr(e.message); reportMapError(`stations: ${e.message}`); });
-  }, [fresh]);
-  useEffect(load, [load]);
-  // Stations still without a map point: looked up in the background, then the list again.
-  useEffect(() => {
-    if (!data?.pendingGeocode || data === cachedAtStart.current) return;
-    let live = true;
-    driverApi.locate().then((r) => { if (live && r.placed > 0) driverApi.stations().then(fresh, () => {}); }, () => {});
-    return () => { live = false; };
-  }, [data, fresh]);
-  const byId = useMemo(() => new Map((data?.stations ?? []).map((s) => [s.id, s])), [data]);
+  const { data, loadErr, load, byId } = useStations();
 
   // ---- refs the map callbacks read (they are set up once)
   const tripRef = useRef<Trip | null>(null);
@@ -154,89 +126,24 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   }, [pickStation]);
 
   // ---- sizes of the top panel and the bottom card: map framing and the button column follow them
-  const topRef = useRef<HTMLDivElement>(null);
-  const sheetRef = useRef<HTMLElement | null>(null);
-  const sizes = useRef({ top: 150, bottom: 0, h: 800 });
-  const measure = useCallback(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const r = root.getBoundingClientRect();
-    const top = topRef.current ? topRef.current.getBoundingClientRect().bottom - r.top : 0;
-    const bottom = sheetRef.current ? r.bottom - sheetRef.current.getBoundingClientRect().top : 0;
-    sizes.current = { top, bottom: Math.max(0, bottom), h: r.height };
-    root.style.setProperty('--sheet-h', `${Math.max(0, bottom)}px`);
-  }, []);
-  const ro = useMemo(() => (typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => measure())), [measure]);
-  const sheetCb = useCallback((el: HTMLElement | null) => {
-    if (sheetRef.current && ro) ro.unobserve(sheetRef.current);
-    sheetRef.current = el;
-    if (el && ro) ro.observe(el);
-    measure();
-  }, [ro, measure]);
-  useEffect(() => {
-    if (!ro) return;
-    if (rootRef.current) ro.observe(rootRef.current);
-    if (topRef.current) ro.observe(topRef.current);
-    return () => ro.disconnect();
-  }, [ro]);
+  const { topRef, sizes, measure, sheetCb } = usePanelSizes(rootRef);
 
   // ---- where the driver is (the arrow moves straight from the GPS; React hears only big moves)
-  const fix = useRef<Fix | null>(null);
-  const [myPos, setMyPos] = useState<LatLng | null>(null);
-  const [myAcc, setMyAcc] = useState<number | null>(null);
-  const [posErr, setPosErr] = useState('');
   /** Miles driven while navigating, counted down from the fuel range (set further below). */
   const onDriven = useRef<(mi: number) => void>(() => {});
-  const accept = useCallback((f: Fix) => {
-    const prev = fix.current;
-    fix.current = f;
-    setPosErr('');
-    if (!prev || Math.abs(prev.lat - f.lat) + Math.abs(prev.lng - f.lng) > 0.003) setMyPos({ lat: f.lat, lng: f.lng });
-    setMyAcc(f.accuracy != null ? Math.round(f.accuracy / 5) * 5 : null);
+  const onFix = useRef<(f: Fix, prev: Fix | null) => void>(() => {});
+  const { fix, myPos, myAcc, posErr, locateNow } = useLocation(onFix);
+  onFix.current = (f, prev) => {
     if (!tripRef.current) puck.current?.set(f, f.speed != null && f.speed > 1 ? f.heading : null);
     else {
       rec.current?.point(f);
       if (prev) onDriven.current(milesBetween(prev, f));
     }
-  }, []);
-  useEffect(() => {
-    let poll = 0;
-    let id: number | null = null;
-    // The page's own location is blocked (some Telegram apps): Telegram's location instead.
-    const viaTelegram = () => {
-      if (poll) return;
-      const tick = () => telegramLocation().then((f) => {
-        if (f) accept(f);
-        else if (!fix.current) setPosErr('Location is off. Allow it, or type where you start from.');
-      });
-      void tick();
-      poll = window.setInterval(tick, 3000);
-    };
-    if (!navigator.geolocation) viaTelegram();
-    else id = navigator.geolocation.watchPosition((p) => accept(toFix(p)), viaTelegram, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
-    // Inside Telegram the page's own location can stay silent (no answer, no error): Telegram's too.
-    const late = window.setTimeout(() => { if (!fix.current) viaTelegram(); }, 4000);
-    return () => { if (id != null) navigator.geolocation.clearWatch(id); clearInterval(poll); clearTimeout(late); };
-  }, [accept]);
-  /**
-   * A fresh, precise fix now (the "use my location" and locate buttons): the phone's location, and
-   * Telegram's as soon as the phone's fails or is slow (1.5 s); the first answer wins, 10 s at most.
-   */
-  const locateNow = useCallback(() => new Promise<Fix | null>((resolve) => {
-    let done = false, waiting = 0, tgAsked = false;
-    const end = (f: Fix | null) => { if (done) return; done = true; clearTimeout(cap); clearTimeout(slow); if (f) accept(f); resolve(f ?? fix.current); };
-    const answer = (f: Fix | null) => { if (f) end(f); else if (--waiting <= 0 && (tgAsked || !navigator.geolocation)) end(null); };
-    const askTelegram = () => { if (tgAsked || done) return; tgAsked = true; waiting++; void telegramLocation().then(answer, () => answer(null)); };
-    const cap = window.setTimeout(() => end(null), 10_000);
-    const slow = window.setTimeout(askTelegram, 1500);
-    if (!navigator.geolocation) { askTelegram(); return; }
-    waiting++;
-    navigator.geolocation.getCurrentPosition((p) => answer(toFix(p)), () => { askTelegram(); answer(null); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10_000 });
-  }), [accept]);
+  };
   const [locating, setLocating] = useState(false);
-  const [note, setNote] = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null);
+  const [note, setNote] = useState<Note | null>(null);
   const noteTimer = useRef(0);
-  const flash = useCallback((text: string, action?: { label: string; run: () => void }, ms = 3200) => {
+  const flash = useCallback((text: string, action?: Note['action'], ms = 3200) => {
     setNote({ text, action });
     clearTimeout(noteTimer.current);
     if (ms) noteTimer.current = window.setTimeout(() => setNote(null), ms);
@@ -246,7 +153,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     if (telegramLocationRefused()) flash('Location is off for this app.', { label: 'Turn on', run: openTelegramLocationSettings }, 8000);
     else flash('Could not find your location. Turn on location for Telegram in the phone settings, or type a place.', undefined, 6000);
   }, [flash]);
-  useEffect(() => { if (ready && fix.current && !tripRef.current) puck.current?.set(fix.current, null); }, [ready]);
+  useEffect(() => { if (ready && fix.current && !tripRef.current) puck.current?.set(fix.current, null); }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the truck and the voice switch
   const [truck, setTruck] = useState<TruckProfile>(() => ({ ...DEFAULT_TRUCK, ...stored<Partial<TruckProfile>>('cft.truck', {}) }));
@@ -279,7 +186,6 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const [from, setFrom] = useState<Field>({ text: '', place: null });
   const [to, setTo] = useState<Field>({ text: '', place: null });
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
-  const [sugg, setSugg] = useState<DriverPlace[]>([]);
   const [base, setBase] = useState<DriverRoute | null>(null);
   baseRef.current = base;
   const [via, setVia] = useState<DriverRoute | null>(null);
@@ -292,42 +198,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const myPosRef = useRef(myPos);
   myPosRef.current = myPos;
 
-  // Suggestions: towns with CFT stations and states at once (from the station list on the phone),
-  // then the place search joins in; answers are remembered for the session.
-  const towns = useMemo(() => {
-    const acc = new Map<string, { label: string; key: string; lat: number; lng: number; n: number }>();
-    const add = (label: string, key: string, lat: number, lng: number) => {
-      const a = acc.get(key);
-      if (a) { a.lat += lat; a.lng += lng; a.n++; } else acc.set(key, { label, key, lat, lng, n: 1 });
-    };
-    for (const st of data?.stations ?? []) {
-      if (st.lat == null || st.lng == null || !st.state) continue;
-      if (st.city) add(`${titleCase(st.city)}, ${st.state}`, norm(`${st.city} ${st.state}`), st.lat, st.lng!);
-      if (STATE_NAMES[st.state]) add(STATE_NAMES[st.state], norm(STATE_NAMES[st.state]), st.lat, st.lng!);
-    }
-    return [...acc.values()].map((t) => ({ label: t.label, key: t.key, lat: t.lat / t.n, lng: t.lng / t.n, n: t.n }));
-  }, [data]);
-  const placeCache = useRef(new Map<string, DriverPlace[]>());
-  useEffect(() => {
-    const f = focus === 'from' ? from : focus === 'to' ? to : null;
-    const q = f?.text.trim() ?? '';
-    if (!f || f.place || q.length < 2 || (data && !data.routing)) { setSugg([]); return; }
-    const nq = norm(q);
-    const local = towns.filter((t) => t.key.startsWith(nq) || t.key.includes(` ${nq}`)).sort((a, b) => b.n - a.n).slice(0, 4).map(({ label, lat, lng }) => ({ label, lat, lng }));
-    const merge = (remote: DriverPlace[]) => {
-      const seen = new Set<string>();
-      return [...local, ...remote].filter((p) => { const k = norm(p.label); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
-    };
-    const cached = placeCache.current.get(nq);
-    setSugg(merge(cached ?? []));
-    if (cached || q.length < 3) return;
-    let live = true;
-    const t = setTimeout(() => driverApi.places(q, myPosRef.current).then((r) => {
-      placeCache.current.set(nq, r.places);
-      if (live) setSugg(merge(r.places));
-    }, () => {}), 150);
-    return () => { live = false; clearTimeout(t); };
-  }, [focus, from, to, data?.routing, towns]);
+  const { sugg, setSugg } = usePlaceSearch(focus, from, to, data, myPosRef);
 
   const plan = useCallback((fromF: Field, toF: Field, tr: TruckProfile) => {
     const dest = toF.place ?? toF.text.trim();
@@ -345,7 +216,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       (r) => { if (seq === planSeq.current) { setBase(r); setVia(null); setTapped(null); } },
       (e: ApiError) => { if (seq === planSeq.current) { setBase(null); setRouteErr(e.message); } },
     ).finally(() => { if (seq === planSeq.current) setRouting(false); });
-  }, [posErr]);
+  }, [posErr]); // eslint-disable-line react-hooks/exhaustive-deps
   // The location arrived after a route from it was asked for.
   const hadPos = useRef(false);
   useEffect(() => {
@@ -398,62 +269,8 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   }, [routing]);
   useEffect(() => setEditing(false), [base]);
 
-  // ---- the stations along the route
-  // First filter: straight-line distance from the route (the corridor).
-  const straight = useMemo(() => {
-    if (!base || !data) return { onRoute: [] as Placed<DriverStation>[], nearby: [] as Placed<DriverStation>[] };
-    return stationsAlongRoute(base.path, data.stations, { corridorMi: CORRIDOR_MI, nearbyMi: NEARBY_MI });
-  }, [base, data]);
-  // Then the cheapest few get a real driving-time check: one across a divided highway or far from an
-  // exit costs real minutes and is moved to "nearby" (tools/driver-map/detours.ts). While the best
-  // pick is still unchecked, the next cheapest unchecked ones are checked too (up to
-  // DRIVER_MAP.detour.extraRounds more rounds), so the station recommended has always been checked.
-  // The measurements belong to one route: a new route starts from nothing.
-  const [det, setDet] = useState<{ route: DriverRoute | null; map: Map<number, number | null> }>(() => ({ route: null, map: new Map() }));
-  const detours = det.route === base ? det.map : NO_DETOURS;
-  const detourRun = useRef({ route: null as DriverRoute | null, rounds: 0, busy: false });
-  const placed = useMemo(() => {
-    const r = applyDetours(straight, detours);
-    return { onRoute: r.onRoute, nearby: r.nearby.slice().sort(byPay).slice(0, NEARBY_MAX) };
-  }, [straight, detours]);
-  useEffect(() => {
-    if (!base) return;
-    if (detourRun.current.route !== base) detourRun.current = { route: base, rounds: 0, busy: false };
-    const run = detourRun.current;
-    if (run.busy || run.rounds > DRIVER_MAP.detour.extraRounds) return;
-    const asks = nextDetourRound(base.path, placed.onRoute, detours, rangeMi);
-    if (!asks.length) return;
-    run.busy = true;
-    run.rounds++;
-    const done = (got: Map<number, number | null>) => {
-      if (detourRun.current !== run) return; // another route by now
-      run.busy = false;
-      setDet((d) => {
-        const map = new Map(d.route === base ? d.map : undefined);
-        for (const a of asks) map.set(a.id, got.get(a.id) ?? null);
-        return { route: base, map };
-      });
-    };
-    driverApi.detours(asks).then(
-      (r) => done(new Map(r.detours.map((d) => [d.id, d.detourMin]))),
-      () => { run.rounds = Infinity; done(new Map()); }, // the check failed: keep the straight-line view
-    );
-  }, [base, placed, detours, rangeMi]);
-  // The cheapest checked station the truck can reach before empty (when the driver gave a range).
-  const best = useMemo(() => bestChecked(placed.onRoute, detours, rangeMi), [placed, detours, rangeMi]);
-  const pool = useMemo(() => [...placed.onRoute, ...placed.nearby], [placed]);
-  // The best three by the driver's choice (brands, ranking); the card shows one of them (‹ 1/3 ›).
-  // With a fuel range, stations beyond it drop out (unless none is in reach). Cheapest leads with
-  // the checked pick, so the station shown first has had its real detour measured.
-  const top = useMemo(() => {
-    const ok = (p: Placed<DriverStation>) => payPrice(p.item) != null && (!brandSel.length || brandSel.includes(p.item.brand));
-    const inReach = rangeMi == null ? pool : pool.filter((p) => reachable(p, rangeMi));
-    const cands = (inReach.some(ok) ? inReach : pool).filter(ok);
-    if (rankBy === 'all') return cands.slice().sort(byPay);
-    const ranked = rankStations(cands, rankBy, [], BEST_SHOWN);
-    if (rankBy === 'cheap' && best && ok(best) && cands.includes(best)) return [best, ...ranked.filter((p) => p !== best)].slice(0, BEST_SHOWN);
-    return ranked;
-  }, [pool, rankBy, brandSel, best, rangeMi]);
+  // ---- the stations along the route, and the one picked as the stop
+  const { placed, detours, pool, top } = useRoutePicks(base, data, rangeMi, brandSel, rankBy);
   bestRef.current = top;
   useEffect(() => setRank(0), [top]);
   useEffect(() => {
@@ -766,7 +583,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     // room for the "Nearby stations" button above it.
     const id = setTimeout(() => { measure(); fitPath(m, route.path, { top: sizes.current.top, bottom: sizes.current.bottom + 46 }); }, 90);
     return () => clearTimeout(id);
-  }, [ready, route, trip, measure]);
+  }, [ready, route, trip, measure]); // eslint-disable-line react-hooks/exhaustive-deps
   // Once: the stations around the driver (in the US) when nothing is planned.
   const centered = useRef(false);
   useEffect(() => {
@@ -818,7 +635,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
   const tappedStation = tapped != null ? byId.get(tapped) ?? null : null;
   const leftMi = nav ? Math.max(0, (phase === 'go1' && stopAlong != null ? stopAlong : nav.route.totalMi) - along) : 0;
 
-  let banner: { big: string; text: string; sub: string; type: number | 'ok' } | null = null;
+  let banner: Banner | null = null;
   if (trip && nav) {
     if ((phase === 'go1' || phase === 'go2') && next) {
       const arriving = next.type === 10;
@@ -828,42 +645,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
     else banner = { big: dest, text: 'Trip complete', sub: '', type: 'ok' };
   }
 
-  const field = (which: 'from' | 'to') => {
-    const f = which === 'from' ? from : to;
-    const set = which === 'from' ? setFrom : setTo;
-    return (
-      <div className={'dm-input' + (focus === which ? ' on' : '')}>
-        {which === 'from' ? <span className="dm-trip-ico truck"><Truck size={14} /></span> : <span className="dm-trip-ico pin"><Svg d={PIN} size={18} /></span>}
-        <input
-          className={which === 'from' && !f.text ? 'me' : ''}
-          aria-label={which === 'from' ? 'From' : 'To'}
-          value={f.text}
-          placeholder={which === 'from' ? (locating ? 'Finding your location…' : fix.current || myPos ? 'My location' : posErr ? 'Type where you start from' : 'Finding your location…') : 'Where are you going?'}
-          enterKeyHint="go"
-          autoComplete="off"
-          disabled={!!data && !data.routing}
-          onFocus={() => { setFocus(which); setEditing(true); }}
-          onBlur={() => setTimeout(() => setFocus((x) => (x === which ? null : x)), 150)}
-          onChange={(e) => set({ text: e.target.value, place: null })}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter') return;
-            (e.target as HTMLInputElement).blur();
-            if (sugg[0] && !f.place) pickPlace(which, sugg[0]);
-            else plan(which === 'from' ? f : from, which === 'to' ? f : to, truck);
-          }}
-        />
-        {which === 'from' && !f.text && myAcc != null && focus !== 'from' && <span className="dm-acc">±{dist(myAcc / 1609.34)}</span>}
-        {which === 'from' && f.text ? (
-          <button type="button" className="dm-x me" aria-label="Use my location" onClick={toMyLocation}><Svg d={LOCATE} size={16} /></button>
-        ) : f.text ? (
-          <button type="button" className="dm-x" aria-label="Clear destination" onClick={clearRoute}><Svg d={X} size={15} /></button>
-        ) : null}
-      </div>
-    );
-  };
-
   const showSheet = mode === 'route' && !!(trip || base || tappedStation || (!routing && routeErr && to.text.trim()));
-
 
   return (
     <div className="dm" ref={rootRef}>
@@ -878,64 +660,14 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
       )}
 
       {mode === 'route' && (
-        <div className="dm-top" ref={topRef}>
-          {banner ? (
-            <div className={'dm-banner' + (banner.type === 'ok' ? ' ok' : '')} role="status">
-              <span className="dm-banner-ico">{banner.type === 'ok' ? <Svg d={CHECK} size={26} w={2.8} /> : <Svg d={turnIcon(banner.type)} size={28} w={2.6} />}</span>
-              <span className="dm-banner-text"><b>{banner.big}</b><span className="t">{banner.text}</span>{banner.sub && <span className="dm-banner-sub">{banner.sub}</span>}</span>
-              {limit != null && (phase === 'go1' || phase === 'go2') && <span className="dm-limit" aria-label={`Speed limit ${limit} mph`}><small>LIMIT</small>{limit}</span>}
-            </div>
-          ) : (
-            <>
-              <div className="dm-tabs" role="tablist" aria-label="Find fuel">
-                <button type="button" className="dm-tab" role="tab" aria-selected>My route</button>
-                <button type="button" className="dm-tab" role="tab" aria-selected={false} onClick={() => { haptic.select(); setMode('states'); }}>By state</button>
-              </div>
-              {base && !focus && !editing ? (
-                <div className="dm-trip dm-mini">
-                  <button type="button" className="dm-mini-main" aria-label="Change the trip" onClick={() => { haptic.tap(); setEditing(true); }}>
-                    <span className="dm-trip-ico truck"><Truck size={13} /></span>
-                    <span className="dm-mini-text">
-                      <small>{from.text ? firstPart(from.text) : 'My location'}</small>
-                      <b>{firstPart(to.text || base.to.label)}</b>
-                    </span>
-                    <Svg d={EDIT} size={15} />
-                  </button>
-                  <button type="button" className="dm-x" aria-label="Clear the route" onClick={() => { haptic.tap(); clearRoute(); }}><Svg d={X} size={15} /></button>
-                </div>
-              ) : (
-              <div className="dm-trip">
-                {field('from')}
-                {field('to')}
-                {focus && (sugg.length > 0 || focus === 'from') ? (
-                  <ul className="dm-sugg" role="listbox" aria-label="Places">
-                    {focus === 'from' && (
-                      <li>
-                        <button type="button" role="option" aria-selected={!from.text} className="dm-sugg-me" onPointerDown={(e) => e.preventDefault()} onClick={toMyLocation}>
-                          <Svg d={LOCATE} size={16} color="#a0dcff" />
-                          <span>Use my current location</span>
-                          <small>{locating ? 'locating…' : myAcc != null ? `±${dist(myAcc / 1609.34)}` : posErr ? 'off' : ''}</small>
-                        </button>
-                      </li>
-                    )}
-                    {sugg.map((p) => (
-                      <li key={`${p.lat},${p.lng},${p.label}`}>
-                        <button type="button" role="option" aria-selected={false} onPointerDown={(e) => e.preventDefault()} onClick={() => pickPlace(focus, p)}>
-                          <Svg d={PIN} size={16} color="#a0dcff" /><span>{p.label}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <button type="button" className="dm-truckrow" onClick={() => { haptic.tap(); setTruckOpen(true); }} aria-label={`Truck: ${truckText(truck)}. Change`}>
-                    <Truck size={13} /><span>{truckText(truck)}{rangeMi != null ? ` · ${rangeMi} mi left` : ''}</span><Svg d={EDIT} size={13} />
-                  </button>
-                )}
-              </div>
-              )}
-            </>
-          )}
-        </div>
+        <TopPanel
+          topRef={topRef} banner={banner} limit={limit} driving={phase === 'go1' || phase === 'go2'} onStates={() => setMode('states')}
+          base={base} focus={focus} setFocus={setFocus} editing={editing} setEditing={setEditing}
+          from={from} to={to} setFrom={setFrom} setTo={setTo} sugg={sugg}
+          locating={locating} hasPos={!!(fix.current || myPos)} myAcc={myAcc} posErr={posErr} routingOff={!!data && !data.routing}
+          pickPlace={pickPlace} plan={(f, t) => plan(f, t, truck)} toMyLocation={toMyLocation} clearRoute={clearRoute}
+          truck={truck} rangeMi={rangeMi} onTruck={() => setTruckOpen(true)}
+        />
       )}
 
       {mode === 'route' && (
@@ -961,19 +693,7 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
         </div>
       )}
 
-      {mode === 'route' && routing && !trip && (
-        <div className="dm-building" role="status" aria-live="polite">
-          <div className="dm-build-card">
-            <div className="dm-build-road" aria-hidden="true"><i /><span><Truck size={15} /></span></div>
-            <b>Building your truck route</b>
-            <span className="dm-build-to">{from.text ? firstPart(from.text) : 'My location'} → {firstPart(to.text) || 'destination'}</span>
-            <ul className="dm-build-steps">
-              {BUILD_STEPS.map((t, i) => <li key={t} className={i < buildStep ? 'done' : i === buildStep ? 'now' : ''}><i>{i < buildStep && <Svg d={CHECK} size={12} w={3} />}</i>{t}</li>)}
-            </ul>
-            <button type="button" className="dm-soft" onClick={cancelPlan}>Cancel</button>
-          </div>
-        </div>
-      )}
+      {mode === 'route' && routing && !trip && <BuildingCard fromText={from.text} toText={to.text} step={buildStep} onCancel={cancelPlan} />}
 
       {showSheet && (
         <section className="dm-sheet" ref={sheetCb} aria-live="polite">
@@ -986,119 +706,26 @@ export function DriverMap({ onExit }: { onExit: () => void }) {
           )}
           {!trip && !base && !tappedStation && !routing && <p className="dm-note">{routeErr}</p>}
           {!trip && base && route && (
-            <>
-              <div className="dm-summary">
-                <b>{hm(route.durationS)}</b>
-                <span>{Math.round(route.totalMi).toLocaleString('en-US')} mi{route.delayMin ? ` · ${route.delayMin} min traffic` : ''}{route.source === 'tomtom' && !route.delayMin ? ' · live traffic' : ''}</span>
-                {top.length > 1 && (
-                  <span className="dm-pager">
-                    <button type="button" aria-label="Previous station" onClick={() => page(-1)}><Svg d="m15 18-6-6 6-6" size={15} w={2.4} /></button>
-                    <span>{(selRank < 0 ? 0 : selRank) + 1}/{top.length}</span>
-                    <button type="button" aria-label="Next station" onClick={() => page(1)}><Svg d="m9 18 6-6-6-6" size={15} w={2.4} /></button>
-                  </span>
-                )}
-              </div>
-              <div className="dm-seg" role="radiogroup" aria-label="Show stations">
-                {SHOWS.map((r) => (
-                  <button key={r} type="button" role="radio" aria-checked={rankBy === r} onClick={() => pickRank(r)}>{SHOW_LABEL[r]}</button>
-                ))}
-              </div>
-              <div className="dm-brands" role="group" aria-label="Brands">
-                <button type="button" className="dm-opt" aria-pressed={!brandSel.length} onClick={() => pickBrand(null)}>All</button>
-                {BRAND_ORDER.map((b) => (
-                  <button key={b} type="button" className="dm-opt" aria-pressed={brandSel.includes(b)} aria-label={BRANDS[b].label} onClick={() => pickBrand(b)}>
-                    <i style={{ background: BRANDS[b].color }} />{BRANDS[b].short}
-                  </button>
-                ))}
-              </div>
-              {selPlaced ? (
-                <PickRow
-                  s={selPlaced.item}
-                  rank={selRank >= 0 && rankBy !== 'all' ? selRank : null}
-                  count={top.length}
-                  sub={[
-                    placeOf(selPlaced.item),
-                    selOn ? 'on your route' : extraMi != null ? `+${extraMi} mi` : `${Math.round(selPlaced.offMi)} mi off`,
-                  ].join(' · ')}
-                  showSave={rankBy === 'disc'}
-                  note={selNote}
-                  detail={detail} onToggle={() => { haptic.tap(); setDetail((v) => !v); }}
-                  onPrev={() => page(-1)} onNext={() => page(1)}
-                  go={selOn || via ? 'Go' : null} onGo={() => { if (selOn || via) startTrip(); }}
-                />
-              ) : (
-                <div className="dm-pick">
-                  <p className="dm-note" style={{ flex: 1, fontSize: 14 }}>{pool.length ? `No ${brandText} stations on or near this route.` : 'No CFT stations along this route.'}</p>
-                  <button type="button" className="dm-go" onClick={() => startTrip()}><Svg d={NAV} size={16} />Go</button>
-                </div>
-              )}
-            </>
+            <RouteCard
+              route={route} top={top} selRank={selRank} page={page} rankBy={rankBy} pickRank={pickRank}
+              brandSel={brandSel} pickBrand={pickBrand} brandText={brandText}
+              selPlaced={selPlaced} selOn={selOn} extraMi={extraMi} selNote={selNote}
+              detail={detail} toggleDetail={() => setDetail((v) => !v)}
+              canGo={selOn || !!via} startTrip={() => startTrip()} anyStations={pool.length > 0}
+            />
           )}
-
           {trip && (phase === 'go1' || phase === 'go2') && nav && (
-            <div className="dm-swap">
-              <div className="dm-tripline">
-                {phase === 'go1' && stopStation
-                  ? <span className="dm-tile" style={{ background: BRANDS[stopStation.brand].color }}>{BRANDS[stopStation.brand].letter}</span>
-                  : <span className="dm-tile" style={{ background: '#7fe0a4' }}><Svg d={CHECK} size={22} w={2.6} /></span>}
-                <span className="dm-tripline-text">
-                  <span className="dm-eyebrow">{phase === 'go1' ? 'NEXT FUEL STOP' : 'DESTINATION'}</span>
-                  <b>{phase === 'go1' && stopStation ? stopStation.station : dest}</b>
-                  <span>{dist(leftMi)} · {hm((leftMi / avgMph) * 3600)}</span>
-                </span>
-                {phase === 'go1' && stopStation && <span className="dm-tripline-price"><b>{money(payPrice(stopStation))}</b><small>/gal</small></span>}
-              </div>
-              <div className="dm-prog" aria-hidden="true">
-                <i className="pg-track" />
-                <i className="pg-fill" style={{ width: pct(along, nav.route.totalMi) }} />
-                {stopAlong != null && stopStation && <span className="pg-stop" style={{ left: pct(stopAlong, nav.route.totalMi), background: BRANDS[stopStation.brand].color }}>{BRANDS[stopStation.brand].letter}</span>}
-                <span className="pg-me" style={{ left: pct(along, nav.route.totalMi) }}><Truck size={12} /></span>
-                <span className="pg-end" />
-              </div>
-              <div className="dm-tripfoot">
-                <span>{hm(((nav.route.totalMi - along) / avgMph) * 3600)} to {dest}</span>
-                <button type="button" className="dm-soft dm-danger" onClick={endTrip}>End</button>
-              </div>
-            </div>
+            <DrivingCard toStop={phase === 'go1'} stop={stopStation} dest={dest} leftMi={leftMi} avgMph={avgMph} along={along} totalMi={nav.route.totalMi} stopAlong={stopAlong} onEnd={endTrip} />
           )}
           {trip && phase === 'stop' && stopStation && (
-            <div className="dm-swap">
-              <div className="dm-tripline">
-                <span className="dm-tile" style={{ background: BRANDS[stopStation.brand].color }}>{BRANDS[stopStation.brand].letter}</span>
-                <span className="dm-tripline-text"><span className="dm-eyebrow ok">YOU'VE ARRIVED</span><b>{stopStation.station}</b><span>{fullAddress(stopStation)}</span></span>
-              </div>
-              <PriceBox s={stopStation} />
-              <div className="dm-row-btns">
-                <button type="button" className="dm-primary" onClick={() => { said.current.clear(); setTrip({ ...trip, phase: 'go2' }); say([`Continuing to ${dest}.`], ['continuing']); }}><Svg d={NAV} size={18} />Continue to {dest}</button>
-                <button type="button" className="dm-soft dm-danger" onClick={endTrip}>End</button>
-              </div>
-            </div>
+            <StopCard stop={stopStation} dest={dest} onEnd={endTrip}
+              onContinue={() => { said.current.clear(); setTrip({ ...trip, phase: 'go2' }); say([`Continuing to ${dest}.`], ['continuing']); }} />
           )}
-          {trip && phase === 'done' && nav && (
-            <div className="dm-swap">
-              <div><span className="dm-eyebrow ok">TRIP COMPLETE</span><b className="dm-done-title">You've arrived in {dest}</b></div>
-              <button type="button" className="dm-primary" onClick={() => { endTrip(); clearRoute(); }}>Plan a new trip</button>
-            </div>
-          )}
+          {trip && phase === 'done' && nav && <DoneCard dest={dest} onNewTrip={() => { endTrip(); clearRoute(); }} />}
         </section>
       )}
 
-      {noticeOpen && (
-        <>
-          <button className="dm-scrim" aria-label="Close" onClick={() => setNoticeOpen(false)} />
-          <section className="dm-sheet dm-trucksheet" role="dialog" aria-labelledby="dm-notice-title">
-            <div className="dm-swap">
-              <div>
-                <span className="dm-eyebrow" id="dm-notice-title">YOUR TRIPS ARE RECORDED</span>
-                <p style={{ margin: '8px 0 0', fontSize: 14.5, color: '#c8d0d6', lineHeight: 1.45 }}>
-                  CFT keeps a record of the trips you navigate here: where you start and go, your fuel stop and its price, and where the truck drives while this map is open. Nothing is recorded when the map is closed. Records are kept for 12 months.
-                </p>
-              </div>
-              <button type="button" className="dm-primary" onClick={() => { store('cft.tripNotice', true); setNoticeOpen(false); startTrip(true); }}><Svg d={NAV} size={20} />OK, start the route</button>
-            </div>
-          </section>
-        </>
-      )}
+      {noticeOpen && <TripNotice onClose={() => setNoticeOpen(false)} onStart={() => { store('cft.tripNotice', true); setNoticeOpen(false); startTrip(true); }} />}
       {truckOpen && <TruckSheet truck={truck} rangeMi={rangeMi} onClose={() => setTruckOpen(false)} onSave={(t, r) => {
         const truckChanged = t.heightIn !== truck.heightIn || t.weightLb !== truck.weightLb || t.hazmat !== truck.hazmat;
         setTruck(t); store('cft.truck', t); setTruckOpen(false); haptic.success();
