@@ -1,7 +1,7 @@
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../support/helpers/telegram.js';
-import { NOT_AUTHORIZED } from '../../tools/driver-leads/messages.js';
-import { ADMINS_ONLY as INDEED_ADMINS_ONLY } from '../../tools/indeed-applicants/messages.js';
-import { DISCOUNT_CALLBACK } from '../../tools/fuel-prices/agent-prices.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../support/helpers/telegram.js';
+import { NOT_AUTHORIZED } from '../../../tools/driver-leads/messages.js';
+import { ADMINS_ONLY as INDEED_ADMINS_ONLY } from '../../../tools/indeed-applicants/messages.js';
+import { DISCOUNT_CALLBACK } from '../../../tools/fuel-prices/agent-prices.js';
 import { isFuelRequest } from './admins/fuel.js';
 import { INDEED_CALLBACK, isIndeedRequest } from './admins/indeed.js';
 import { LEADS_CALLBACK, parseAction } from './admins/leads.js';
@@ -11,7 +11,7 @@ import { TEAM_CALLBACK } from './admins/team/agents.js';
 import { DRIVER_CALLBACK } from './driver-invites.js';
 
 // Polite refusals, for people who type or tap something their role doesn't have (an agent pressing
-// an old Driver Leads button, a candidate typing /fuelprices…). The real handlers live in the
+// an old Driver Leads button, a visitor typing /fuelprices…). The real handlers live in the
 // role folders; this file only recognises their buttons and commands and says no.
 
 const say = (chat_id: number, text: string) => botApi('sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true });

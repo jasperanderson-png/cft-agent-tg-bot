@@ -1,9 +1,9 @@
 import { Resvg } from '@resvg/resvg-js';
-import { escXml as xml } from '../../../support/common/html.js';
-import { brandFile, LOGO_RATIO, logoDataUri } from '../../../support/helpers/brand.js';
-import { SECTION } from '../../../support/helpers/home.js';
-import { botApi, botSendPhoto, type PrivateMessage } from '../../../support/helpers/telegram.js';
-import { TOOLS } from '../../server/tools.js';
+import { escXml as xml } from '../../../../support/common/html.js';
+import { brandFile, LOGO_RATIO, logoDataUri } from '../../../../support/helpers/brand.js';
+import { SECTION } from '../../../../support/helpers/home.js';
+import { botApi, botSendPhoto, type PrivateMessage } from '../../../../support/helpers/telegram.js';
+import { TOOLS } from '../../../server/tools.js';
 import { commandOf } from '../viewer.js';
 
 // 🧩 System Design, for the developer (TASK_REPORT_USER_IDS): a picture of how the bot is built right
@@ -113,7 +113,7 @@ export function systemDesignSvg(): string {
   add(...layer(y, 'The base · database/ · support/', 'Plumbing every part uses.', BASE, 1));
   add(arrow(y, 'talks to'), 60);
   add(...layer(y, 'Outside services', 'Everything runs on free plans.', OUTSIDE, 2));
-  const mini = 'The Mini App (telegram_bot/mini_app) has its screens grouped the same way: admins, agents, candidates.';
+  const mini = 'The Mini App (telegram_bot/mini_app) has its screens grouped the same way: admins, agents, drivers; the test for candidates opens in @cftacademybot.';
   wrap(mini, W - 2 * PAD, 21).forEach((l, i) => parts.push(T(PAD, y + 30 + i * 28, l, 21, { fill: C.muted })));
   y += 90;
   const h = y + 20;
@@ -128,7 +128,7 @@ export const designRender = {
 const CAPTION = [
   '🧩 <b>System design</b> · how the bot is built now',
   '',
-  '<b>WHO</b> (telegram_bot/): works out whether you are an admin, agent or candidate; that role’s folder decides what you can do.',
+  '<b>WHO</b> (telegram_bot/): works out whether you are an admin, agent, driver or visitor; that role’s folder decides what you can do.',
   '<b>WHAT</b> (tools/): the business itself, one folder per tool (the work reports too).',
   '<b>BASE</b> (database/, support/): the database, settings and shared helpers.',
   '',

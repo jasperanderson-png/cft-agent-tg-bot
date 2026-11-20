@@ -6,7 +6,7 @@ import { csvObjects, decodeText, parseCSV } from '../../../support/common/csv.js
 import { contactKeys, formatPhone, normalizeCdlClass, normalizeEmail, normalizeLead, normalizePhone, normalizeState, normalizeYears } from '../../../support/common/leads.js';
 import { closePool, getPool } from '../../../database/db.js';
 import type { ApiRequest } from '../../../support/helpers/http.js';
-import { parseAction } from '../../../telegram_bot/handlers/admins/leads.js';
+import { parseAction } from '../../../telegram_bot/cftagents/handlers/admins/leads.js';
 import { limits } from '../actions.js';
 import { LEAD_HEADERS } from '../files.js';
 import { BACK, BUTTONS, DOWNLOADS, INLINE, KEYS, NO_NEW_LEADS } from '../messages.js';
@@ -344,10 +344,10 @@ describe.skipIf(!DB)('Driver leads (PostgreSQL)', () => {
     await say(OWNER, SECTION.home);
     expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.indeed, SECTION.fuel, SECTION.invite, SECTION.team]);
 
-    // Agent Academy opens the test, lists only Academy commands and puts the switcher back.
+    // Agent Academy: the console (candidates take the test in the Academy bot), only Academy commands, the switcher back.
     sent.length = 0;
     await say(OWNER, SECTION.academy);
-    expect(sent[0].body.reply_markup.inline_keyboard[0][0].web_app.url).toBe('https://academy.example.com');
+    expect(sent[0].body.reply_markup.inline_keyboard.at(-1)[0].web_app.url).toBe('https://academy.example.com/#/admin');
     expect(texts(OWNER)[1]).toContain('Agent Academy · Admin commands');
     expect(texts(OWNER).join('\n')).not.toMatch(/lead/i);
     expect(keys(sent[1])).toEqual([SECTION.academy, SECTION.leads, SECTION.indeed, SECTION.fuel, SECTION.invite, SECTION.team]);
@@ -362,10 +362,11 @@ describe.skipIf(!DB)('Driver leads (PostgreSQL)', () => {
     expect(texts(MEMBER)[0]).toMatch(/🎓 Agent Academy[\s\S]*Admin commands[\s\S]*🚚 <b>Driver Leads<\/b>/);
     expect(texts(MEMBER)[0]).not.toContain('Owner tools');
 
-    // Someone who is not an admin only ever sees the test.
+    // Someone who is not an admin sees what the bot is for (request access), never the test or leads.
     sent.length = 0;
     await say(STRANGER, '/start');
-    expect(sent[0].body.reply_markup.inline_keyboard[0][0].text).toBe('Open CFT Agent Academy');
+    expect(texts(STRANGER)[0]).toContain('for CFT agents and drivers');
+    expect(JSON.stringify(sent)).not.toContain('Open CFT Agent Academy');
     expect(sent.some((m) => m.body?.reply_markup?.keyboard)).toBe(false);
     expect(sent.some((m) => m.method === 'setMyCommands')).toBe(false);
     expect(texts(STRANGER).join('\n')).not.toMatch(/lead/i);

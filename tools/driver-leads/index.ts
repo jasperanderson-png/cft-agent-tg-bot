@@ -10,7 +10,7 @@ import * as leads from './ingest.js';
 import { leadStats } from './store.js';
 
 // Driver Leads: the driver-lead database, the public sign-up page, vendor webhooks and the daily FMCSA
-// sync. What it does in the chat is in actions.ts; the admins' buttons are in telegram_bot/handlers/admins/leads.ts.
+// sync. What it does in the chat is in actions.ts; the admins' buttons are in telegram_bot/cftagents/handlers/admins/leads.ts.
 
 export const driverLeads: Tool = {
   id: 'driver-leads',

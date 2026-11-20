@@ -11,14 +11,14 @@ import { env } from './env.js';
  *   👥 Team                       tools/agents/, support/helpers/admin-invites.ts   who the agents and admins are; remove one
  *   ⏱ Shift                       tools/task-report/           shifts and work reports (only TASK_REPORT_USER_IDS)
  *
- * What each button does for admins is in telegram_bot/handlers/admins/.
+ * What each button does for admins is in telegram_bot/cftagents/handlers/admins/.
  *
  * Candidates never see this keyboard: they only have the test. Agents get no keyboard: they type
  * searches and have the Discounts menu button.
  */
 export const SECTION = { academy: '🎓 Agent Academy', leads: '🚚 Driver Leads', indeed: '📋 Indeed Applicants', home: '🏠 Home', fuel: '📥 Download All Fuel Prices', invite: '➕ Invite', team: '👥 Team', shift: '⏱ Shift', design: '🧩 System Design' } as const;
 
-/** The chat menu button: admins get the CFT Hub; agents get Discounts; candidates keep the bot's default (Start test). */
+/** The chat menu button: admins get the CFT Hub; agents get Discounts; visitors keep the bot's default (the command list). */
 export const hubMenuButton = (appUrl: string) => ({ type: 'web_app', text: 'CFT Hub', web_app: { url: `${appUrl}/#/hub` } });
 
 /** The button older keyboards still show (before ➕ Invite and 👥 Team); it opens 👥 Team. */

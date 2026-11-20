@@ -10,7 +10,7 @@ import { FUEL_FILENAME, fuelPricesXlsx } from './excel.js';
 import { fuelInsights, usd, where, type FuelInsights } from './insights.js';
 
 // The full fuel price export: reads every station's prices from the United Fuel cabinet and sends
-// them to a chat as one Excel file. Used by the admins' 📥 button (telegram_bot/handlers/admins/fuel.ts)
+// them to a chat as one Excel file. Used by the admins' 📥 button (telegram_bot/cftagents/handlers/admins/fuel.ts)
 // and by "Send Excel to my chat" in the Mini App.
 
 const num = (n: number) => n.toLocaleString('en-US');

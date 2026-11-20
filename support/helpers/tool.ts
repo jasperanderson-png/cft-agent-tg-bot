@@ -5,7 +5,7 @@ import type { AddRoute } from './http.js';
  * Mini App, scheduled jobs and outside services. telegram_bot/server/tools.ts lists them.
  *
  * A tool holds the business: its data, its rules and what it sends. It never decides who may ask
- * for something in the chat; that is the job of telegram_bot/handlers/<role>/.
+ * for something in the chat; that is the job of telegram_bot/cftagents/handlers/<role>/.
  */
 export interface Tool {
   id: string;

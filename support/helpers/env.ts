@@ -10,6 +10,17 @@ export const env = {
   get botUsername() {
     return (process.env.TELEGRAM_BOT_USERNAME ?? '').replace(/^@/, '') || null;
   },
+  /**
+   * The Agent Academy's own bot (@cftacademybot): only the Sales Agent test, so drivers and staff in
+   * the main bot never land in it. Empty: the test stays in the main bot, as before.
+   */
+  get academyBotToken() {
+    return (process.env.ACADEMY_BOT_TOKEN ?? '').trim();
+  },
+  get academyBotUsername() {
+    return (process.env.ACADEMY_BOT_USERNAME ?? '').trim().replace(/^@/, '') || null;
+  },
+  /** The secret Telegram sends with every webhook call, to both bots. */
   get webhookSecret() {
     return process.env.TELEGRAM_WEBHOOK_SECRET ?? '';
   },

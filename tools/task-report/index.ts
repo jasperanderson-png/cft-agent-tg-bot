@@ -9,7 +9,7 @@ import { currentDay } from './shifts.js';
 import { addEntries, checkEntry, entriesBetween, getStaff, listStaff, type Staff } from './store.js';
 
 // Task report: shifts, the work log and the daily / weekly / monthly reports posted to a Telegram
-// channel. In the chat it is the admins' ⏱ Shift section (telegram_bot/handlers/admins/shift.ts).
+// channel. In the chat it is the admins' ⏱ Shift section (telegram_bot/cftagents/handlers/admins/shift.ts).
 //
 // The API below lets Claude Code (or any trusted script) add log entries:
 //   POST /api/task-report/entries   Authorization: Bearer <TASK_REPORT_TOKEN>

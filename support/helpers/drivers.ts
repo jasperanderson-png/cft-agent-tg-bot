@@ -1,7 +1,7 @@
 // Drivers: truck drivers with the route map (/route), their one permission. They are approved through a
 // request (support/helpers/driver-requests.ts), or joined through a driver link made before requests
 // (those still work until they expire, or are turned off). Agents see all drivers and remove only those
-// they brought. Who is what: admin (support/helpers/admins.ts) > agent (support/helpers/agents.ts) > driver > candidate (everyone else).
+// they brought. Who is what: admin (support/helpers/admins.ts) > agent (support/helpers/agents.ts) > driver > visitor (everyone else).
 import { sha256 } from './crypto.js';
 import { tx, type Db } from '../../database/db.js';
 import { audit } from './admins.js';

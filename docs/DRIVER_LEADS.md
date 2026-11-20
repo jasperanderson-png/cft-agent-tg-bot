@@ -82,9 +82,9 @@ Everything runs in the existing bot and database on our server. No new services 
 | `tools/driver-leads/messages.ts` | **Every text the bot sends in this section.** Change the wording here. |
 | `tools/driver-leads/files.ts` | Excel and CSV files. |
 | `tools/driver-leads/actions.ts` | What each action does: new leads once, files, statistics, owner tools. |
-| `telegram_bot/handlers/admins/leads.ts` | Which button, command or uploaded file asks for which action, and who may. |
+| `telegram_bot/cftagents/handlers/admins/leads.ts` | Which button, command or uploaded file asks for which action, and who may. |
 | `tools/driver-leads/fmcsa.ts` | The FMCSA pull source and the daily sync. |
-| `tools/driver-leads/index.ts` | Driver Leads' API routes. `telegram_bot/handlers/admins/index.ts` and `support/helpers/home.ts` hold the home screen that switches between sections. |
+| `tools/driver-leads/index.ts` | Driver Leads' API routes. `telegram_bot/cftagents/handlers/admins/index.ts` and `support/helpers/home.ts` hold the home screen that switches between sections. |
 | `tools/driver-leads/signup-page/` | The registration page, published at `/drivers/`. |
 | `database/migrations/0003_driver_leads.sql` | Schema and the `ingest_driver` function. |
 

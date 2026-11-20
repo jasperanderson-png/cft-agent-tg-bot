@@ -9,8 +9,7 @@ import { HttpError, UUID_RE } from '../../support/helpers/http.js';
 import { telegramAdmin } from '../../support/helpers/admins.js';
 import { notifyResult } from './notify.js';
 import { autoSyncAttempt } from './sheets.js';
-import { fullName, type VerifiedInitData } from '../../support/helpers/telegram.js';
-import { requireTelegramUser } from '../../support/helpers/web-login.js';
+import { fullName, requireInitData, verifyInitData, type VerifiedInitData } from '../../support/helpers/telegram.js';
 import { touchTelegramUser } from '../../support/helpers/users.js';
 
 interface AttemptRow {
@@ -43,7 +42,7 @@ export async function publicConfig(): Promise<PublicConfig> {
     timeLimitMinutes: null, // the source materials don't set a time limit
     allowRetakes: s.allowRetakes,
     requireTelegram: !env.allowWebCandidates,
-    botUsername: env.botUsername,
+    botUsername: env.academyBotUsername,
   };
 }
 
@@ -161,9 +160,20 @@ async function latestAttemptFor(c: pg.PoolClient, telegramUserId: number, status
 const lockTelegramUser = (c: pg.PoolClient, id: number) => c.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', ['tg:' + id]);
 
 /**
+ * The test opens only from the Academy's own bot (@cftacademybot): its initData is signed with that
+ * bot's token. Opened from @cft_Agentbot (or its website), it says where the test is instead.
+ */
+function requireAcademyUser(initData: unknown): VerifiedInitData {
+  const bot = env.academyBotUsername;
+  if (!env.academyBotToken || !bot) throw new HttpError(503, 'The Academy bot is not set up yet.', 'academy_moved');
+  const fromMainBot = typeof initData === 'string' && (initData.startsWith('cftweb.') || (!!env.botToken && !!verifyInitData(initData, env.botToken, env.initDataMaxAgeSec)));
+  if (fromMainBot) throw new HttpError(403, `The Sales Agent test is in @${bot}. Open it there.`, 'academy_moved');
+  return requireInitData(initData, 'academy');
+}
+
+/**
  * The test is for Sales Agent candidates. Drivers, and people who asked for driver access (waiting or
- * declined), get their request status instead: the bot's default "Start test" button is still in their
- * chat while they answer the request questions.
+ * declined), get their request status instead, even if they find the Academy bot.
  */
 async function refuseDrivers(c: pg.PoolClient, telegramUserId: number): Promise<void> {
   const { rows } = await c.query(
@@ -172,10 +182,10 @@ async function refuseDrivers(c: pg.PoolClient, telegramUserId: number): Promise<
     [telegramUserId],
   );
   const { driver, request } = rows[0] as { driver: boolean; request: string | null };
-  if (driver) throw new HttpError(403, "You have driver access. Open the Route map from the bot's menu button.", "driver_request");
-  if (request === "asking") throw new HttpError(403, "Finish your driver access request in the bot chat: answer its questions there.", "driver_request");
-  if (request === "pending") throw new HttpError(403, "Your driver access request is being reviewed. The bot will message you when an admin decides.", "driver_request");
-  if (request === "declined") throw new HttpError(403, "Your driver access request was declined. Contact the person who invited you.", "driver_request");
+  if (driver) throw new HttpError(403, 'You have driver access: open the Route map in @cft_Agentbot.', 'driver_request');
+  if (request === 'asking') throw new HttpError(403, 'Finish your driver access request in @cft_Agentbot: answer its questions there.', 'driver_request');
+  if (request === 'pending') throw new HttpError(403, 'Your driver access request is being reviewed. @cft_Agentbot will message you when an admin decides.', 'driver_request');
+  if (request === 'declined') throw new HttpError(403, 'Your driver access request was declined. Contact the person who invited you.', 'driver_request');
 }
 
 /**
@@ -183,7 +193,7 @@ async function refuseDrivers(c: pg.PoolClient, telegramUserId: number): Promise<
  * attempt (with a fresh token) so a returning candidate lands where they left off.
  */
 export async function telegramSession(body: Record<string, unknown>): Promise<AttemptState | { state: 'none'; suggestedName: string; isAdmin: boolean }> {
-  const tg = await requireTelegramUser(getPool(), body.initData);
+  const tg = requireAcademyUser(body.initData);
   return tx(async (c) => {
     await lockTelegramUser(c, tg.user.id);
     await touchTelegramUser(c, tg.user);
@@ -211,7 +221,7 @@ export async function startAttempt(body: Record<string, unknown>): Promise<Attem
   if (err) throw new HttpError(400, err, 'invalid_name');
 
   let tg: VerifiedInitData | null = null;
-  if (typeof body.initData === 'string' && body.initData) tg = await requireTelegramUser(getPool(), body.initData);
+  if (typeof body.initData === 'string' && body.initData) tg = requireAcademyUser(body.initData);
   else if (!env.allowWebCandidates) throw new HttpError(401, 'Open this test from the CFT Telegram bot to begin.', 'telegram_required');
 
   return tx(async (c) => {

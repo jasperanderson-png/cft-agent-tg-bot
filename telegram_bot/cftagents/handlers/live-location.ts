@@ -1,7 +1,7 @@
-import { DRIVER_MAP } from '../../support/common/driver-config.js';
-import type { Db } from '../../database/db.js';
-import { botApi, type TelegramUpdate } from '../../support/helpers/telegram.js';
-import { liveLocationAlert } from '../../tools/driver-map/alerts.js';
+import { DRIVER_MAP } from '../../../support/common/driver-config.js';
+import type { Db } from '../../../database/db.js';
+import { botApi, type TelegramUpdate } from '../../../support/helpers/telegram.js';
+import { liveLocationAlert } from '../../../tools/driver-map/alerts.js';
 import { viewerOf } from './viewer.js';
 
 // A location shared in the private chat with the bot. Live location: the bot alerts the driver when

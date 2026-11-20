@@ -33,7 +33,7 @@ People who apply to our jobs on Indeed reach the hiring chat in Telegram: a card
 | `tools/indeed-applicants/files.ts` | The import Excel layout. |
 | `tools/indeed-applicants/index.ts` | API routes: `indeed/report`, `cron/indeed-watch`, `cron/indeed-excel`. |
 | `tools/indeed-applicants/office-script/indeed_collector.py` | The script for the office computer. |
-| `telegram_bot/handlers/admins/indeed.ts` | The admins' section and its buttons. |
+| `telegram_bot/cftagents/handlers/admins/indeed.ts` | The admins' section and its buttons. |
 | `database/migrations/0013_indeed_applicants.sql` | `indeed_applicants`, `indeed_collector`. |
 
 ## Settings

@@ -2,11 +2,11 @@ import type { RangeKey } from '../../support/common/time.js';
 import type { Db } from '../../database/db.js';
 import { env } from '../../support/helpers/env.js';
 import { homeKeyboardFor } from '../../support/helpers/home.js';
-import { botApi } from '../../support/helpers/telegram.js';
+import { academyApi, botApi } from '../../support/helpers/telegram.js';
 import { sendReportToChat, statsText } from './notify.js';
 
 // What the Agent Academy sends in a chat: the test's front page, the admin console link, statistics
-// and the Excel report. Who may ask for which is decided in telegram_bot/handlers/<role>/academy.ts.
+// and the Excel report. Who may ask for which is decided in telegram_bot/cftagents/handlers/<role>/academy.ts.
 
 const WELCOME =
   '🎓 <b>CFT Agent Academy</b>\n\n' +
@@ -29,18 +29,33 @@ const webApp = (text: string, hash = '') => ({ text, web_app: { url: env.appUrl 
 const send = (chatId: number, text: string, extra: Record<string, unknown> = {}) => botApi('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', ...extra });
 
 /**
- * The section's front page: the button that opens the test, and for admins their commands. Admins
- * also have the other sections, so they get the section switcher back as their keyboard.
+ * The test's front page in the Academy's own bot (@cftacademybot): the button that opens the test.
+ * The main bot (@cft_Agentbot) never shows it.
  */
-export async function showAcademy(chatId: number, admin: boolean): Promise<void> {
+export async function academyWelcome(chatId: number): Promise<void> {
+  if (!env.appUrl) {
+    await academyApi('sendMessage', { chat_id: chatId, text: APP_URL_MISSING });
+    return;
+  }
+  await academyApi('sendMessage', { chat_id: chatId, text: WELCOME, parse_mode: 'HTML', reply_markup: { inline_keyboard: [[webApp('Open CFT Agent Academy')]] } });
+}
+
+/**
+ * The Academy section for admins in @cft_Agentbot: where candidates take the test (the Academy bot),
+ * the console and their commands, with the section switcher back as their keyboard.
+ */
+export async function showAcademy(chatId: number): Promise<void> {
   if (!env.appUrl) {
     await send(chatId, APP_URL_MISSING);
     return;
   }
-  await send(chatId, WELCOME, {
-    reply_markup: { inline_keyboard: admin ? [[webApp('Open CFT Agent Academy')], [webApp('Admin console', '#/admin')]] : [[webApp('Open CFT Agent Academy')]] },
-  });
-  if (admin) await send(chatId, ADMIN_HELP, { reply_markup: homeKeyboardFor(chatId) });
+  const bot = env.academyBotUsername;
+  const text = bot
+    ? `🎓 <b>CFT Agent Academy</b>\n\nCandidates take the test in @${bot}: send them that link. Results arrive here and in the console.`
+    : '🎓 <b>CFT Agent Academy</b>\n\nThe Academy bot is not set up yet (ACADEMY_BOT_TOKEN, ACADEMY_BOT_USERNAME).';
+  const rows = bot ? [[{ text: `Open @${bot}`, url: `https://t.me/${bot}` }], [webApp('Admin console', '#/admin')]] : [[webApp('Admin console', '#/admin')]];
+  await send(chatId, text, { reply_markup: { inline_keyboard: rows } });
+  await send(chatId, ADMIN_HELP, { reply_markup: homeKeyboardFor(chatId) });
 }
 
 export async function sendConsoleLink(chatId: number): Promise<void> {

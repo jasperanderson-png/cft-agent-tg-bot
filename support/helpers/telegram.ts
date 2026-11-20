@@ -58,9 +58,13 @@ export function verifyInitData(initData: string, botToken: string, maxAgeSec: nu
 /** The Mini App sends Telegram's signed initData in this header on agent and driver calls. */
 export const INIT_HEADER = 'x-telegram-init-data';
 
-export function requireInitData(initData: unknown): VerifiedInitData {
-  if (!env.botToken) throw new HttpError(503, 'The server is not configured yet (TELEGRAM_BOT_TOKEN is missing).');
-  const v = typeof initData === 'string' ? verifyInitData(initData, env.botToken, env.initDataMaxAgeSec) : null;
+/** Which bot opened the Mini App or gets a call: the main bot (@cft_Agentbot) or the Academy bot (@cftacademybot). */
+export type Bot = 'main' | 'academy';
+const tokenOf = (bot: Bot) => (bot === 'academy' ? env.academyBotToken : env.botToken);
+
+export function requireInitData(initData: unknown, bot: Bot = 'main'): VerifiedInitData {
+  if (!tokenOf(bot)) throw new HttpError(503, 'The server is not configured yet (TELEGRAM_BOT_TOKEN is missing).');
+  const v = typeof initData === 'string' ? verifyInitData(initData, tokenOf(bot), env.initDataMaxAgeSec) : null;
   if (!v) throw new HttpError(401, 'Your Telegram session could not be verified. Close the app and open it again from the bot.', 'telegram_auth');
   return v;
 }
@@ -72,9 +76,14 @@ export function requireInitData(initData: unknown): VerifiedInitData {
  */
 const SAFE_TO_REPEAT = new Set(['setChatMenuButton', 'setMyCommands', 'deleteMyCommands', 'getChatMenuButton', 'getMe', 'answerCallbackQuery', 'editMessageText', 'editMessageReplyMarkup', 'editMessageCaption', 'sendChatAction', 'setWebhook']);
 
-export async function botApi(method: string, payload: Record<string, unknown>): Promise<unknown> {
+/** The main bot (@cft_Agentbot). */
+export const botApi = (method: string, payload: Record<string, unknown>): Promise<unknown> => callBot('main', method, payload);
+/** The Academy bot (@cftacademybot): the test's front page in its own chat. */
+export const academyApi = (method: string, payload: Record<string, unknown>): Promise<unknown> => callBot('academy', method, payload);
+
+async function callBot(bot: Bot, method: string, payload: Record<string, unknown>): Promise<unknown> {
   const call = () =>
-    fetch(`https://api.telegram.org/bot${env.botToken}/${method}`, {
+    fetch(`https://api.telegram.org/bot${tokenOf(bot)}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),

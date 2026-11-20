@@ -6,7 +6,7 @@ import type { Tool } from '../../support/helpers/tool.js';
 
 // Agents: invite links (anyone with one can join until it expires or is turned off), the agent list
 // and removing an agent. The Team screen of the Mini App uses this API; the bot's /invite and /agents
-// are in telegram_bot/handlers/admins/team/agents.ts.
+// are in telegram_bot/cftagents/handlers/admins/team/agents.ts.
 
 export const agents: Tool = {
   id: 'agents',

@@ -17,6 +17,7 @@ try {
 }
 const DB = process.env.TEST_DATABASE_URL;
 const BOT = '777000:TEST-bot-token';
+const ACADEMY_BOT = '888000:TEST-academy-token';
 const OFFICIAL: { n: number; correct: string }[] = JSON.parse(readFileSync('database/seeds/academy/questions.json', 'utf8'));
 
 async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -25,6 +26,8 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
   return { status: res.status, body: res.body as any };
 }
 const tg = (id: number, first = 'Ann', last = 'Lee') => signInitData({ id, first_name: first, last_name: last, username: 'user' + id }, BOT);
+/** initData from the Academy bot (@cftacademybot), where the test opens. */
+const cand = (id: number, first = 'Ann', last = 'Lee') => signInitData({ id, first_name: first, last_name: last, username: 'user' + id }, ACADEMY_BOT);
 const tok = (t: string) => ({ 'x-attempt-token': t });
 const bearer = (t: string) => ({ authorization: 'Bearer ' + t });
 
@@ -32,6 +35,8 @@ describe.skipIf(!DB)('API (PostgreSQL)', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = DB;
     process.env.TELEGRAM_BOT_TOKEN = BOT;
+    process.env.ACADEMY_BOT_TOKEN = ACADEMY_BOT;
+    process.env.ACADEMY_BOT_USERNAME = 'cftacademybot';
     process.env.TELEGRAM_WEBHOOK_SECRET = 'test-webhook-secret-123456';
     process.env.GOOGLE_SERVICE_ACCOUNT_JSON = '';
     await getPool().query('drop schema public cascade; create schema public;');
@@ -135,36 +140,36 @@ describe.skipIf(!DB)('API (PostgreSQL)', () => {
     });
 
     it('resumes the open attempt, rotates the token, and blocks a second attempt', async () => {
-      const first = await call('POST', 'attempts', { name: 'Gus Hill', initData: tg(502) });
+      const first = await call('POST', 'attempts', { name: 'Gus Hill', initData: cand(502) });
       expect(first.status).toBe(201);
       await call('PUT', `attempts/${first.body.attemptId}/answers`, { answers: { 3: 'C' } }, tok(first.body.token));
 
-      const session = await call('POST', 'session', { initData: tg(502) });
+      const session = await call('POST', 'session', { initData: cand(502) });
       expect(session.body).toMatchObject({ state: 'in_progress', attemptId: first.body.attemptId, answers: { 3: 'C' } });
       expect(session.body.token).not.toBe(first.body.token);
       expect((await call('GET', `attempts/${first.body.attemptId}`, undefined, tok(first.body.token))).status).toBe(404);
 
       // Two simultaneous starts still map to the same attempt.
       const [s1, s2] = await Promise.all([
-        call('POST', 'attempts', { name: 'Gus Hill', initData: tg(502) }),
-        call('POST', 'attempts', { name: 'Gus Hill', initData: tg(502) }),
+        call('POST', 'attempts', { name: 'Gus Hill', initData: cand(502) }),
+        call('POST', 'attempts', { name: 'Gus Hill', initData: cand(502) }),
       ]);
       expect(s1.body.attemptId).toBe(first.body.attemptId);
       expect(s2.body.attemptId).toBe(first.body.attemptId);
 
       await call('POST', `attempts/${s2.body.attemptId}/submit`, { answers: {} }, tok(s2.body.token));
-      const retry = await call('POST', 'attempts', { name: 'Gus Hill', initData: tg(502) });
+      const retry = await call('POST', 'attempts', { name: 'Gus Hill', initData: cand(502) });
       expect(retry.body).toMatchObject({ state: 'completed', attemptId: first.body.attemptId, alreadyCompleted: true });
       expect((await getPool().query('select count(*)::int n from assessment_attempts a join candidates c on c.id = a.candidate_id where c.telegram_user_id = 502')).rows[0].n).toBe(1);
     });
 
     it('offers a fresh attempt when retakes are enabled', async () => {
-      const a = await call('POST', 'attempts', { name: 'Ida Jones', initData: tg(503) });
+      const a = await call('POST', 'attempts', { name: 'Ida Jones', initData: cand(503) });
       await call('POST', `attempts/${a.body.attemptId}/submit`, { answers: {} }, tok(a.body.token));
       await getPool().query('update app_settings set allow_retakes = true');
       try {
-        expect((await call('POST', 'session', { initData: tg(503) })).body.state).toBe('none');
-        const b = await call('POST', 'attempts', { name: 'Ida Jones', initData: tg(503) });
+        expect((await call('POST', 'session', { initData: cand(503) })).body.state).toBe('none');
+        const b = await call('POST', 'attempts', { name: 'Ida Jones', initData: cand(503) });
         expect(b.body.state).toBe('in_progress');
         expect(b.body.attemptId).not.toBe(a.body.attemptId);
       } finally {
@@ -173,23 +178,23 @@ describe.skipIf(!DB)('API (PostgreSQL)', () => {
     });
 
     it('suggests the Telegram name for a new candidate', async () => {
-      const r = await call('POST', 'session', { initData: tg(504, 'Kai', 'Long') });
+      const r = await call('POST', 'session', { initData: cand(504, 'Kai', 'Long') });
       expect(r.body).toEqual({ state: 'none', suggestedName: 'Kai Long', isAdmin: false });
     });
 
     it("keeps drivers and people asking for driver access out of the test, with their request status", async () => {
       // Someone answering the driver request questions in the bot taps the default "Start test" button.
-      await call("POST", "session", { initData: tg(505) }); // they now exist as a Telegram user
+      await call("POST", "session", { initData: cand(505) }); // they now exist as a Telegram user
       await getPool().query("insert into driver_requests (telegram_user_id, step, via) values (505, 'phone', 'website')");
-      for (const [path, body] of [["session", { initData: tg(505) }], ["attempts", { name: "Givi Test", initData: tg(505) }]] as const) {
+      for (const [path, body] of [["session", { initData: cand(505) }], ["attempts", { name: "Givi Test", initData: cand(505) }]] as const) {
         const r = await call("POST", path, body);
         expect(r.status).toBe(403);
         expect(r.body.code).toBe("driver_request");
       }
       await getPool().query("update driver_requests set status = 'pending', step = null where telegram_user_id = 505");
-      expect((await call("POST", "session", { initData: tg(505) })).body.error).toMatch(/being reviewed/);
+      expect((await call("POST", "session", { initData: cand(505) })).body.error).toMatch(/being reviewed/);
       await getPool().query("update driver_requests set status = 'declined' where telegram_user_id = 505");
-      expect((await call("POST", "session", { initData: tg(505) })).body.error).toMatch(/declined/);
+      expect((await call("POST", "session", { initData: cand(505) })).body.error).toMatch(/declined/);
       // Nobody was entered as a candidate.
       expect((await getPool().query("select count(*)::int as n from candidates where telegram_user_id = 505")).rows[0].n).toBe(0);
     });

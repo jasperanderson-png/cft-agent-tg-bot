@@ -6,11 +6,11 @@ import type { Db } from '../../database/db.js';
 
 const role = vi.hoisted(() => ({ current: { admin: false, owner: false, agent: false, driver: true } }));
 const alert = vi.hoisted(() => ({ text: null as string | null, calls: [] as unknown[][] }));
-vi.mock('../handlers/viewer.js', () => ({ viewerOf: async () => ({ ...role.current, updateId: 1 }) }));
+vi.mock('../cftagents/handlers/viewer.js', () => ({ viewerOf: async () => ({ ...role.current, updateId: 1 }) }));
 vi.mock('../../tools/driver-map/alerts.js', () => ({
   liveLocationAlert: async (...args: unknown[]) => { alert.calls.push(args); return alert.text; },
 }));
-const { liveLocation } = await import('../handlers/live-location.js');
+const { liveLocation } = await import('../cftagents/handlers/live-location.js');
 
 describe('live location in the bot chat', () => {
   const sent: { chat_id: number; text: string }[] = [];

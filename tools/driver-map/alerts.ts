@@ -11,7 +11,7 @@ import { driverStations } from './stations.js';
 // position every few seconds to minutes, and when the nearest CFT partner station ahead is within
 // DRIVER_MAP.alerts.aheadMi the bot says so, once per station (not again for repeatHours).
 // "Ahead" means within coneDeg of the direction of travel: the phone's heading when Telegram sends
-// one, else the direction from the previous position. Who may get alerts: telegram_bot/handlers.
+// one, else the direction from the previous position. Who may get alerts: telegram_bot/cftagents/handlers.
 
 export interface LiveFix extends LatLng {
   /** Direction of travel from the phone (degrees, 1–360), when Telegram sends one. */

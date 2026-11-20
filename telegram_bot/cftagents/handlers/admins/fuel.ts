@@ -1,8 +1,8 @@
-import type { Db } from '../../../database/db.js';
-import { SECTION } from '../../../support/helpers/home.js';
-import type { PrivateMessage } from '../../../support/helpers/telegram.js';
-import { firstSight } from '../../../support/helpers/updates.js';
-import { sendFuelPrices } from '../../../tools/fuel-prices/export.js';
+import type { Db } from '../../../../database/db.js';
+import { SECTION } from '../../../../support/helpers/home.js';
+import type { PrivateMessage } from '../../../../support/helpers/telegram.js';
+import { firstSight } from '../../../../support/helpers/updates.js';
+import { sendFuelPrices } from '../../../../tools/fuel-prices/export.js';
 
 // The 📥 Download All Fuel Prices button and /fuelprices, for admins. Everyone else is refused in
 // ../not-allowed.ts.

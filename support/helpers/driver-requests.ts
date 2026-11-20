@@ -2,7 +2,7 @@
 // personal link), answers three questions, and an admin approves or declines. Approved drivers get the
 // route map in the Mini App and on the website. An agent's link always needs an admin; an admin's own
 // link is approved at once ("approved by <admin> (own link)"). Every driver record keeps who brought
-// them, which link they used and who approved them. The chat side is telegram_bot/handlers/driver-requests.ts.
+// them, which link they used and who approved them. The chat side is telegram_bot/cftagents/handlers/driver-requests.ts.
 import { randomBytes } from 'node:crypto';
 import { tx, type Db } from '../../database/db.js';
 import { escHtml as esc } from '../common/html.js';
@@ -282,7 +282,7 @@ export async function afterDecision(db: Db, id: string): Promise<void> {
       text: `✅ <b>You're approved!</b>\n\nYou now have the CFT route map: truck routes, partner stations with the CFT price, and navigation.\n\n• Here in Telegram: the <b>Route map</b> button below the chat.\n• On any phone or computer: ${env.webUrl.replace(/^https?:\/\//, '')} → <b>Log in</b>.`,
     }).catch(() => {});
     if (env.appUrl) await botApi('setChatMenuButton', { chat_id: c.telegramUserId, menu_button: { type: 'web_app', text: 'Route map', web_app: { url: `${env.appUrl}/route` } } }).catch(() => {});
-    // Their commands and menu are set again on their next message (telegram_bot/webhook.ts ensureMenu).
+    // Their commands and menu are set again on their next message (telegram_bot/cftagents/webhook.ts ensureMenu).
     await db.query('update telegram_users set menu_role = null where id = $1', [c.telegramUserId]);
     // The agent who invited them hears it (an admin's own link: the admin approved it themselves).
     const { rows: ref } = await db.query('select ref_agent from driver_requests where id = $1', [id]);

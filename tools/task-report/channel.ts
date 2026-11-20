@@ -9,7 +9,7 @@ import { getStaff, openShift, setChannel, type Staff } from './store.js';
 
 // Connecting the chat reports go to: a group or a channel. The bot can't join by an invite link: an
 // admin adds it, then confirms in their private chat or sends /reports in the group (see
-// telegram_bot/handlers/channel.ts and admins/shift.ts).
+// telegram_bot/cftagents/handlers/channel.ts and admins/shift.ts).
 
 export type ChannelCheck = { ok: true; title: string } | { ok: false; reason: string };
 

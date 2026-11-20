@@ -1,11 +1,11 @@
-import { escHtml as esc } from '../../../../support/common/html.js';
-import { fmtDMY, fmtDMYHM } from '../../../../support/common/time.js';
-import { ADMIN_INVITE_HOURS, createAdminInvite, listAdmins, revokeAdminInvite } from '../../../../support/helpers/admin-invites.js';
-import { removeAdmin, telegramAdmin, type Admin } from '../../../../support/helpers/admins.js';
-import type { Db } from '../../../../database/db.js';
-import { HttpError, UUID_RE } from '../../../../support/helpers/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../support/helpers/telegram.js';
-import { firstSight, reportTimeZone } from '../../../../support/helpers/updates.js';
+import { escHtml as esc } from '../../../../../support/common/html.js';
+import { fmtDMY, fmtDMYHM } from '../../../../../support/common/time.js';
+import { ADMIN_INVITE_HOURS, createAdminInvite, listAdmins, revokeAdminInvite } from '../../../../../support/helpers/admin-invites.js';
+import { removeAdmin, telegramAdmin, type Admin } from '../../../../../support/helpers/admins.js';
+import type { Db } from '../../../../../database/db.js';
+import { HttpError, UUID_RE } from '../../../../../support/helpers/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../../support/helpers/telegram.js';
+import { firstSight, reportTimeZone } from '../../../../../support/helpers/updates.js';
 import { commandOf, type Viewer } from '../../viewer.js';
 
 // Admins, for owners: send an invite link (it works for one person, until it expires or is turned

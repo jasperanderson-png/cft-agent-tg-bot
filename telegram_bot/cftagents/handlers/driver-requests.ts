@@ -1,19 +1,19 @@
-import type { Db } from '../../database/db.js';
-import { escHtml as esc } from '../../support/common/html.js';
-import { telegramAdmin } from '../../support/helpers/admins.js';
+import type { Db } from '../../../database/db.js';
+import { escHtml as esc } from '../../../support/common/html.js';
+import { telegramAdmin } from '../../../support/helpers/admins.js';
 import {
   afterDecision, announceRequest, answerRequest, decide, openRequest, refreshAdminMessages, REQUEST_CALLBACK, requestCard, requestPayload, startRequest,
   type RequestRow, type Via,
-} from '../../support/helpers/driver-requests.js';
-import { env } from '../../support/helpers/env.js';
-import { HttpError } from '../../support/helpers/http.js';
-import { botApi, fullName, type PrivateCallback, type PrivateMessage } from '../../support/helpers/telegram.js';
-import { firstSight } from '../../support/helpers/updates.js';
-import { confirmWebLogin, LOGIN_PREFIX } from '../../support/helpers/web-login.js';
+} from '../../../support/helpers/driver-requests.js';
+import { env } from '../../../support/helpers/env.js';
+import { HttpError } from '../../../support/helpers/http.js';
+import { botApi, fullName, type PrivateCallback, type PrivateMessage } from '../../../support/helpers/telegram.js';
+import { firstSight } from '../../../support/helpers/updates.js';
+import { confirmWebLogin, LOGIN_PREFIX } from '../../../support/helpers/web-login.js';
 import type { Viewer } from './viewer.js';
 
 // Driver access requests and the website's sign-in, in the chat. Anyone may open these links, so they
-// are answered before the role folders (telegram_bot/webhook.ts):
+// are answered before the role folders (telegram_bot/cftagents/webhook.ts):
 //   /start req[_<code>][_w]  a driver asks for the route map: phone, company / MC number, who told them;
 //                            the admins approve or decline (support/helpers/driver-requests.ts)
 //   /start login_<code>      the website asks this person to confirm the sign-in (support/helpers/web-login.ts)

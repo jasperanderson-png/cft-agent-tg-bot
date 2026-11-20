@@ -1,11 +1,11 @@
-import { telegramAdmin } from '../../support/helpers/admins.js';
-import { isAgent } from '../../support/helpers/agents.js';
-import { isDriver } from '../../support/helpers/drivers.js';
-import type { Db } from '../../database/db.js';
-import { env } from '../../support/helpers/env.js';
-import type { PrivateCallback, PrivateMessage, TelegramUser } from '../../support/helpers/telegram.js';
+import { telegramAdmin } from '../../../support/helpers/admins.js';
+import { isAgent } from '../../../support/helpers/agents.js';
+import { isDriver } from '../../../support/helpers/drivers.js';
+import type { Db } from '../../../database/db.js';
+import { env } from '../../../support/helpers/env.js';
+import type { PrivateCallback, PrivateMessage, TelegramUser } from '../../../support/helpers/telegram.js';
 
-/** Who sent an update. Decides which folder of telegram_bot/handlers/ answers it. */
+/** Who sent an update. Decides which folder of telegram_bot/cftagents/handlers/ answers it. */
 export interface Viewer {
   /** A CFT administrator (support/helpers/admins.ts). */
   admin: boolean;
@@ -19,7 +19,7 @@ export interface Viewer {
   updateId?: number;
 }
 
-export type Role = 'admins' | 'agents' | 'drivers' | 'candidates';
+export type Role = 'admins' | 'agents' | 'drivers' | 'visitors';
 
 export async function viewerOf(db: Db, from: TelegramUser, updateId: number | undefined): Promise<Viewer> {
   const admin = !!(await telegramAdmin(db, from));
@@ -28,7 +28,7 @@ export async function viewerOf(db: Db, from: TelegramUser, updateId: number | un
   return { admin, owner: env.ownerTelegramIds.includes(from.id), agent, driver, updateId };
 }
 
-export const roleOf = (who: Viewer): Role => (who.admin ? 'admins' : who.agent ? 'agents' : who.driver ? 'drivers' : 'candidates');
+export const roleOf = (who: Viewer): Role => (who.admin ? 'admins' : who.agent ? 'agents' : who.driver ? 'drivers' : 'visitors');
 
 /**
  * What is recorded in telegram_users.menu_role once a role's menu is set. Change a role's value when
@@ -36,7 +36,7 @@ export const roleOf = (who: Viewer): Role => (who.admin ? 'admins' : who.agent ?
  */
 export const menuKey = (role: Role): string => (role === 'agents' ? 'agents.2' : role === 'admins' ? 'admins.2' : role); // agents .2: driver commands; admins .2: /indeed
 
-/** One role's part of the bot: telegram_bot/handlers/<role>/index.ts. */
+/** One role's part of the bot: telegram_bot/cftagents/handlers/<role>/index.ts. */
 export interface RoleHandlers {
   /** Answers a private message (or stays quiet when it means nothing to this role). */
   message(db: Db, msg: PrivateMessage, who: Viewer): Promise<void>;

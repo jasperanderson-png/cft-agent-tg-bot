@@ -1,6 +1,6 @@
 // Agents: people who joined through an admin's invite link (anyone with the link can join until it
 // expires or is turned off). Today their one permission is
-// searching fuel discounts. Who is what: admin (support/helpers/admins.ts) > agent > candidate (everyone else).
+// searching fuel discounts. Who is what: admin (support/helpers/admins.ts) > agent > visitor (everyone else).
 import { newToken, sha256 } from './crypto.js';
 import { tx, type Db } from '../../database/db.js';
 import { env } from './env.js';
@@ -143,7 +143,7 @@ export async function listAgents(db: Db): Promise<{ agents: AgentRow[]; invites:
   };
 }
 
-/** Removes an agent. They become a candidate again: their menu button and commands go back to the defaults. */
+/** Removes an agent. They become a visitor again: their menu button and commands go back to the defaults. */
 export async function removeAgent(admin: Pick<Admin, 'id'>, telegramUserId: number) {
   if (!Number.isSafeInteger(telegramUserId) || telegramUserId <= 0) throw new HttpError(404, 'Agent not found.');
   const removed = await tx(async (c) => {

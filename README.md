@@ -73,7 +73,7 @@ functions, not classes, which is the usual style for TypeScript and React.
 
 | Folder | What it is | How often you open it |
 |---|---|---|
-| `telegram_bot/` | The bot: what each kind of user (admin, agent, driver, candidate) sees and may do, plus the Mini App screens | Often |
+| `telegram_bot/` | The bot: what each kind of user (admin, agent, driver, visitor; candidates in their own bot) sees and may do, plus the Mini App screens | Often |
 | `tools/` | The business features, one folder each: the test, driver leads, fuel prices, the route map, agents, work reports | Often |
 | `database/` | The database: connection, table changes (migrations), the Academy questions | Sometimes |
 | `docs/` | Guides: the server, driver leads | When needed |
@@ -87,25 +87,28 @@ move. In VS Code they are folded under `package.json` and `.gitignore` (`.vscode
 ### In detail
 
 ```
-telegram_bot/                THE BOT: talks to Telegram, decides who may do what
-  webhook.ts                 Front door: checks the update, works out the sender's role, hands it over
-  handlers/
-    viewer.ts                Who is writing (admin / agent / driver / candidate) and what a role folder provides
-    admins/                  Admins and owners: home screen, /help, command menu, and per section:
+telegram_bot/                THE BOTS: talk to Telegram, decide who may do what
+  cftacademy/                @cftacademybot: the Agent Academy's own bot, the Sales Agent test only
+    webhook.ts               Its front door: /start and its menu button open the test
+  cftagents/                 @cft_Agentbot: agents, drivers and admins (no test, no candidates)
+    webhook.ts               Front door: checks the update, works out the sender's role, hands it over
+    handlers/
+      viewer.ts              Who is writing (admin / agent / driver / visitor) and what a role folder provides
+      admins/                Admins and owners: home screen, /help, command menu, and per section:
                              academy.ts, leads.ts, fuel.ts (📥 button), shift.ts, system-design.ts (/design)
-      team/                  👥 Team and ➕ Invite: menu.ts (the buttons), agents.ts (/invite, /agents),
+        team/                👥 Team and ➕ Invite: menu.ts (the buttons), agents.ts (/invite, /agents),
                              admins.ts (/addadmin, /admins)
-    agents/                  Agents: home screen and the fuel price search (fuel-search.ts)
-    candidates/              Candidates: the test only
-    drivers/                 Drivers: the route map button
-    invite.ts                Agent invite links, which anyone may open
-    driver-invites.ts        Driver links (/invitedriver, /drivers), made by admins and every agent
-    channel.ts               The reports chat: the bot added to a group or channel
-    not-allowed.ts           Polite refusals for buttons and commands someone's role doesn't have
+      agents/                Agents: home screen and the fuel price search (fuel-search.ts)
+      visitors/              Everyone else: request driver access, or the Academy bot for the test
+      drivers/               Drivers: the route map button
+      invite.ts              Agent invite links, which anyone may open
+      driver-invites.ts      Driver links (/invitedriver, /drivers), made by admins and every agent
+      channel.ts             The reports chat: the bot added to a group or channel
+      not-allowed.ts         Polite refusals for buttons and commands someone's role doesn't have
   mini_app/                  The Mini App (React + Vite)
     src/                     App.tsx, lib/, components/, styles.css
     src/screens/             Screens by role: admins/ (Hub, Academy console, Team, fuel), agents/
-                             (Discounts), candidates/ (the test), drivers/ (the route map), shared/
+                             (Discounts), candidates/ (the test, opened in @cftacademybot), drivers/ (the route map), shared/
   server/                    router.ts (every /api route), tools.ts (the list of tools), node-adapter.ts, dev.ts
 tools/                       THE BUSINESS: one folder per tool, never imports telegram_bot/
   agent-academy/             🎓 The test: candidate.ts, console.ts, notify.ts, reports.ts, sheets.ts,
@@ -143,7 +146,7 @@ A tool may read another tool's data in one direction only (today: `driver-map` r
 
 Where new work goes:
 - **A new tool:** `tools/<name>/` with an `index.ts` (see `support/helpers/tool.ts`), added to `telegram_bot/server/tools.ts`.
-- **What a role can do in the chat:** that role's folder in `telegram_bot/handlers/`. A new role is a new folder plus a line in `webhook.ts` and `handlers/viewer.ts`.
+- **What a role can do in the chat:** that role's folder in `telegram_bot/cftagents/handlers/`. A new role is a new folder plus a line in `webhook.ts` and `handlers/viewer.ts`.
 - **An API endpoint:** the tool's `index.ts` `routes`.
 - **A Mini App screen:** `telegram_bot/mini_app/src/screens/<role>/`.
 - **A type both sides need:** `support/common/types.ts`.
@@ -197,9 +200,10 @@ Files with real values are never committed (`.gitignore`).
    ```bash
    cd ~/app && npm run telegram:setup
    ```
-   It sets the webhook (with a secret), the commands, the menu button ("Start test") and the bot descriptions, and points them at `APP_URL`.
-2. In **@BotFather**, open `/mybots` → **@cft_Agentbot** → **Bot Settings** → **Configure Mini App** → **Enable Mini App**. Set the URL to your `APP_URL` and, where offered, choose the **fullscreen** launch mode. This makes it the bot's Main Mini App, which also gives you a shareable fullscreen link:
-   `https://t.me/cft_Agentbot?startapp&mode=fullscreen`
+   It sets both bots' webhooks (with a secret), commands, menu buttons and descriptions, and points them at `APP_URL`: @cft_Agentbot gets the command list (no test), and the Academy bot (`ACADEMY_BOT_TOKEN`) gets the "Start test" button. `npm run academy:setup` does only the Academy part and @cft_Agentbot's defaults, without touching its webhook.
+2. In **@BotFather**, open `/mybots` → **@cftacademybot** → **Bot Settings** → **Configure Mini App** → **Enable Mini App**. Set the URL to your `APP_URL` and, where offered, choose the **fullscreen** launch mode. This makes the test the Academy bot's Main Mini App, with a shareable link:
+   `https://t.me/cftacademybot?startapp&mode=fullscreen`
+   For **@cft_Agentbot**, turn its Main Mini App off (or leave it: opened from there, the test says it is in @cftacademybot).
 3. Each admin must open the bot and press **Start** once. Telegram doesn't let a bot message someone who hasn't started it.
 
 The app also requests fullscreen itself on iOS and Android (`requestFullscreen`, Bot API 8.0+), disables swipe-to-close while scrolling, and paints the Telegram header and bottom bar black. Desktop Telegram keeps its normal window.
@@ -210,6 +214,7 @@ The app also requests fullscreen itself on iOS and Android (`requestFullscreen`,
 |---|---|---|
 | `DATABASE_URL` | yes | PostgreSQL URI. On the server: `postgresql://cft:…@127.0.0.1:5432/cft_agent` (no TLS needed on the same machine). |
 | `TELEGRAM_BOT_TOKEN` | yes | From @BotFather. Server-only. |
+| `ACADEMY_BOT_TOKEN`, `ACADEMY_BOT_USERNAME` | for the test | The Agent Academy's own bot (@cftacademybot). The test opens only there; without them it says it is not set up. Server-only. |
 | `TELEGRAM_BOT_USERNAME` | yes | `cft_Agentbot` |
 | `TELEGRAM_WEBHOOK_SECRET` | yes | Random 32+ chars (`openssl rand -hex 24`). Telegram sends it with every webhook call. |
 | `APP_URL` | yes | Your deployment's https URL, no trailing slash. |
@@ -240,7 +245,7 @@ None of these are exposed to the browser. There are no `VITE_` variables.
 
 **Owners** are the Telegram IDs in `ADMIN_TELEGRAM_IDS`. They are admins automatically the first time they open the bot, and they can't be removed from inside the app.
 
-**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `support/helpers/admin-invites.ts`, `telegram_bot/handlers/admins/team/admins.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/handlers/admins/team/menu.ts`.
+**Adding an admin** (owners): send `/addadmin [name]` in the bot (or tap ➕ Invite → 🛡 Admin on the home keyboard), pick how long the link works, and send it. The person opens it, taps Start and is an admin; you get a message. Each admin link works for **one person** (agent links work for anyone until they expire), and an owner can turn it off. `/admins` (or 👥 Team → 🛡 Admins) lists the admins; owners can remove one there. Code: `support/helpers/admin-invites.ts`, `telegram_bot/cftagents/handlers/admins/team/admins.ts`; the ➕ Invite and 👥 Team buttons are in `telegram_bot/cftagents/handlers/admins/team/menu.ts`.
 
 **Signing in.** Inside Telegram, admins tap **Admin console** (or send `/admin`) and are signed in by their Telegram account, with no password. Email and password sign-in exists for opening the console in a normal browser. Create those accounts with `npm run admin:create -- --email … [--telegram-id …]`.
 
@@ -391,7 +396,7 @@ Admins' chat menu button opens the **CFT Hub** (`/#/hub`); candidates keep **Sta
 - **Driver route map:** the drivers' map, for trying routes.
 - **Fuel prices:** station count and the cheapest discounted price; opens the **Fuel prices** screen (`/#/fuel`): search by station, city or address, filter by state, sort by cheapest discounted, cheapest retail or biggest saving, tap a station to open it in Google Maps, and **Excel to chat** to get `fuel_prices.xlsx` in Telegram. The list is read from the cabinet at most every 10 minutes; the Excel file is always read fresh.
 
-The Hub is `telegram_bot/mini_app/src/screens/admins/Hub.tsx`; the Fuel prices screen is `telegram_bot/mini_app/src/screens/admins/FuelPrices.tsx`. Anyone who is not an admin and opens the Hub's link gets the test.
+The Hub is `telegram_bot/mini_app/src/screens/admins/Hub.tsx`; the Fuel prices screen is `telegram_bot/mini_app/src/screens/admins/FuelPrices.tsx`. Anyone who is not an admin and opens the Hub's link is told the test is in @cftacademybot.
 
 ## Fuel prices
 
@@ -407,7 +412,7 @@ A station without a discounted price in the cabinet (about 230, mostly Casey's) 
 
 Each role has its own Telegram menu button: admins **CFT Hub**, agents **Discounts**, drivers **Route map**, everyone else the default **Start test**. Telegram sometimes misses the change (a timeout), and a person kept the old button. Now:
 - calls that are safe to repeat (setting menus, editing, answering taps) are tried once more after a timeout (`support/helpers/telegram.ts`); new messages never are, so nobody gets one twice;
-- `telegram_users.menu_role` records what each person was last given; when it differs from their role's key (`menuKey` in `telegram_bot/handlers/viewer.ts`), the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/webhook.ts`). Changing a role's key gives everyone with that role the new menu (agents are on `agents.2`: the driver commands);
+- `telegram_users.menu_role` records what each person was last given; when it differs from their role's key (`menuKey` in `telegram_bot/cftagents/handlers/viewer.ts`), the bot sets it again after its next answer (`ensureMenu` in `telegram_bot/cftagents/webhook.ts`). Changing a role's key gives everyone with that role the new menu (agents are on `agents.2`: the driver commands);
 - `support/commands/telegram-setup.ts` (run after each deploy) sets every admin's, agent's and driver's menu at once.
 
 ## Driver route map
@@ -429,7 +434,7 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Prices** are the agents' prices (cabinet discounted price + the margin), never the cabinet's own price. Each card shows how old its price is ("5 h ago"); past 24 hours it is marked **Old price** in amber.
 - **Stations on the route, by real detour:** the corridor (1.5 mi of the route line) is only the first filter; stations are found on the route line simplified to 20 m, and their miles along the route are then measured on the full line. The 5 cheapest corridor stations (reachable ones first when a range is set) get a real truck driving-time check (`POST /api/driver/detours`: one OpenRouteService matrix call, from 15 mi before each station to 15 mi after it); a station that costs more than 10 extra minutes (across a divided highway, far from an exit) moves to *Nearby stations*. While the best pick is still unchecked, up to 2 more rounds check the next cheapest, and the station recommended is always a checked one. The Mini App sends only station ids and the two route points; the server looks up where each station is. Matrix calls are capped at 480 a day and 14,000 a month (OpenRouteService free plan: 500 a day). The card says "+4 min off your route". Without OpenRouteService, or past the caps, the straight-line view stays.
 - **Miles until empty** (optional, in the truck settings): the pick becomes the cheapest station the truck can reach, and the card says "Reachable before empty" or warns "Beyond your range". It counts down with the miles driven while navigating, and is forgotten 12 hours after it was typed and when a trip ends or is cancelled.
-- **Alerts on the road:** a driver (or agent / admin) shares their **live location** in the bot chat; when the next CFT station is ≤ 50 mi ahead the bot sends it: for a driver with a trip in progress (`driver_trips`, status driving, a point within the last 45 minutes) the next station **along the trip route** (in the corridor, ahead of where the driver is on it); otherwise (agents, admins, no trip, or more than 5 mi off the route) the nearest station within 45° of the direction of travel. With the price, the bot sends it with the price, once per station per driver (not again for 24 h). `telegram_bot/handlers/live-location.ts`, `tools/driver-map/alerts.ts`. Needs `edited_message` in the webhook's allowed updates: **run `npm run telegram:setup` once after deploying this**.
+- **Alerts on the road:** a driver (or agent / admin) shares their **live location** in the bot chat; when the next CFT station is ≤ 50 mi ahead the bot sends it: for a driver with a trip in progress (`driver_trips`, status driving, a point within the last 45 minutes) the next station **along the trip route** (in the corridor, ahead of where the driver is on it); otherwise (agents, admins, no trip, or more than 5 mi off the route) the nearest station within 45° of the direction of travel. With the price, the bot sends it with the price, once per station per driver (not again for 24 h). `telegram_bot/cftagents/handlers/live-location.ts`, `tools/driver-map/alerts.ts`. Needs `edited_message` in the webhook's allowed updates: **run `npm run telegram:setup` once after deploying this**.
 - **Daily station job** (`/api/cron/stations`, 11:30 UTC, after the price pull): map points for new stations, and points older than 90 days checked again.
 - **Request limits** are per Telegram user (not per IP), for routes (20/min), place search (60/min) and detour checks (10/min), whichever map service answers; without Redis the count is kept per server. Override with `DRIVER_RATE_ROUTE`, `DRIVER_RATE_PLACES`, `DRIVER_RATE_DETOURS`.
 - **All thresholds** above (corridor, detour, stale price, alerts, limits, the daily job) are in one file: `support/common/driver-config.ts`.
@@ -455,7 +460,7 @@ A Mini App page at **`/route`** for drivers (Route map menu button), agents (�
 - **Keeping:** 12 months (older trips are deleted when a new one starts). Trips stay when a driver is removed.
 - **Admins:** **CFT Hub → Drivers** (`#/drivers`): drivers (and removed ones whose trips are kept) with trips, miles and last trip; a driver's trips (date, from → to, status, fuel stop and price, planned vs recorded miles, time); **Map** opens the trip at `/route?trip=<id>` (planned route dashed, driven track orange, gaps dotted red, green start, red finish, the fuel stop); **File to chat** sends a CSV (trip details, gaps, every point in UTC) to the admin's chat with the bot.
 - **Before migration 0011** the map keeps working and nothing is recorded.
-- Code: `tools/driver-map/trips.ts` (server), `screens/drivers/trip-recorder.ts` (the phone), `screens/drivers/TripReplay.tsx` (a trip on the map), `screens/admins/Drivers.tsx` (the admins' screen), `support/helpers/drivers.ts` and `telegram_bot/handlers/driver-invites.ts` (links and lists); migrations `0010_drivers.sql`, `0011_driver_trips.sql`.
+- Code: `tools/driver-map/trips.ts` (server), `screens/drivers/trip-recorder.ts` (the phone), `screens/drivers/TripReplay.tsx` (a trip on the map), `screens/admins/Drivers.tsx` (the admins' screen), `support/helpers/drivers.ts` and `telegram_bot/cftagents/handlers/driver-invites.ts` (links and lists); migrations `0010_drivers.sql`, `0011_driver_trips.sql`.
 
 ## Driver leads
 

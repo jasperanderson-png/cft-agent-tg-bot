@@ -2,8 +2,9 @@ import * as admins from '../../support/helpers/admins.js';
 import { getPool } from '../../database/db.js';
 import { bodyObject, HttpError, ok, type AddRoute, type ApiRequest, type ApiResponse, type Handler } from '../../support/helpers/http.js';
 import { TOOLS } from './tools.js';
-import { handleWebhook } from '../webhook.js';
-import { roleOf, viewerOf } from '../handlers/viewer.js';
+import { handleWebhook } from '../cftagents/webhook.js';
+import { handleAcademyWebhook } from '../cftacademy/webhook.js';
+import { roleOf, viewerOf } from '../cftagents/handlers/viewer.js';
 import { botUsername } from '../../support/helpers/agents.js';
 import { rateLimit } from '../../support/helpers/kv.js';
 import { fullName, INIT_HEADER } from '../../support/helpers/telegram.js';
@@ -18,6 +19,7 @@ const { asAdmin } = admins;
 
 // Telegram
 route('POST', 'telegram/webhook', async (req) => ok(await handleWebhook(req)));
+route('POST', 'telegram/academy-webhook', async (req) => ok(await handleAcademyWebhook(req)));
 
 // Admins: sign-in, sessions, the Users and Admins screens, downloads
 route('POST', 'admin/login', async (req) => ok(await admins.login(bodyObject(req), req.ip)));

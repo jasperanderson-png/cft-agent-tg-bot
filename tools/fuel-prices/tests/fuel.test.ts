@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { closePool, getPool } from '../../../database/db.js';
 import type { ApiRequest } from '../../../support/helpers/http.js';
 import { fetchAllStations, FuelError, price, toStation, type Stage } from '../cabinet.js';
-import { FUEL_BUTTON } from '../../../telegram_bot/handlers/admins/fuel.js';
+import { FUEL_BUTTON } from '../../../telegram_bot/cftagents/handlers/admins/fuel.js';
 import { FUEL_FILENAME, FUEL_HEADERS, fuelPricesXlsx } from '../excel.js';
 import { fuelInsights } from '../insights.js';
 import { fuelCaption } from '../export.js';
@@ -301,7 +301,7 @@ describe.skipIf(!DB)('📥 Download All Fuel Prices button (PostgreSQL)', () => 
     expect(cab.calls.filter((c) => c.url === AUTH)).toHaveLength(1);
   });
 
-  it('gives admins the CFT Hub menu button and candidates the default one', async () => {
+  it('gives admins the CFT Hub menu button and visitors the default one', async () => {
     await press(ADMIN, '/start');
     expect(of(ADMIN, 'setChatMenuButton')[0].body.menu_button).toEqual({ type: 'web_app', text: 'CFT Hub', web_app: { url: 'https://academy.example.com/#/hub' } });
     await press(CANDIDATE, '/start');

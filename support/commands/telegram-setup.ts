@@ -1,14 +1,14 @@
-// Points the bot at the deployed app: webhook, commands, menu button and descriptions.
-// Usage: npm run telegram:setup   (needs TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, APP_URL)
-import { adminMenu, setAdminMenu } from '../../telegram_bot/handlers/admins/index.js';
-import { setAgentMenu } from '../../telegram_bot/handlers/agents/fuel-search.js';
-import { menuKey, type Role } from '../../telegram_bot/handlers/viewer.js';
-import { setDriverMenu } from '../../telegram_bot/handlers/drivers/index.js';
+// Points both bots at the deployed app: webhooks, commands, menu buttons and descriptions.
+// Usage: npm run telegram:setup   (needs TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, APP_URL; ACADEMY_BOT_TOKEN for the Academy bot)
+import { adminMenu, setAdminMenu } from '../../telegram_bot/cftagents/handlers/admins/index.js';
+import { setAgentMenu } from '../../telegram_bot/cftagents/handlers/agents/fuel-search.js';
+import { menuKey, type Role } from '../../telegram_bot/cftagents/handlers/viewer.js';
+import { setDriverMenu } from '../../telegram_bot/cftagents/handlers/drivers/index.js';
 import { closePool, getPool } from '../../database/db.js';
-import { CANDIDATE_COMMANDS } from '../../telegram_bot/handlers/candidates/index.js';
 import { env } from '../helpers/env.js';
 import { botApi } from '../helpers/telegram.js';
 import { hubMenuButton } from '../helpers/home.js';
+import { setMainBotDefaults, setupAcademyBot } from './bot-profiles.js';
 
 async function main() {
   if (!env.botToken) throw new Error('TELEGRAM_BOT_TOKEN is not set.');
@@ -26,7 +26,6 @@ async function main() {
   });
   console.log(`Webhook → ${env.appUrl}/api/telegram/webhook`);
 
-  await botApi('setMyCommands', { commands: CANDIDATE_COMMANDS });
   // Owners see every section's commands in their own chats.
   for (const id of env.ownerTelegramIds) {
     await botApi('setChatMenuButton', { chat_id: id, menu_button: hubMenuButton(env.appUrl) }).catch(() => {});
@@ -34,20 +33,15 @@ async function main() {
       console.warn(`Admin commands for ${id} not set yet (${e.message}). They appear after that admin presses Start.`),
     );
   }
-  await botApi('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Start test', web_app: { url: env.appUrl } } });
-  await botApi('setMyShortDescription', { short_description: 'CFT Agent Academy — the Sales Agent knowledge test.' });
-  await botApi('setMyDescription', {
-    description: 'A 30-question knowledge test for CFT Sales Agent candidates. Tap Start to open the assessment.',
-  });
-  console.log('Commands, menu button and descriptions set.');
+  await setMainBotDefaults();
+  if (env.academyBotToken) await setupAcademyBot();
+  else console.warn('ACADEMY_BOT_TOKEN is not set: the Sales Agent test has no bot.');
   if (env.databaseUrl) await refreshPeopleMenus().finally(() => closePool());
-  console.log(`\nDirect fullscreen link: https://t.me/${me.username}?startapp&mode=fullscreen`);
-  console.log('(Requires the Main Mini App to be enabled in @BotFather — see README.)');
 }
 
 /**
  * Sets every admin's, agent's and driver's own menu button and commands now (Telegram can miss a
- * change, and agents were left with "Start test"), and records it so the bot doesn't redo it.
+ * change, and agents were left with an old menu), and records it so the bot doesn't redo it.
  */
 async function refreshPeopleMenus() {
   const db = getPool();

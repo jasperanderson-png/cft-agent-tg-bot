@@ -1,27 +1,27 @@
-import { getPool } from '../database/db.js';
-import { env } from '../support/helpers/env.js';
-import { HttpError, secretMatches, type ApiRequest } from '../support/helpers/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage, type TelegramUpdate } from '../support/helpers/telegram.js';
-import { touchTelegramUser } from '../support/helpers/users.js';
+import { getPool } from '../../database/db.js';
+import { env } from '../../support/helpers/env.js';
+import { HttpError, secretMatches, type ApiRequest } from '../../support/helpers/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage, type TelegramUpdate } from '../../support/helpers/telegram.js';
+import { touchTelegramUser } from '../../support/helpers/users.js';
 import { admins } from './handlers/admins/index.js';
 import { agents } from './handlers/agents/index.js';
-import { candidates } from './handlers/candidates/index.js';
+import { visitors } from './handlers/visitors/index.js';
 import { drivers } from './handlers/drivers/index.js';
 import { channelMembership, groupMessage } from './handlers/channel.js';
 import { inviteToken, joinWithInvite } from './handlers/invite.js';
 import { requestCallback, requestMessage } from './handlers/driver-requests.js';
 import { liveLocation } from './handlers/live-location.js';
 import { menuKey, roleOf, viewerOf, type Role, type RoleHandlers, type Viewer } from './handlers/viewer.js';
-import type { Db } from '../database/db.js';
+import type { Db } from '../../database/db.js';
 
-// The bot's front door. It checks that an update really comes from Telegram, works out WHO sent it
-// (admin, agent, driver or candidate) and hands it to that role's folder in handlers/. Each role folder
+// @cft_Agentbot's front door. It checks that an update really comes from Telegram, works out WHO sent it
+// (admin, agent, driver or visitor) and hands it to that role's folder in handlers/. Each role folder
 // decides what its people can do; the work itself is done by the tools (tools/).
 //
 // To add a role (drivers, dispatchers…): write handlers/<role>/index.ts and add it to ROLES and to
 // roleOf() in handlers/viewer.ts.
 
-const ROLES: Record<Role, RoleHandlers> = { admins, agents, drivers, candidates };
+const ROLES: Record<Role, RoleHandlers> = { admins, agents, drivers, visitors };
 
 /**
  * Makes sure Telegram shows this person their role's menu button and commands. What was set last is

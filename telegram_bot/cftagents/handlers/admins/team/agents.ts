@@ -1,11 +1,11 @@
-import { escHtml as esc } from '../../../../support/common/html.js';
-import { fmtDMY, fmtDMYHM } from '../../../../support/common/time.js';
-import { createInvite, INVITE_HOURS, listAgents, removeAgent, revokeInvite } from '../../../../support/helpers/agents.js';
-import { telegramAdmin } from '../../../../support/helpers/admins.js';
-import type { Db } from '../../../../database/db.js';
-import { HttpError, UUID_RE } from '../../../../support/helpers/http.js';
-import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../support/helpers/telegram.js';
-import { firstSight, reportTimeZone } from '../../../../support/helpers/updates.js';
+import { escHtml as esc } from '../../../../../support/common/html.js';
+import { fmtDMY, fmtDMYHM } from '../../../../../support/common/time.js';
+import { createInvite, INVITE_HOURS, listAgents, removeAgent, revokeInvite } from '../../../../../support/helpers/agents.js';
+import { telegramAdmin } from '../../../../../support/helpers/admins.js';
+import type { Db } from '../../../../../database/db.js';
+import { HttpError, UUID_RE } from '../../../../../support/helpers/http.js';
+import { botApi, type PrivateCallback, type PrivateMessage } from '../../../../../support/helpers/telegram.js';
+import { firstSight, reportTimeZone } from '../../../../../support/helpers/updates.js';
 
 // Agents, for admins: share an invite link (anyone with it can join until it expires or is turned
 // off), see who joined, remove an agent. The same actions are in the Mini App (Team screen, whose API

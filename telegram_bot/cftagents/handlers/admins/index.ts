@@ -1,10 +1,10 @@
-import { SECTION, hasWorkReports, homeKeyboardFor, hubMenuButton } from '../../../support/helpers/home.js';
-import { env } from '../../../support/helpers/env.js';
-import { botApi } from '../../../support/helpers/telegram.js';
-import { ADMIN_HELP } from '../../../tools/agent-academy/chat.js';
-import { menu as leadsMenu } from '../../../tools/driver-leads/messages.js';
-import { HELP as INDEED_HELP } from '../../../tools/indeed-applicants/messages.js';
-import { SEARCH_HELP } from '../../../tools/fuel-prices/agent-prices.js';
+import { SECTION, hasWorkReports, homeKeyboardFor, hubMenuButton } from '../../../../support/helpers/home.js';
+import { env } from '../../../../support/helpers/env.js';
+import { botApi } from '../../../../support/helpers/telegram.js';
+import { ADMIN_HELP } from '../../../../tools/agent-academy/chat.js';
+import { menu as leadsMenu } from '../../../../tools/driver-leads/messages.js';
+import { HELP as INDEED_HELP } from '../../../../tools/indeed-applicants/messages.js';
+import { SEARCH_HELP } from '../../../../tools/fuel-prices/agent-prices.js';
 import { discountCallback, searchMessage } from '../agents/fuel-search.js';
 import { commandOf, type RoleHandlers } from '../viewer.js';
 import { ACADEMY_ADMIN_COMMANDS, ACADEMY_COMMAND, academyMessage } from './academy.js';

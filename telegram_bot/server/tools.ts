@@ -10,6 +10,6 @@ import { taskReport } from '../../tools/task-report/index.js';
 /**
  * Every tool whose API the server serves (paths below /api). To add a tool: write
  * tools/<name>/index.ts and add it here. What people can do with it in
- * the chat is wired separately, per role, in telegram_bot/handlers/<role>/.
+ * the chat is wired separately, per role, in telegram_bot/cftagents/handlers/<role>/.
  */
 export const TOOLS: Tool[] = [academy, driverLeads, fuelPrices, driverMap, agents, taskReport, indeedApplicants];

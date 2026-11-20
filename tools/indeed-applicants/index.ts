@@ -7,7 +7,7 @@ import { handleReport, parseReport, requireCollector, sendImportFile, watch } fr
 // Indeed Applicants: the hiring pipeline from Indeed. The office script posts what it sees; the bot
 // posts a card per new applicant to the hiring chat (INDEED_CHAT_ID), warns when the script stops,
 // and sends the lead-import Excel file daily. Kept apart from Driver Leads: Indeed's data is for
-// hiring only. Admins' buttons: telegram_bot/handlers/admins/indeed.ts. Docs: docs/INDEED_APPLICANTS.md.
+// hiring only. Admins' buttons: telegram_bot/cftagents/handlers/admins/indeed.ts. Docs: docs/INDEED_APPLICANTS.md.
 
 export const indeedApplicants: Tool = {
   id: 'indeed-applicants',

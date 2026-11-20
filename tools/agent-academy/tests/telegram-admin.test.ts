@@ -22,6 +22,7 @@ try {
 }
 const DB = process.env.TEST_DATABASE_URL;
 const BOT = '777000:TEST-bot-token';
+const ACADEMY_BOT = '888000:TEST-academy-token';
 const OWNER = 9447180;
 const OWNER2 = 1270439555;
 const OFFICIAL: { n: number; correct: string }[] = JSON.parse(readFileSync('database/seeds/academy/questions.json', 'utf8'));
@@ -106,7 +107,7 @@ describe('result message', () => {
 });
 
 describe.skipIf(!DB)('Telegram admin features (PostgreSQL)', () => {
-  const sent: { method: string; chat_id?: number; text?: string; filename?: string; body?: any }[] = [];
+  const sent: { bot?: 'main' | 'academy'; method: string; chat_id?: number; text?: string; filename?: string; body?: any }[] = [];
   const realFetch = globalThis.fetch;
 
   async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -115,18 +116,20 @@ describe.skipIf(!DB)('Telegram admin features (PostgreSQL)', () => {
     return { status: res.status, body: res.body as any, file: res.file };
   }
   const tg = (id: number, first = 'Test', last = 'User') => signInitData({ id, first_name: first, last_name: last, username: 'u' + id }, BOT);
+  const cand = (id: number, first = 'Test', last = 'User') => signInitData({ id, first_name: first, last_name: last, username: 'u' + id }, ACADEMY_BOT);
   const bearer = (t: string) => ({ authorization: 'Bearer ' + t });
   const hook = (update: unknown) => call('POST', 'telegram/webhook', update, { 'x-telegram-bot-api-secret-token': 'hook-secret-1234567890' });
+  const academyHook = (update: unknown, secret = 'hook-secret-1234567890') => call('POST', 'telegram/academy-webhook', update, { 'x-telegram-bot-api-secret-token': secret });
   const msg = (from: number, text: string) => ({ update_id: 1, message: { chat: { id: from, type: 'private' }, from: { id: from, first_name: 'U' + from }, text } });
   async function takeTest(id: number, name: string, correctUpTo: number) {
-    const s = await call('POST', 'attempts', { name, initData: tg(id, ...(name.split(' ') as [string, string])) });
+    const s = await call('POST', 'attempts', { name, initData: cand(id, ...(name.split(' ') as [string, string])) });
     const answers = Object.fromEntries(OFFICIAL.filter((q) => q.n <= correctUpTo).map((q) => [q.n, q.correct]));
     return call('POST', `attempts/${s.body.attemptId}/submit`, { answers }, { 'x-attempt-token': s.body.token });
   }
 
   beforeAll(async () => {
     Object.assign(process.env, {
-      DATABASE_URL: DB, TELEGRAM_BOT_TOKEN: BOT, TELEGRAM_WEBHOOK_SECRET: 'hook-secret-1234567890', APP_URL: 'https://academy.example.com',
+      DATABASE_URL: DB, TELEGRAM_BOT_TOKEN: BOT, ACADEMY_BOT_TOKEN: ACADEMY_BOT, ACADEMY_BOT_USERNAME: 'cftacademybot', TELEGRAM_BOT_USERNAME: 'cft_Agentbot', TELEGRAM_WEBHOOK_SECRET: 'hook-secret-1234567890', APP_URL: 'https://academy.example.com',
       ADMIN_TELEGRAM_IDS: `${OWNER}, ${OWNER2}`, CRON_SECRET: 'cron-secret-abcdefghij', ALLOW_WEB_CANDIDATES: 'false', GOOGLE_SERVICE_ACCOUNT_JSON: '',
     });
     vi.stubGlobal('fetch', async (url: string | URL, init?: RequestInit) => {
@@ -138,7 +141,7 @@ describe.skipIf(!DB)('Telegram admin features (PostgreSQL)', () => {
         sent.push({ method, chat_id: Number(init.body.get('chat_id')), filename: f.name, body: new Uint8Array(await f.arrayBuffer()) });
       } else {
         const b = JSON.parse(String(init?.body ?? '{}'));
-        sent.push({ method, chat_id: b.chat_id, text: b.text, body: b });
+        sent.push({ bot: u.includes(ACADEMY_BOT) ? 'academy' : 'main', method, chat_id: b.chat_id, text: b.text, body: b });
       }
       return new Response(JSON.stringify({ ok: true, result: {} }), { headers: { 'content-type': 'application/json' } });
     });
@@ -163,7 +166,7 @@ describe.skipIf(!DB)('Telegram admin features (PostgreSQL)', () => {
     ownerToken = r.body.token;
     expect((await call('GET', 'admin/me', undefined, bearer(ownerToken))).body).toMatchObject({ role: 'owner', telegramUserId: OWNER, name: 'Owner One' });
     expect((await call('POST', 'admin/telegram-login', { initData: tg(5555) })).status).toBe(403);
-    expect((await call('POST', 'session', { initData: tg(OWNER2) })).body).toMatchObject({ state: 'none', isAdmin: true });
+    expect((await call('POST', 'session', { initData: cand(OWNER2) })).body).toMatchObject({ state: 'none', isAdmin: true });
   });
 
   it('lets admins add admins by Telegram ID, and only owners remove them', async () => {
@@ -252,11 +255,38 @@ describe.skipIf(!DB)('Telegram admin features (PostgreSQL)', () => {
     expect(again.body).toEqual({ sent: 0, skipped: 'already sent this week' });
   });
 
-  it('handles bot commands for candidates and admins', async () => {
-    await hook(msg(9100, '/start'));
-    const welcome = sent.find((m) => m.chat_id === 9100)!;
-    expect(welcome.body.reply_markup.inline_keyboard).toEqual([[{ text: 'Open CFT Agent Academy', web_app: { url: 'https://academy.example.com' } }]]);
+  it('opens the test only in the Academy bot; the main bot has no test, only request access', async () => {
+    // @cftacademybot: /start (or anything typed) gives the test's button, from that bot.
+    sent.length = 0;
+    await academyHook(msg(9100, '/start'));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ bot: 'academy', chat_id: 9100 });
+    expect(sent[0].body.reply_markup.inline_keyboard).toEqual([[{ text: 'Open CFT Agent Academy', web_app: { url: 'https://academy.example.com' } }]]);
+    sent.length = 0;
+    await academyHook(msg(9100, '/help'));
+    expect(sent[0]).toMatchObject({ bot: 'academy', text: expect.stringContaining('/start') });
+    expect((await academyHook(msg(9100, '/start'), 'wrong-secret-1234567890')).status).toBe(401);
 
+    // @cft_Agentbot: a newcomer gets request access and a pointer to the Academy bot, never the test.
+    sent.length = 0;
+    await hook(msg(9100, '/start'));
+    const welcome = sent.find((m) => m.method === 'sendMessage' && m.chat_id === 9100)!;
+    expect(welcome.bot).toBe('main');
+    expect(welcome.text).toContain('@cftacademybot');
+    expect(welcome.body.reply_markup.inline_keyboard).toEqual([
+      [{ text: '🚚 Request access', url: 'https://t.me/cft_Agentbot?start=req' }],
+      [{ text: '🎓 Sales Agent test', url: 'https://t.me/cftacademybot' }],
+    ]);
+    expect(JSON.stringify(sent)).not.toContain('web_app');
+
+    // The test refuses the main bot's sign-in and says where it is; the Academy bot's works.
+    const moved = await call('POST', 'session', { initData: tg(9100) });
+    expect(moved).toMatchObject({ status: 403, body: { code: 'academy_moved', error: expect.stringContaining('@cftacademybot') } });
+    expect((await call('POST', 'attempts', { name: 'Vic Visitor', initData: tg(9100) })).status).toBe(403);
+    expect((await call('POST', 'session', { initData: cand(9100) })).body.state).toBe('none');
+  });
+
+  it('handles bot commands for visitors and admins', async () => {
     sent.length = 0;
     await hook(msg(9100, '/report'));
     expect(sent[0].text).toContain('for CFT administrators');
@@ -277,10 +307,14 @@ describe.skipIf(!DB)('Telegram admin features (PostgreSQL)', () => {
     expect(sent.some((m) => m.method === 'setMyCommands' && m.body.scope?.chat_id === OWNER)).toBe(true);
     sent.length = 0;
     await hook(msg(OWNER, '🎓 Agent Academy'));
-    expect(sent[0].body.reply_markup.inline_keyboard[1][0]).toEqual({ text: 'Admin console', web_app: { url: 'https://academy.example.com/#/admin' } });
+    // Admins get the Academy bot's link (candidates take the test there) and the console.
+    expect(sent[0].body.reply_markup.inline_keyboard).toEqual([
+      [{ text: 'Open @cftacademybot', url: 'https://t.me/cftacademybot' }],
+      [{ text: 'Admin console', web_app: { url: 'https://academy.example.com/#/admin' } }],
+    ]);
     expect(sent[1].text).toContain('Agent Academy · Admin commands');
 
-    // Every Academy admin has both sections; a candidate has only the test.
+    // Every Academy admin has both sections; a visitor has none.
     sent.length = 0;
     await hook(msg(7001, '/start'));
     expect(sent[0].body.reply_markup.keyboard[0].map((b: any) => b.text)).toEqual(['🎓 Agent Academy', '🚚 Driver Leads']);

@@ -15,7 +15,7 @@ import {
 // What Driver Leads does in a chat: send new leads once, send read-only files, statistics, and the
 // owner tools (sources, FMCSA sync, opt-outs, CSV import). The wording of every message is in
 // messages.ts. Which button or command asks for which action, and who may, is decided in
-// telegram_bot/handlers/admins/leads.ts.
+// telegram_bot/cftagents/handlers/admins/leads.ts.
 
 const button = (text: string) => ({ text });
 /** Two rows: the main action, then statistics, the downloads menu and Home. Everything else is in 📂 DOWNLOADS. */

@@ -12,12 +12,12 @@ import { cheapestImages, stateImages } from './table-image.js';
 
 // The agents' fuel discount prices in a chat: answers to typed searches as clean tables to forward to
 // a driver, "All N" and Excel files. Admins can search too and see exactly what agents see. Who may
-// search is decided in telegram_bot/handlers/<role>/.
+// search is decided in telegram_bot/cftagents/handlers/<role>/.
 
 /** Rows per state in a quick answer; "All N" sends the rest. */
 export const QUICK_ROWS = 15;
 const MAX_STATES = 10;
-/** Inline buttons under price answers start with this (telegram_bot/handlers/agents/fuel-search.ts answers them). */
+/** Inline buttons under price answers start with this (telegram_bot/cftagents/handlers/agents/fuel-search.ts answers them). */
 export const DISCOUNT_CALLBACK = 'disc:';
 const CALLBACK = DISCOUNT_CALLBACK;
 
