@@ -4,6 +4,7 @@ import { agents } from '../../tools/agents/index.js';
 import { driverLeads } from '../../tools/driver-leads/index.js';
 import { driverMap } from '../../tools/driver-map/index.js';
 import { fuelPrices } from '../../tools/fuel-prices/index.js';
+import { indeedApplicants } from '../../tools/indeed-applicants/index.js';
 import { taskReport } from '../../tools/task-report/index.js';
 
 /**
@@ -11,4 +12,4 @@ import { taskReport } from '../../tools/task-report/index.js';
  * tools/<name>/index.ts and add it here. What people can do with it in
  * the chat is wired separately, per role, in telegram_bot/handlers/<role>/.
  */
-export const TOOLS: Tool[] = [academy, driverLeads, fuelPrices, driverMap, agents, taskReport];
+export const TOOLS: Tool[] = [academy, driverLeads, fuelPrices, driverMap, agents, taskReport, indeedApplicants];

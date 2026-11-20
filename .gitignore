@@ -7,3 +7,6 @@ dist
 .env*
 !.env.example
 .envrc
+
+# Hand-offs from claude.ai sessions (may hold real keys): never committed.
+Claude outputs/

@@ -83,7 +83,7 @@ Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the 
 4. Database: install PostgreSQL 17 and restore the latest nightly copy (see above). Cache:
    `apt install redis-server`, copy `/etc/redis/cft.conf` (new password) and set `REDIS_URL`.
 5. Move people: turn on the timers
-   (`systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer cft-cron-stations.timer`),
+   (`systemctl enable --now cft-cron-weekly.timer cft-cron-leads.timer cft-cron-task-report.timer cft-cron-fuel.timer cft-cron-stations.timer cft-cron-indeed-watch.timer cft-cron-indeed-excel.timer`),
    point Telegram at it (as `cft`: `cd ~/app && npm run telegram:setup`), change the Mini App URL in
    @BotFather (Bot Settings → Configure Mini App), and switch the old server's timers off, or every
    job runs twice.

@@ -5,7 +5,7 @@ One Telegram bot, [@cft_Agentbot](https://t.me/cft_Agentbot), with its Mini App,
 - **Candidates** take the official 30-question **Agent Academy** test and see their score, the correct answers and explanations only after they submit.
 - **Agents** (joined through an invite link) look up **CFT fuel discount prices** at partner stations and send them to drivers, and **invite drivers** to the route map: every agent can, and sees all drivers or only their own.
 - **Drivers** (joined through a driver link) get the **route map**: truck routes with live traffic, the CFT stations on the way with their CFT price, turn-by-turn navigation with voice. Their navigated **trips are recorded** (with a notice) and kept 12 months as proof.
-- **Admins** sign in with one tap. The **CFT Hub** has the Academy console (attempts, analytics, question bank, Excel reports), team & access, **Drivers and their trip history**, fuel discounts data and fuel prices. In the chat: **driver leads** ([docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md)), the full fuel price file, pass/fail alerts and a Monday summary.
+- **Admins** sign in with one tap. The **CFT Hub** has the Academy console (attempts, analytics, question bank, Excel reports), team & access, **Drivers and their trip history**, fuel discounts data and fuel prices. In the chat: **driver leads** ([docs/DRIVER_LEADS.md](docs/DRIVER_LEADS.md)), **Indeed applicants** ([docs/INDEED_APPLICANTS.md](docs/INDEED_APPLICANTS.md)), the full fuel price file, pass/fail alerts and a Monday summary.
 - **Work reports:** daily, weekly and monthly reports of finished work in a Telegram channel, in plain Russian.
 
 The app runs fullscreen on phones and respects the device safe areas (notch, home indicator) and the area covered by Telegram's own controls.
@@ -112,6 +112,8 @@ tools/                       THE BUSINESS: one folder per tool, never imports te
                              chat.ts (what it sends in a chat), index.ts (its API), tests/
   driver-leads/              🚚 Leads (see docs/DRIVER_LEADS.md): actions.ts (what it does in a chat),
                              messages.ts (every text), ingest.ts, store.ts, files.ts, fmcsa.ts, signup-page/
+  indeed-applicants/         📋 Indeed applicants (see docs/INDEED_APPLICANTS.md): report.ts (the office
+                             script's reports, cards, alerts, files), messages.ts, store.ts, files.ts (import Excel)
   fuel-prices/               ⛽ Cabinet prices: cabinet.ts, export.ts (📥 Excel), dataset.ts and
                              agent-prices.ts (the agents' prices), driver-message.ts, table-image.ts, excel.ts
   driver-map/                🗺 The drivers' route map: stations.ts (partner stations, read from fuel-prices),
@@ -119,7 +121,7 @@ tools/                       THE BUSINESS: one folder per tool, never imports te
   agents/                    👥 Invite links and the agent list (API for the Team screen)
   task-report/               ⏱ Work reports: shifts, daily/weekly/monthly reports to a channel
 database/                    THE DATABASE: db.ts (connection), migrate.ts, migrations/, seeds/academy/
-docs/                        Guides: VM_DEPLOY.md (the server), DRIVER_LEADS.md
+docs/                        Guides: VM_DEPLOY.md (the server), DRIVER_LEADS.md, INDEED_APPLICANTS.md
 deploy/                      Our server (guide: docs/VM_DEPLOY.md): setup-server.sh, update.sh,
                              Caddyfile (website, HTTPS, security headers), the bot service, scheduled jobs
 support/                     THE BACKSTAGE

@@ -83,6 +83,19 @@ export const env = {
   get fmcsaReplaceOld() {
     return process.env.LEADS_FMCSA_REPLACE_OLD !== 'false';
   },
+  /** The key the Indeed script on the US office computer sends (tools/indeed-applicants/). Empty: the feature is off. */
+  get indeedCollectorToken() {
+    return (process.env.INDEED_COLLECTOR_TOKEN ?? '').trim();
+  },
+  /** The hiring chat (a Telegram group the bot is in) that gets a card per new Indeed applicant and the daily Excel. */
+  get indeedChatId(): number | null {
+    const n = Number((process.env.INDEED_CHAT_ID ?? '').trim());
+    return Number.isSafeInteger(n) && n !== 0 ? n : null;
+  },
+  /** "Lead Owner" in the Indeed lead-import Excel file. */
+  get indeedLeadOwner() {
+    return (process.env.INDEED_LEAD_OWNER ?? '').trim() || 'james.c@cftransportllc.com';
+  },
   /** The United Fuel customer cabinet account the bot signs in with to download fuel prices. */
   get fuelCabinetEmail() {
     return (process.env.FUEL_CABINET_EMAIL ?? '').trim();

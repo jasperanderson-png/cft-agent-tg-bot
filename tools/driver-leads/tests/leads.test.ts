@@ -329,10 +329,10 @@ describe.skipIf(!DB)('Driver leads (PostgreSQL)', () => {
     await say(OWNER, '/start');
     expect(texts(OWNER)).toHaveLength(1);
     expect(texts(OWNER)[0]).toMatch(/Choose what you need[\s\S]*🎓 Agent Academy[\s\S]*🚚 Driver Leads[\s\S]*📥 Download All Fuel Prices[\s\S]*➕ Invite[\s\S]*👥 Team/);
-    expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.fuel, SECTION.invite, SECTION.team]);
+    expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.indeed, SECTION.fuel, SECTION.invite, SECTION.team]);
     const commands = sent.find((m) => m.method === 'setMyCommands')!.body.commands;
-    expect(commands.map((c: any) => c.command)).toEqual(['start', 'academy', 'admin', 'stats', 'weekly', 'report', 'leads', 'fuelprices', 'invite', 'invitedriver', 'addadmin', 'agents', 'drivers', 'admins', 'help']);
-    expect(commands.map((c: any) => c.description.split(':')[0])).toEqual(['Home', 'Academy', 'Academy', 'Academy', 'Academy', 'Academy', 'Driver Leads', 'Fuel', 'Agents', 'Drivers', 'Admins', 'Agents', 'Drivers', 'Admins', 'Help']);
+    expect(commands.map((c: any) => c.command)).toEqual(['start', 'academy', 'admin', 'stats', 'weekly', 'report', 'leads', 'indeed', 'fuelprices', 'invite', 'invitedriver', 'addadmin', 'agents', 'drivers', 'admins', 'help']);
+    expect(commands.map((c: any) => c.description.split(':')[0])).toEqual(['Home', 'Academy', 'Academy', 'Academy', 'Academy', 'Academy', 'Driver Leads', 'Indeed', 'Fuel', 'Agents', 'Drivers', 'Admins', 'Agents', 'Drivers', 'Admins', 'Help']);
 
     // Driver Leads has its own keyboard, with a way back.
     sent.length = 0;
@@ -342,7 +342,7 @@ describe.skipIf(!DB)('Driver leads (PostgreSQL)', () => {
     expect(sent[0].body.reply_markup.keyboard.map((r: { text: string }[]) => r.map((b) => b.text))).toEqual([[BUTTONS.recent], [KEYS.stats, KEYS.downloads, SECTION.home]]);
     sent.length = 0;
     await say(OWNER, SECTION.home);
-    expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.fuel, SECTION.invite, SECTION.team]);
+    expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.indeed, SECTION.fuel, SECTION.invite, SECTION.team]);
 
     // Agent Academy opens the test, lists only Academy commands and puts the switcher back.
     sent.length = 0;
@@ -350,12 +350,12 @@ describe.skipIf(!DB)('Driver leads (PostgreSQL)', () => {
     expect(sent[0].body.reply_markup.inline_keyboard[0][0].web_app.url).toBe('https://academy.example.com');
     expect(texts(OWNER)[1]).toContain('Agent Academy · Admin commands');
     expect(texts(OWNER).join('\n')).not.toMatch(/lead/i);
-    expect(keys(sent[1])).toEqual([SECTION.academy, SECTION.leads, SECTION.fuel, SECTION.invite, SECTION.team]);
+    expect(keys(sent[1])).toEqual([SECTION.academy, SECTION.leads, SECTION.indeed, SECTION.fuel, SECTION.invite, SECTION.team]);
 
     // An admin who is not an owner has both sections too. /help covers both, each under its own heading.
     sent.length = 0;
     await say(MEMBER, '/start');
-    expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.fuel, SECTION.invite, SECTION.team]);
+    expect(keys(sent[0])).toEqual([SECTION.academy, SECTION.leads, SECTION.indeed, SECTION.fuel, SECTION.invite, SECTION.team]);
     expect(sent.find((m) => m.method === 'setMyCommands')!.body.commands).toEqual(commands);
     sent.length = 0;
     await say(MEMBER, '/help');

@@ -3,11 +3,13 @@ import { env } from '../../../support/helpers/env.js';
 import { botApi } from '../../../support/helpers/telegram.js';
 import { ADMIN_HELP } from '../../../tools/agent-academy/chat.js';
 import { menu as leadsMenu } from '../../../tools/driver-leads/messages.js';
+import { HELP as INDEED_HELP } from '../../../tools/indeed-applicants/messages.js';
 import { SEARCH_HELP } from '../../../tools/fuel-prices/agent-prices.js';
 import { discountCallback, searchMessage } from '../agents/fuel-search.js';
 import { commandOf, type RoleHandlers } from '../viewer.js';
 import { ACADEMY_ADMIN_COMMANDS, ACADEMY_COMMAND, academyMessage } from './academy.js';
 import { FUEL_COMMAND, FUEL_HELP, fuelMessage } from './fuel.js';
+import { INDEED_COMMAND, indeedCallback, indeedMessage } from './indeed.js';
 import { LEADS_COMMAND, leadsCallback, leadsMessage } from './leads.js';
 import { ADD_ADMIN_COMMAND, ADMINS_COMMAND, ADMIN_TEAM_HELP, adminTeamCallback, adminTeamMessage } from './team/admins.js';
 import { teamMenuCallback, teamMenuMessage } from './team/menu.js';
@@ -23,6 +25,7 @@ import { AGENTS_COMMAND, INVITE_COMMAND, TEAM_HELP, teamCallback, teamMessage } 
 const SECTIONS = [
   { line: `${SECTION.academy} — the Sales Agent knowledge test, its results and reports. /academy`, commands: [ACADEMY_COMMAND, ...ACADEMY_ADMIN_COMMANDS] },
   { line: `${SECTION.leads} — new driver leads, downloads and statistics. /leads`, commands: [LEADS_COMMAND] },
+  { line: `${SECTION.indeed} — people who applied to our jobs on Indeed: a card for each in the hiring chat, and the lead-import Excel file. /indeed`, commands: [INDEED_COMMAND] },
   { line: `${SECTION.fuel} — every station's fuel prices from the United Fuel cabinet, as an Excel file. Each download also updates the prices agents see. /fuelprices`, commands: [FUEL_COMMAND] },
   { line: `${SECTION.invite} — send a link to a new agent (sees fuel discounts), a driver (route map) or a new admin. /invite · /invitedriver · /addadmin`, commands: [INVITE_COMMAND, INVITE_DRIVER_COMMAND, ADD_ADMIN_COMMAND] },
   { line: `${SECTION.team} — your agents, drivers and admins: who has access, who invited which driver, remove someone. /agents · /drivers · /admins`, commands: [AGENTS_COMMAND, DRIVERS_COMMAND, ADMINS_COMMAND] },
@@ -72,6 +75,7 @@ export const admins: RoleHandlers = {
     if (hasWorkReports(msg.from.id) && ((await shiftMessage(db, msg)) || (await designMessage(msg)))) return;
     if (await academyMessage(db, msg)) return;
     if (await leadsMessage(db, msg, who.updateId)) return;
+    if (await indeedMessage(db, msg)) return;
     if (await fuelMessage(db, msg, who.updateId)) return;
     if (await teamMenuMessage(db, msg, who)) return;
     if (await teamMessage(db, msg)) return;
@@ -85,7 +89,7 @@ export const admins: RoleHandlers = {
     if (cmd === '/start') {
       await showAdminHome(chat_id);
     } else if (cmd === '/help') {
-      const parts = [homeText(chat_id), ADMIN_HELP, leadsMenu(who.owner ? 'owner' : 'admin'), `${FUEL_HELP}\n\n${SEARCH_HELP}`, `${TEAM_HELP}\n\n${DRIVERS_HELP}\n\n${ADMIN_TEAM_HELP}`];
+      const parts = [homeText(chat_id), ADMIN_HELP, leadsMenu(who.owner ? 'owner' : 'admin'), INDEED_HELP, `${FUEL_HELP}\n\n${SEARCH_HELP}`, `${TEAM_HELP}\n\n${DRIVERS_HELP}\n\n${ADMIN_TEAM_HELP}`];
       if (hasWorkReports(chat_id)) parts.push(SHIFT_HELP);
       await reply(parts.join('\n\n'), { reply_markup: homeKeyboardFor(chat_id), disable_web_page_preview: true });
     } else {
@@ -95,7 +99,7 @@ export const admins: RoleHandlers = {
 
   async callback(db, cb, who) {
     return (
-      (await leadsCallback(db, cb, who.updateId)) || (await discountCallback(db, cb, who)) || (await teamMenuCallback(db, cb, who)) || (await teamCallback(db, cb, who.updateId)) || (await adminTeamCallback(db, cb, who)) || (await driverInviteCallback(db, cb, who)) || (await shiftTap(db, cb, who.updateId))
+      (await leadsCallback(db, cb, who.updateId)) || (await indeedCallback(db, cb, who.updateId)) || (await discountCallback(db, cb, who)) || (await teamMenuCallback(db, cb, who)) || (await teamCallback(db, cb, who.updateId)) || (await adminTeamCallback(db, cb, who)) || (await driverInviteCallback(db, cb, who)) || (await shiftTap(db, cb, who.updateId))
     );
   },
   menu: (chatId) => setAdminMenu(chatId),

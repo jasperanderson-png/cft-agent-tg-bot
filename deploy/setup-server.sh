@@ -24,6 +24,8 @@ declare -A JOBS=(
   [task-report]="*-*-* 18:00:00 UTC"
   [fuel]="*-*-* 11:00:00 UTC"
   [stations]="*-*-* 11:30:00 UTC"
+  [indeed-watch]="*:0/30"
+  [indeed-excel]="*-*-* 13:30:00 UTC"
 )
 
 [ "$(id -u)" = 0 ] || { echo "Run as root (sudo bash $0)"; exit 1; }

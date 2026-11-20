@@ -1,7 +1,9 @@
 import { botApi, type PrivateCallback, type PrivateMessage } from '../../support/helpers/telegram.js';
 import { NOT_AUTHORIZED } from '../../tools/driver-leads/messages.js';
+import { ADMINS_ONLY as INDEED_ADMINS_ONLY } from '../../tools/indeed-applicants/messages.js';
 import { DISCOUNT_CALLBACK } from '../../tools/fuel-prices/agent-prices.js';
 import { isFuelRequest } from './admins/fuel.js';
+import { INDEED_CALLBACK, isIndeedRequest } from './admins/indeed.js';
 import { LEADS_CALLBACK, parseAction } from './admins/leads.js';
 import { ADMIN_TEAM_CALLBACK } from './admins/team/admins.js';
 import { SHIFT_CALLBACK } from './admins/shift.js';
@@ -27,12 +29,17 @@ export async function refuseAdminMessage(msg: PrivateMessage): Promise<boolean> 
     await say(msg.chat.id, '⛽ Fuel prices are for CFT administrators only.');
     return true;
   }
+  if (isIndeedRequest(msg)) {
+    await say(msg.chat.id, INDEED_ADMINS_ONLY);
+    return true;
+  }
   return false;
 }
 
 /** Taps on admin-only inline buttons. True when refused. */
 export async function refuseAdminCallback(cb: PrivateCallback): Promise<boolean> {
   if (cb.data.startsWith(LEADS_CALLBACK)) await answer(cb, NOT_AUTHORIZED.replace(/<[^>]+>/g, ''));
+  else if (cb.data.startsWith(INDEED_CALLBACK)) await answer(cb, INDEED_ADMINS_ONLY);
   else if (cb.data.startsWith(DRIVER_CALLBACK)) await answer(cb, 'For CFT admins and agents only.'); // agents have the driver links too
   else if (cb.data.startsWith(TEAM_CALLBACK) || cb.data.startsWith(SHIFT_CALLBACK) || cb.data.startsWith(ADMIN_TEAM_CALLBACK)) await answer(cb, 'For CFT administrators only.');
   else return false;

@@ -34,7 +34,7 @@ export const roleOf = (who: Viewer): Role => (who.admin ? 'admins' : who.agent ?
  * What is recorded in telegram_users.menu_role once a role's menu is set. Change a role's value when
  * its menu changes: everyone with that role gets the new menu on their next message.
  */
-export const menuKey = (role: Role): string => (role === 'agents' ? 'agents.2' : role); // .2: driver commands for every agent
+export const menuKey = (role: Role): string => (role === 'agents' ? 'agents.2' : role === 'admins' ? 'admins.2' : role); // agents .2: driver commands; admins .2: /indeed
 
 /** One role's part of the bot: telegram_bot/handlers/<role>/index.ts. */
 export interface RoleHandlers {
