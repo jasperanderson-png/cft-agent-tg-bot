@@ -52,7 +52,7 @@ const wa = typeof window !== 'undefined' ? window.Telegram?.WebApp : undefined;
 /** True only inside a Telegram client (the SDK script also loads in a normal browser, with empty initData). */
 export const tg: TgWebApp | null = wa && wa.initData ? wa : null;
 
-// The website (fuel.cftransport.com): signed in by confirming in the bot (screens/website/), the session
+// The website (fuel.cftransportllc.com): signed in by confirming in the bot (screens/website/), the session
 // is kept on this browser and sent where Telegram's initData goes (support/helpers/web-login.ts).
 const WEB_SESSION_KEY = 'cft.webSession';
 const storedSession = () => {

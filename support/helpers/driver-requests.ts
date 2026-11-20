@@ -1,4 +1,4 @@
-// Driver access requests: a driver asks in the bot (from fuel.cftransport.com, or an agent's or admin's
+// Driver access requests: a driver asks in the bot (from fuel.cftransportllc.com, or an agent's or admin's
 // personal link), answers three questions, and an admin approves or declines. Approved drivers get the
 // route map in the Mini App and on the website. An agent's link always needs an admin; an admin's own
 // link is approved at once ("approved by <admin> (own link)"). Every driver record keeps who brought

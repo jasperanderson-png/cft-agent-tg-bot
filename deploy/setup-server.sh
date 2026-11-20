@@ -124,7 +124,12 @@ Unit=cft-cron@$job.service
 WantedBy=timers.target
 EOF
 done
-sed -e "s#__DOMAIN__#$DOMAIN#" -e "s#__APP_DIR__#$APP_DIR#" "$APP_DIR/deploy/Caddyfile" > /etc/caddy/Caddyfile
+# The drivers' website (WEB_URL in the bot's .env, e.g. https://fuel.cftransportllc.com) is served too,
+# the same site under a second name. Its DNS must point at this server first, or its certificate fails.
+WEB_DOMAIN=$(sed -n 's#^WEB_URL=["'"'"']\{0,1\}https\{0,1\}://\([^/"'"'"']*\).*#\1#p' "$APP_DIR/.env" | tail -n 1)
+SITES="$DOMAIN${WEB_DOMAIN:+, $WEB_DOMAIN}"
+[ "$WEB_DOMAIN" = "$DOMAIN" ] && SITES="$DOMAIN"
+sed -e "s#__DOMAIN__#$SITES#" -e "s#__APP_DIR__#$APP_DIR#" "$APP_DIR/deploy/Caddyfile" > /etc/caddy/Caddyfile
 chmod 711 /home/$APP_USER   # Caddy may read dist/, nothing else
 systemctl daemon-reload
 systemctl enable cft-agent >/dev/null

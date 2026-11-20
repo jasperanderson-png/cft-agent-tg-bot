@@ -647,6 +647,14 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
    for the room, with gentle motion. Nothing below applies under 900 px, so phones stay exactly as they are. ---- */
 @media (min-width: 900px) {
   .d-screen { max-width: 960px; }
+  /* Bottom sheets: a centred card instead of the full width of the window (inside the map's narrow
+     By state panel the card simply fills the panel). */
+  .d-sheet { left: max(16px, calc(50% - 300px)); right: max(16px, calc(50% - 300px)); bottom: 24px; }
+}
+/* The grids follow the screen's own width, not the window's: the route map's By state panel reuses
+   these screens 420 px wide, and keeps their phone layout there whatever the window size. */
+.d-screen { container-type: inline-size; }
+@container (min-width: 860px) {
   /* Admin home: the tiles in one row, the "More" links side by side. */
   .a-tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .a-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2px; }
@@ -661,8 +669,6 @@ textarea.ctl { height: auto; padding: 10px 12px; line-height: 1.45; resize: vert
   .t-people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
   /* Find discounts results: stations in two columns, so each price stays next to its name. */
   .d-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
-  /* Bottom sheets: a centred card instead of the full width of the window. */
-  .d-sheet { left: max(16px, calc(50% - 300px)); right: max(16px, calc(50% - 300px)); bottom: 24px; }
 }
 @media (min-width: 1280px) {
   .d-screen { max-width: 1120px; }

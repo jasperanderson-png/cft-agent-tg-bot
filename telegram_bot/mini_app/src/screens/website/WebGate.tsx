@@ -3,11 +3,11 @@ import { webApi, type ApiError, type WebRole } from '../../lib/api';
 import { clearWebSession, routePageUrl, saveWebSession, signedIn, tg } from '../../lib/telegram';
 import { Accent, Lines, Spinner } from '../../components/ui';
 
-// The website (fuel.cftransport.com): the same app as the Telegram Mini App, for approved people only.
+// The website (fuel.cftransportllc.com): the same app as the Telegram Mini App, for approved people only.
 // Not signed in: the front page, with "Request access" (opens the bot, which asks the questions and
 // sends the request to the admins) and "Log in" (the bot asks to confirm; support/helpers/web-login.ts).
 // Signed in: their home screen, as their menu button opens in the bot. A personal link
-// (fuel.cftransport.com/?ref=<code>) is remembered, so the request shows who invited them.
+// (fuel.cftransportllc.com/?ref=<code>) is remembered, so the request shows who invited them.
 // Inside Telegram none of this runs: the Mini App is signed in by Telegram.
 
 const REF_KEY = 'cft.ref';

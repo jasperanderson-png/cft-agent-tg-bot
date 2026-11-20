@@ -29,6 +29,12 @@ anything and lists them (the bot keeps running the old code). Check them, then d
 first, while the old code still runs, and only then does the new code go live.
 
 Check: `curl -s https://209-97-132-149.sslip.io/api/health` → `{"ok":true}`
+
+**The drivers' website, https://fuel.cftransportllc.com**, is the same site under a second name: a DNS
+A record `fuel` on cftransportllc.com (HostGator) points here, Caddy serves both names (and gets both
+certificates), and `WEB_URL` in `.env` puts the address in every agent's and admin's website link.
+`setup-server.sh` keeps it when it rewrites the Caddyfile (it reads `WEB_URL`). Adding it by hand, as root:
+`sed -i 's/^209-97-132-149.sslip.io {/209-97-132-149.sslip.io, fuel.cftransportllc.com {/' /etc/caddy/Caddyfile && systemctl reload caddy`
 Logs: `journalctl -u cft-agent -f` (the bot), `journalctl -u 'cft-cron@*'` (the jobs), `journalctl -u caddy` (the website).
 
 ## The database

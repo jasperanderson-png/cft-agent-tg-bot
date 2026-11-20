@@ -1,10 +1,10 @@
--- Driver access requests (fuel.cftransport.com, and every agent's and admin's two personal links): a
+-- Driver access requests (fuel.cftransportllc.com, and every agent's and admin's two personal links): a
 -- driver asks in the bot, an admin approves, and the driver gets the route map in the Mini App and on
 -- the website. Also the website's sign-in, confirmed in the bot. See support/helpers/driver-requests.ts
 -- and support/helpers/web-login.ts.
 
 -- Each agent's and admin's personal code. It is in both of their links (t.me/<bot>?start=req_<code> and
--- https://fuel.cftransport.com/?ref=<code>) and tells who brought a driver. An agent's link makes a
+-- https://fuel.cftransportllc.com/?ref=<code>) and tells who brought a driver. An agent's link makes a
 -- request an admin approves; an admin's own link gives access at once.
 create table referral_codes (
   code        text primary key check (code ~ '^[a-z0-9]{6,16}$'),

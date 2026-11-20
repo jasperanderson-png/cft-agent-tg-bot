@@ -31,7 +31,7 @@ route('DELETE', 'admin/admins/:id', asAdmin((a, _r, [id]) => admins.removeAdmin(
 route('POST', 'admin/exports', asAdmin((a, req) => admins.createExport(a, bodyObject(req))));
 route('GET', 'exports/:token', async (_req, [token]) => ({ status: 200, body: null, file: await admins.downloadExport(token) }));
 
-// The website (fuel.cftransport.com): the bot's name for its buttons, the sign-in confirmed in the bot
+// The website (fuel.cftransportllc.com): the bot's name for its buttons, the sign-in confirmed in the bot
 // (support/helpers/web-login.ts), and who is signed in (their role decides their home screen, as their
 // menu button does in the bot).
 route('GET', 'web/info', async () => ok({ bot: await botUsername() }));

@@ -16,7 +16,7 @@ export const env = {
   get appUrl() {
     return (process.env.APP_URL ?? '').replace(/\/+$/, '');
   },
-  /** The drivers' website (https://fuel.cftransport.com): the same app, signed in through the bot. Falls back to APP_URL. */
+  /** The drivers' website (https://fuel.cftransportllc.com): the same app, signed in through the bot. Falls back to APP_URL. */
   get webUrl() {
     return (process.env.WEB_URL ?? '').replace(/\/+$/, '') || (process.env.APP_URL ?? '').replace(/\/+$/, '');
   },

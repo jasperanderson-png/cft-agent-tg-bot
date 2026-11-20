@@ -211,7 +211,7 @@ The app also requests fullscreen itself on iOS and Android (`requestFullscreen`,
 | `TELEGRAM_BOT_USERNAME` | yes | `cft_Agentbot` |
 | `TELEGRAM_WEBHOOK_SECRET` | yes | Random 32+ chars (`openssl rand -hex 24`). Telegram sends it with every webhook call. |
 | `APP_URL` | yes | Your deployment's https URL, no trailing slash. |
-| `WEB_URL` | no | The drivers' website (`https://fuel.cftransport.com`), in every agent's and admin's website link. Empty: `APP_URL`. |
+| `WEB_URL` | no | The drivers' website (`https://fuel.cftransportllc.com`), in every agent's and admin's website link. Empty: `APP_URL`. |
 | `ADMIN_TELEGRAM_IDS` | yes | Owner Telegram IDs, comma-separated: `9447180,1270439555`. |
 | `CRON_SECRET` | yes | Random 32+ chars. The scheduled jobs (`deploy/cron.sh`) send it to `/api/cron/*`. |
 | `TASK_REPORT_USER_IDS` | for work reports | Telegram IDs (comma-separated) of the people who have ⏱ Shift and work reports. Nobody else, not even other admins, sees them. |

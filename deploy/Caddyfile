@@ -1,7 +1,8 @@
 # The website on the VM (copied to /etc/caddy/Caddyfile by deploy/setup-server.sh).
 # Caddy gets and renews the HTTPS certificate by itself. The rules: the Mini App from
 # dist/, /route opens the Mini App, /api/* goes to the bot (telegram_bot/server/start.ts).
-# __DOMAIN__ and __APP_DIR__ are filled in by setup-server.sh.
+# __DOMAIN__ and __APP_DIR__ are filled in by setup-server.sh: __DOMAIN__ is the server's address, plus
+# the drivers' website (WEB_URL in the bot's .env, e.g. fuel.cftransportllc.com) when one is set.
 
 __DOMAIN__ {
 	encode zstd gzip

@@ -1,4 +1,4 @@
-// The website's sign-in (fuel.cftransport.com), confirmed in the bot: the page asks for a one-time code,
+// The website's sign-in (fuel.cftransportllc.com), confirmed in the bot: the page asks for a one-time code,
 // opens the bot with it, the person taps Confirm there, and the page exchanges the code for a session.
 // The session is the same Telegram person as in the Mini App, so it gives exactly the same rights: their
 // role is checked on every request, so removing someone locks them out at once. Only hashes are stored.
