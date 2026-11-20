@@ -236,6 +236,26 @@ export interface LeadsSummary {
   total: number;
 }
 
+/** Driver Leads in the Mini App (tools/driver-leads/app.ts): its statistics and what can be downloaded. */
+export interface LeadsAppData {
+  stats: {
+    total: number; today: number; week: number; waiting: number; delivered: number; verified: number;
+    noConsent: number; optedOut: number; carriers: number; duplicates: number; rejected: number;
+    bySource: { key: string; n: number }[];
+    lastImport: { source: string; at: string; inserted: number; updated: number; rejected: number; status: string } | null;
+  };
+  states: { key: string; n: number }[];
+  cdls: { key: string; n: number }[];
+}
+
+/** One leads file, ready to download for 10 minutes (null: nothing to send). `next`: where the following part starts. */
+export interface LeadsFile {
+  file: { path: string; filename: string } | null;
+  count: number;
+  more: boolean;
+  next?: { after: number; part: number } | null;
+}
+
 /** A partner station on the drivers' fuel map (tools/driver-map/stations.ts). */
 export interface DriverStation {
   id: number;

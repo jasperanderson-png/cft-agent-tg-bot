@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AcademySummary, AgentsList, DiscountsAdmin, DriverWithTrips, LeadsSummary } from '../../../../../support/common/types';
 import { driversApi, hubApi, teamApi, type ApiError } from '../../lib/api';
-import { backToChat, haptic, loadSetting, routePageUrl, saveSetting, tg, useBackButton } from '../../lib/telegram';
+import { haptic, loadSetting, routePageUrl, saveSetting, useBackButton } from '../../lib/telegram';
 import { fmtDay, Icon, type IconName } from '../../components/ui';
 import { InviteSheet } from './Team';
 
@@ -119,8 +119,8 @@ export function Hub({ name }: { name: string }) {
     leads: {
       icon: 'send', title: 'Driver leads',
       big: leads.data ? num(waiting) : fig(leads), unit: 'new',
-      sub: 'waiting in the chat',
-      open: () => (tg ? backToChat() : undefined),
+      sub: 'new · get them and the files here',
+      open: go('#/leads'),
     },
     find: { icon: 'fuel', title: 'Find discounts', big: '', unit: '', sub: 'The agents’ screen, with their prices', open: go('#/discounts') },
     map: {
@@ -154,8 +154,8 @@ export function Hub({ name }: { name: string }) {
         {waiting > 0 && !leadsHidden && (
           <div className="a-alert" role="status">
             <Icon name="send" size={18} />
-            <span><b>{num(waiting)} new driver {waiting === 1 ? 'lead' : 'leads'}</b> waiting in the chat</span>
-            {tg && <button type="button" className="a-alert-go" onClick={() => backToChat()}>Open</button>}
+            <span><b>{num(waiting)} new driver {waiting === 1 ? 'lead' : 'leads'}</b> waiting</span>
+            <button type="button" className="a-alert-go" onClick={go('#/leads')}>Open</button>
             <button type="button" className="a-alert-x" aria-label="Hide" onClick={() => setLeadsHidden(true)}><Icon name="x" size={14} /></button>
           </div>
         )}

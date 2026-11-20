@@ -1,4 +1,4 @@
-import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverRequestCard, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../support/common/types';
+import type { AcademySummary, AdminData, AdminMe, AdminUser, AgentInvite, AgentsList, AttemptResult, AttemptState, BankQuestion, DiscountsAdmin, FuelStations, LeadsAppData, LeadsFile, LeadsSummary, PublicConfig, ReportRange, Settings, SheetsStatus, DriverPlace, DriverRoute, DriverStations, TruckProfile, DriverRequestCard, DriverWithTrips, TripDetail, TripPointsBody, TripStartBody, TripSummary } from '../../../../support/common/types';
 import type { AgentDiscounts, PartnerBrand } from '../../../../support/common/discounts';
 import type { DetourAsk, DetourResult } from '../../../../support/common/driver-route';
 import { initData } from './telegram';
@@ -92,6 +92,15 @@ export const hubApi = {
   leads: () => authed<LeadsSummary>('GET', 'leads/summary'),
   fuelStations: () => authed<FuelStations>('GET', 'fuel/stations'),
   fuelSend: () => authed<{ sent: true; stations: number }>('POST', 'fuel/send', {}),
+};
+
+/** Driver Leads (screens/admins/Leads.tsx): statistics, new leads and files, as downloads. Admins only. */
+export const leadsApi = {
+  data: () => authed<LeadsAppData>('GET', 'leads/app'),
+  recent: () => authed<LeadsFile>('POST', 'leads/app/recent', {}),
+  last: () => authed<LeadsFile>('POST', 'leads/app/last', {}),
+  file: (kind: string, filter?: string, next?: { after: number; part: number } | null) =>
+    authed<LeadsFile>('POST', 'leads/app/export', { kind, filter, after: next?.after ?? 0, part: next?.part ?? 1 }),
 };
 
 

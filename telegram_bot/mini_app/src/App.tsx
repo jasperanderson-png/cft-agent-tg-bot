@@ -5,6 +5,7 @@ import { Team } from './screens/admins/Team';
 import { Discounts } from './screens/agents/Discounts';
 import { DiscountsData } from './screens/admins/DiscountsData';
 import { Drivers } from './screens/admins/Drivers';
+import { Leads } from './screens/admins/Leads';
 import { FuelPrices } from './screens/admins/FuelPrices';
 import { Hub } from './screens/admins/Hub';
 import { useAdminSession } from './lib/session';
@@ -20,14 +21,15 @@ import { WebGate } from './screens/website/WebGate';
  *   #/data       Fuel discounts data: what agents see, the margin (admins)
  *   #/fuel       Fuel prices: every station, real prices (admins)
  *   #/drivers    Drivers and their trip history (admins); a trip's map opens on /route?trip=<id>
+ *   #/leads      Driver leads: new leads, statistics and files as downloads (admins)
  *   /route       The drivers' route map: truck routes, partner stations, navigation (agents and admins for now). Its own address,
  *                because the map needs a looser security policy (deploy/Caddyfile); #/driver and the
  *                start param "driver" are sent there.
  *   #/admin      Agent Academy admin console
  *   anything else: the Agent Academy test (what candidates open)
  */
-type Screen = 'hub' | 'fuel' | 'admin' | 'test' | 'discounts' | 'team' | 'data' | 'drivers';
-const SCREENS: Screen[] = ['admin', 'hub', 'fuel', 'discounts', 'team', 'data', 'drivers'];
+type Screen = 'hub' | 'fuel' | 'admin' | 'test' | 'discounts' | 'team' | 'data' | 'drivers' | 'leads';
+const SCREENS: Screen[] = ['admin', 'hub', 'fuel', 'discounts', 'team', 'data', 'drivers', 'leads'];
 const screenFor = (hash: string, param = ''): Screen =>
   SCREENS.find((s) => hash.startsWith('#/' + s) || param === s) ?? 'test';
 
@@ -112,6 +114,7 @@ function MainApp() {
   if (screen === 'team') return <div className="app"><AdminGate><Team onBack={toHub} /></AdminGate></div>;
   if (screen === 'data') return <div className="app"><AdminGate><DiscountsData onBack={toHub} /></AdminGate></div>;
   if (screen === 'drivers') return <div className="app"><AdminGate><Drivers onBack={toHub} /></AdminGate></div>;
+  if (screen === 'leads') return <div className="app"><AdminGate><Leads onBack={toHub} /></AdminGate></div>;
   if (screen === 'hub') return <div className="app"><HubGate scrollTop={scrollTop} /></div>;
   const page = screen === 'fuel' ? <AdminGate><FuelPrices onBack={toHub} /></AdminGate> : <CandidateApp scrollTop={scrollTop} />;
   return (

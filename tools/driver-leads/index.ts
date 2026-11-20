@@ -5,6 +5,7 @@ import { reportTimeZone } from '../../support/helpers/updates.js';
 import { bodyObject, ok, requireCron } from '../../support/helpers/http.js';
 import type { Tool } from '../../support/helpers/tool.js';
 import { runPullSources } from './fmcsa.js';
+import * as app from './app.js';
 import * as leads from './ingest.js';
 import { leadStats } from './store.js';
 
@@ -25,6 +26,12 @@ export const driverLeads: Tool = {
       const s = await leadStats(db, await reportTimeZone(db));
       return { waiting: s.undelivered, today: s.today, total: s.total };
     }));
+    // Driver Leads in the Mini App and on the website (app.ts): statistics, new leads and the files,
+    // as downloads instead of chat messages. Admins only, like the bot's Driver Leads.
+    route('GET', 'leads/app', asAdmin(() => app.leadsApp(getPool())));
+    route('POST', 'leads/app/recent', asAdmin((a) => app.recentFile(getPool(), a)));
+    route('POST', 'leads/app/last', asAdmin((a) => app.lastFile(getPool(), a)));
+    route('POST', 'leads/app/export', asAdmin((a, req) => app.exportFile(getPool(), a, bodyObject(req))));
     // Daily FMCSA sync (scheduled job)
     route('GET', 'cron/leads', async (req) => {
       requireCron(req);
