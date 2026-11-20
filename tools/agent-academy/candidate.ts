@@ -161,6 +161,24 @@ async function latestAttemptFor(c: pg.PoolClient, telegramUserId: number, status
 const lockTelegramUser = (c: pg.PoolClient, id: number) => c.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', ['tg:' + id]);
 
 /**
+ * The test is for Sales Agent candidates. Drivers, and people who asked for driver access (waiting or
+ * declined), get their request status instead: the bot's default "Start test" button is still in their
+ * chat while they answer the request questions.
+ */
+async function refuseDrivers(c: pg.PoolClient, telegramUserId: number): Promise<void> {
+  const { rows } = await c.query(
+    `select exists(select 1 from map_drivers where telegram_user_id = $1) as driver,
+            (select status from driver_requests where telegram_user_id = $1 order by created_at desc limit 1) as request`,
+    [telegramUserId],
+  );
+  const { driver, request } = rows[0] as { driver: boolean; request: string | null };
+  if (driver) throw new HttpError(403, "You have driver access. Open the Route map from the bot's menu button.", "driver_request");
+  if (request === "asking") throw new HttpError(403, "Finish your driver access request in the bot chat: answer its questions there.", "driver_request");
+  if (request === "pending") throw new HttpError(403, "Your driver access request is being reviewed. The bot will message you when an admin decides.", "driver_request");
+  if (request === "declined") throw new HttpError(403, "Your driver access request was declined. Contact the person who invited you.", "driver_request");
+}
+
+/**
  * Called when the Mini App opens inside Telegram: returns this account's open or finished
  * attempt (with a fresh token) so a returning candidate lands where they left off.
  */
@@ -169,6 +187,7 @@ export async function telegramSession(body: Record<string, unknown>): Promise<At
   return tx(async (c) => {
     await lockTelegramUser(c, tg.user.id);
     await touchTelegramUser(c, tg.user);
+    await refuseDrivers(c, tg.user.id);
     const s = await loadSettings(c);
     const open = await latestAttemptFor(c, tg.user.id, 'in_progress');
     const done = open ? null : await latestAttemptFor(c, tg.user.id, 'completed');
@@ -201,6 +220,7 @@ export async function startAttempt(body: Record<string, unknown>): Promise<Attem
     if (tg) {
       await lockTelegramUser(c, tg.user.id);
       await touchTelegramUser(c, tg.user);
+      await refuseDrivers(c, tg.user.id);
       const open = await latestAttemptFor(c, tg.user.id, 'in_progress');
       const done = open || s.allowRetakes ? null : await latestAttemptFor(c, tg.user.id, 'completed');
       const existing = open ?? done;

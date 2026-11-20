@@ -176,6 +176,23 @@ describe.skipIf(!DB)('API (PostgreSQL)', () => {
       const r = await call('POST', 'session', { initData: tg(504, 'Kai', 'Long') });
       expect(r.body).toEqual({ state: 'none', suggestedName: 'Kai Long', isAdmin: false });
     });
+
+    it("keeps drivers and people asking for driver access out of the test, with their request status", async () => {
+      // Someone answering the driver request questions in the bot taps the default "Start test" button.
+      await call("POST", "session", { initData: tg(505) }); // they now exist as a Telegram user
+      await getPool().query("insert into driver_requests (telegram_user_id, step, via) values (505, 'phone', 'website')");
+      for (const [path, body] of [["session", { initData: tg(505) }], ["attempts", { name: "Givi Test", initData: tg(505) }]] as const) {
+        const r = await call("POST", path, body);
+        expect(r.status).toBe(403);
+        expect(r.body.code).toBe("driver_request");
+      }
+      await getPool().query("update driver_requests set status = 'pending', step = null where telegram_user_id = 505");
+      expect((await call("POST", "session", { initData: tg(505) })).body.error).toMatch(/being reviewed/);
+      await getPool().query("update driver_requests set status = 'declined' where telegram_user_id = 505");
+      expect((await call("POST", "session", { initData: tg(505) })).body.error).toMatch(/declined/);
+      // Nobody was entered as a candidate.
+      expect((await getPool().query("select count(*)::int as n from candidates where telegram_user_id = 505")).rows[0].n).toBe(0);
+    });
   });
 
   describe('admin', () => {

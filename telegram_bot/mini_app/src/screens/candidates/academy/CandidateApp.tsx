@@ -87,7 +87,7 @@ export function CandidateApp({ scrollTop }: { scrollTop: () => void }) {
       go({ k: 'welcome' });
     } catch (e) {
       const err = e as ApiError;
-      setView({ k: 'fatal', msg: err.code === 'telegram_auth' ? err.message : err.isNetwork ? err.message : `Couldn't load the assessment. ${err.message}`, retry: err.code !== 'telegram_auth' });
+      setView({ k: 'fatal', msg: err.code === 'telegram_auth' || err.code === 'driver_request' ? err.message : err.isNetwork ? err.message : `Couldn't load the assessment. ${err.message}`, retry: err.code !== 'telegram_auth' && err.code !== 'driver_request' });
     }
   }, [go, show]);
 
