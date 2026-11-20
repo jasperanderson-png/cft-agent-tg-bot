@@ -30,11 +30,14 @@ export function splitName(name: string): [string, string] {
 /** +18459038077 → 18459038077, the number form of the CRM's Phone column. */
 export const phoneNumber = (e164: string | null): number | null => (e164 ? Number(e164.replace(/\D/g, '')) : null);
 
+/** "Lead Source" in the CRM import file, for every Indeed applicant. */
+export const LEAD_SOURCE = 'STB';
+
 export function importRow(a: Applicant, tz: string): Cell[] {
   const [first, last] = splitName(a.name);
   const created = a.applied_at ?? a.received_at;
   return [
-    first, last, phoneNumber(a.phone), null, a.state, 'Indeed', 'New Lead',
+    first, last, phoneNumber(a.phone), null, a.state, LEAD_SOURCE, 'New Lead',
     // CDL A, OTR and Experience: Indeed's candidate list doesn't say; the recruiter fills them in.
     null, null, null,
     { v: Math.floor(excelSerial(created, tz)), s: 'date' }, env.indeedLeadOwner,

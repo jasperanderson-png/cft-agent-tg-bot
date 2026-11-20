@@ -219,7 +219,7 @@ describe.skipIf(!DB)('Indeed applicants (PostgreSQL)', () => {
     expect(rows[0].map((c) => c[1])).toEqual(['First Name', 'Last Name', 'Phone', 'Email', 'State', 'Lead Source', 'Lead Status', 'CDL A', 'OTR', 'Experience', 'Lead Created', 'Lead Owner']);
     expect(rows).toHaveLength(24); // 23 applicants: the 2 from the first report are left out
     const nick = rows.find((r) => r.some((c) => c[1] === 'Number4'))!;
-    expect(Object.fromEntries(nick)).toMatchObject({ A: 'DriverE', B: 'Number4', C: '18459038004', E: 'PA', F: 'Indeed', G: 'New Lead', L: 'james.c@cftransportllc.com' });
+    expect(Object.fromEntries(nick)).toMatchObject({ A: 'DriverE', B: 'Number4', C: '18459038004', E: 'PA', F: 'STB', G: 'New Lead', L: 'james.c@cftransportllc.com' });
     expect(Number(Object.fromEntries(nick).K)).toBeGreaterThan(46000); // a real date
     expect(rows.flat().some((c) => c[1] === 'Number1')).toBe(false);
 

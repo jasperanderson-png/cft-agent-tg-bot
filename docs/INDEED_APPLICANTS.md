@@ -22,7 +22,7 @@ People who apply to our jobs on Indeed reach the hiring chat in Telegram: a card
 - The bot decides what is new. The **first** report is taken as "already there": those applicants get no card and stay out of the import files, and the chat gets one "connected" message.
 - **Cards**: one per new applicant, oldest first, at most 15 per report (the rest in one line). A card Telegram refuses is tried again on the next report.
 - **Alerts**, each problem once and its end once: Chrome window closed, Indeed signed out, page loaded without applicants (Indeed changed something), a read error, and no report at all for 2 hours (the computer is off, asleep or offline).
-- **Import file** (`CFT_Indeed_Leads_Import_MM_DD_YY.xlsx`), columns as the CRM import takes them: First Name, Last Name, Phone (`18459038077`), Email (Indeed hides it), State, Lead Source `Indeed`, Lead Status `New Lead`, CDL A, OTR, Experience (empty: the candidate list doesn't say), Lead Created, Lead Owner (`INDEED_LEAD_OWNER`). Each applicant is in **one** file only: the daily file in the hiring chat, or an admin's 📥.
+- **Import file** (`CFT_Indeed_Leads_Import_MM_DD_YY.xlsx`), columns as the CRM import takes them: First Name, Last Name, Phone (`18459038077`), Email (Indeed hides it), State, Lead Source `STB`, Lead Status `New Lead`, CDL A, OTR, Experience (empty: the candidate list doesn't say), Lead Created, Lead Owner (`INDEED_LEAD_OWNER`). Each applicant is in **one** file only: the daily file in the hiring chat, or an admin's 📥.
 - **📋 Indeed Applicants** for admins: whether the office computer is reporting, today's count, **📥 New applicants** (the not-yet-exported ones, marked sent) and **🗂 Last 7 days** (a read-only copy).
 
 | File | Purpose |
