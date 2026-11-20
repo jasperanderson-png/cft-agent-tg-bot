@@ -62,7 +62,7 @@ describe.skipIf(!DB)('Driver Leads in the Mini App (PostgreSQL)', () => {
     expect(r.file.filename).toMatch(/New_Leads.*\.xlsx$/);
     const f = await download(r.file.path);
     expect(f.contentType).toContain('spreadsheetml');
-    expect(f.content.byteLength).toBeGreaterThan(1000);
+    expect(f.content.length).toBeGreaterThan(1000);
     // Delivered: nothing new now, and the bot's GET RECENT LEADS wouldn't send them again either.
     expect((await admin('POST', 'leads/app/recent')).body).toEqual({ file: null, count: 0, more: false });
     expect(((await admin('GET', 'leads/app')).body as { stats: { waiting: number } }).stats.waiting).toBe(0);
